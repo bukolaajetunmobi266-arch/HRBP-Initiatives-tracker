@@ -26,11 +26,11 @@ export function parseImportFile(arrayBuffer, profiles) {
 
   if (wb.SheetNames.includes('Deliverables')) {
     const ws = wb.Sheets['Deliverables']
-    const rows = XLSX.utils.sheet_to_json(ws, { range: 2, defval: '' }) // header row is row 3 (index 2)
+    const rows = XLSX.utils.sheet_to_json(ws, { range: 2, defval: '' })
     rows.forEach((row, i) => {
       const title = String(row['Deliverable Title'] || '').trim()
-      if (!title || title === EXAMPLE_TITLE) return // skip blank / leftover example row
-      const rowNum = i + 5 // data starts at sheet row 5
+      if (!title) return
+      const rowNum = i + 5
       const owner = matchOwner(row['Owner'], profiles)
       if (!owner) {
         result.deliverableErrors.push(`Row ${rowNum}: "${title}" — owner "${row['Owner']}" doesn't match any HRBP name. Row skipped.`)
