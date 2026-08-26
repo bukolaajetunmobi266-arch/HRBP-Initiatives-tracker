@@ -30,6 +30,9 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
+    if (window.location.hash.includes('type=recovery')) {
+      setRecoveryMode(true)
+    }
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
