@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-surface-0:#F3F6FA; --app-surface-1:#EEF2F7; --app-surface-2:#FFFFFF;
+  --app-text-primary:#1A2733; --app-text-secondary:#52606D; --app-text-muted:#8A94A0;
+  --app-border:#E2E8F0; --app-border-strong:#CBD5E0;
+  --app-bg-accent:#E6F1FB; --app-text-accent:#0C447C; --app-fill-accent:#0F7FC4; --app-border-accent:#85B7EB;
+  --app-bg-danger:#FAECE7; --app-text-danger:#993C1D; --app-fill-danger:#D85A30; --app-border-danger:#F0997B;
+  --app-bg-warning:#FAEEDA; --app-text-warning:#854F0B; --app-fill-warning:#EF9F27;
+  --app-bg-success:#E1F5EE; --app-text-success:#085041; --app-fill-success:#2E9E75;
+  --app-bg-neutral:#EAEDF0; --app-text-neutral:#52606D;
+  --app-navy:#1B2A3C; --app-on-navy:#FFFFFF;
+}
+.dark {
+  --app-surface-0:#0F1720; --app-surface-1:#16202B; --app-surface-2:#1C2733;
+  --app-text-primary:#F0F4F8; --app-text-secondary:#B7C2CC; --app-text-muted:#7C8794;
+  --app-border:#2A3541; --app-border-strong:#3A4652;
+  --app-bg-accent:#123152; --app-text-accent:#7FB8EE; --app-fill-accent:#3B93DA; --app-border-accent:#1E4A72;
+  --app-bg-danger:#3A1B10; --app-text-danger:#F0997B; --app-fill-danger:#E8724A; --app-border-danger:#5C2C18;
+  --app-bg-warning:#3A2A0E; --app-text-warning:#F5C775; --app-fill-warning:#EF9F27;
+  --app-bg-success:#0C2A22; --app-text-success:#5DCAA5; --app-fill-success:#3C8F72;
+  --app-bg-neutral:#232D38; --app-text-neutral:#B7C2CC;
+  --app-navy:#101A26; --app-on-navy:#F0F4F8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--app-surface-0);
+  color: var(--app-text-primary);
+}
+
+.input {
+  width: 100%;
+  background: var(--app-surface-2);
+  color: var(--app-text-primary);
+  border: 0.5px solid var(--app-border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.input:disabled { background: var(--app-surface-1); color: var(--app-text-muted); }
+.input::placeholder { color: var(--app-text-muted); }
+.trunc { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
