@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-export default function AuthGate({ children, session }) {
-  const [mode, setMode] = useState('signin') // signin | signup | forgot | recovery
+export default function AuthGate({ children, session, recoveryMode, onRecoveryDone }) {
+  const [mode, setMode] = useState('signin') // signin | signup | forgot
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -12,14 +12,7 @@ export default function AuthGate({ children, session }) {
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setMode('recovery')
-    })
-    return () => sub.subscription.unsubscribe()
-  }, [])
-
-  if (session && mode !== 'recovery') return children
+  if (session && !recoveryMode) return children
 
   const resetMessages = () => { setError(''); setInfo('') }
 
@@ -67,8 +60,10 @@ export default function AuthGate({ children, session }) {
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     setLoading(false)
-    if (error) setError(error.message)
-    else { setInfo('Password updated. You can now use it to sign in.'); setMode('signin') }
+    if (error) { setError(error.message); return }
+    setInfo('Password updated. Signing you in…')
+    setNewPassword('')
+    if (onRecoveryDone) onRecoveryDone()
   }
 
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1px solid #CBD5E0', borderRadius: 8, fontSize: 13 }
@@ -80,7 +75,7 @@ export default function AuthGate({ children, session }) {
       <div style={{ background: '#fff', borderRadius: 12, padding: 32, width: '100%', maxWidth: 380, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1B2A3C', margin: '0 0 4px' }}>HRBP Deliverables Tracker</h1>
 
-        {mode === 'recovery' && (
+        {recoveryMode && (
           <>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>Choose a new password for your account.</p>
             <form onSubmit={handleSetNewPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -90,7 +85,7 @@ export default function AuthGate({ children, session }) {
           </>
         )}
 
-        {mode === 'signin' && (
+        {!recoveryMode && mode === 'signin' && (
           <>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>Sign in with your work email.</p>
             <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -105,7 +100,7 @@ export default function AuthGate({ children, session }) {
           </>
         )}
 
-        {mode === 'signup' && (
+        {!recoveryMode && mode === 'signup' && (
           <>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>First time here — create your account.</p>
             <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -121,7 +116,7 @@ export default function AuthGate({ children, session }) {
           </>
         )}
 
-        {mode === 'forgot' && (
+        {!recoveryMode && mode === 'forgot' && (
           <>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>Enter your email and we'll send a reset link.</p>
             <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
