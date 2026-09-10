@@ -4,8 +4,49 @@
 // Division + Role Title + Location as plain text, creating what doesn't
 // already exist rather than requiring the uploader to know any IDs.
 
-import Papa from 'papaparse';
 import { supabase } from './supabaseClient';
+
+// Minimal CSV parser — no external dependency (papaparse isn't in this repo's
+// package.json, and the workflow here is direct GitHub edits, not npm install).
+// Handles quoted fields, embedded commas, and escaped quotes ("").
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  const pushField = () => { row.push(field); field = ''; };
+  const pushRow = () => { pushField(); rows.push(row); row = []; };
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') pushField();
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') pushRow();
+      else field += c;
+    }
+  }
+  if (field.length || row.length) pushRow();
+
+  const filtered = rows.filter(r => r.some(cell => cell.trim() !== ''));
+  if (filtered.length === 0) return { data: [], meta: { fields: [] } };
+
+  const headers = filtered[0].map(h => h.trim());
+  const data = filtered.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = (r[idx] ?? '').trim(); });
+    return obj;
+  });
+  return { data, meta: { fields: headers } };
+}
 
 const REQUIRED_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Suggested Grade',
@@ -29,7 +70,7 @@ function parseBool(val) {
 
 // Returns { rows: [...], errors: [...] } — validates before writing anything.
 export function parseUploadFile(fileText) {
-  const parsed = Papa.parse(fileText, { header: true, skipEmptyLines: true });
+  const parsed = parseCsv(fileText);
   const errors = [];
 
   const headers = parsed.meta.fields || [];
