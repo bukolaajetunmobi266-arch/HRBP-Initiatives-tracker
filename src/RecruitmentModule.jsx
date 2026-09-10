@@ -476,13 +476,22 @@ function UploadTab({ onDone }) {
     reader.readAsText(file);
   }
 
+  const [uploadError, setUploadError] = useState('');
+
   async function runUpload() {
     if (!parsed || parsed.errors.length) return;
     setRunning(true);
-    const res = await executeUpload(parsed.rows);
-    setResult(res);
-    setRunning(false);
-    onDone();
+    setUploadError('');
+    try {
+      const res = await executeUpload(parsed.rows);
+      setResult(res);
+      onDone();
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setUploadError(err.message || String(err));
+    } finally {
+      setRunning(false);
+    }
   }
 
   return (
@@ -492,6 +501,12 @@ function UploadTab({ onDone }) {
         Existing roles/locations are matched by name; anything new is created automatically.
       </p>
       <input type="file" accept=".csv" onChange={handleFile} />
+
+      {uploadError && (
+        <div style={{ marginTop: 12, color: BRAND.red, fontSize: 13 }}>
+          <strong>Upload failed:</strong> {uploadError}
+        </div>
+      )}
 
       {parsed && parsed.errors.length > 0 && (
         <div style={{ marginTop: 12, color: BRAND.red, fontSize: 13 }}>
