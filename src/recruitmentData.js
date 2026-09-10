@@ -40,7 +40,7 @@ export async function getCurrentUserScope() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, recruitment_role, recruitment_hrbp_id, name')
+    .select('id, recruitment_role, recruitment_hrbp_id, full_name')
     .eq('id', user.id)
     .single();
 

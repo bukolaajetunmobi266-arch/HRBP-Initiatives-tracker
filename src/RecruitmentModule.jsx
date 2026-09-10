@@ -43,12 +43,19 @@ export default function RecruitmentModule() {
   const [loading, setLoading] = useState(true);
   const [candidateStatusFilter, setCandidateStatusFilter] = useState(null); // set when a funnel/card is clicked
 
+  const [loadError, setLoadError] = useState(null);
+
   useEffect(() => {
     (async () => {
-      const s = await getCurrentUserScope();
-      setScope(s);
-      const divs = await fetchDivisions();
-      setDivisions(divs);
+      try {
+        const s = await getCurrentUserScope();
+        setScope(s);
+        const divs = await fetchDivisions();
+        setDivisions(divs);
+      } catch (err) {
+        console.error('Recruitment module failed to load:', err);
+        setLoadError(err.message || String(err));
+      }
     })();
   }, []);
 
@@ -61,6 +68,7 @@ export default function RecruitmentModule() {
 
   useEffect(() => { if (scope) reload(); }, [scope, reload]);
 
+  if (loadError) return <div style={{ padding: 24, color: '#791F1F' }}>Couldn't load Recruitment: {loadError}</div>;
   if (!scope) return <div style={{ padding: 24 }}>Loading…</div>;
   if (scope.recruitment_role === null) {
     return <div style={{ padding: 24 }}>You don't have recruitment access. Contact an Admin.</div>;
