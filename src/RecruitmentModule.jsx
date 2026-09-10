@@ -92,7 +92,7 @@ export default function RecruitmentModule() {
         locations={uniqueLocations}
         filters={filters}
         setFilters={setFilters}
-        showDivisionFilter={canManageDivisions || (scope.recruitment_role === 'hrbp')}
+        showDivisionFilter={canManageDivisions || ['hrbp', 'analyst'].includes(scope.recruitment_role)}
       />
 
       {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading…</div> : (
