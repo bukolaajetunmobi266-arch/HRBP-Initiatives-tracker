@@ -6,15 +6,11 @@ import { exportToExcel } from './exportExcel'
 import { generateCpoReviewPack, generatePersonalReviewPack } from './exportPpt'
 import ImportDialog from './ImportDialog'
 import { OWNER_FUNCTIONS, DIVISIONS, STATUSES, CO_COLORS } from './constants'
+import RecruitmentModule from './RecruitmentModule'
 
 const LIGHT = { '--bg0': '#F3F6FA', '--bg1': '#EEF2F7', '--bg2': '#FFFFFF', '--tx1': '#1A2733', '--tx2': '#52606D', '--txm': '#8A94A0', '--bd': '#E2E8F0', '--bds': '#CBD5E0', '--acc-bg': '#E6F1FB', '--acc-tx': '#0C447C', '--acc-fill': '#0F7FC4', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EAEDF0', '--neu-tx': '#52606D', '--neu-fill': '#B4B2A9', '--navy': '#1B2A3C' }
 const DARK = { '--bg0': '#0F1720', '--bg1': '#16202B', '--bg2': '#1C2733', '--tx1': '#F0F4F8', '--tx2': '#B7C2CC', '--txm': '#7C8794', '--bd': '#2A3541', '--bds': '#3A4652', '--acc-bg': '#123152', '--acc-tx': '#7FB8EE', '--acc-fill': '#3B93DA', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#232D38', '--neu-tx': '#B7C2CC', '--neu-fill': '#5F5E5A', '--navy': '#101A26' }
 
-// Returns the LOCAL calendar date as YYYY-MM-DD. Deliberately not using
-// toISOString() here, since that converts to UTC first and can silently
-// shift the date by a day for users in timezones ahead of UTC (like Lagos,
-// UTC+1) around midnight — exactly when "today" and "this week" boundaries
-// matter most.
 function localISODate(date) {
   const d = date || new Date()
   const y = d.getFullYear()
@@ -25,7 +21,7 @@ function localISODate(date) {
 const todayISO = () => localISODate()
 function currentWeekStart() {
   const d = new Date()
-  const day = d.getDay() // 0=Sun..6=Sat
+  const day = d.getDay()
   const diffToMonday = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diffToMonday)
   return localISODate(d)
@@ -88,12 +84,12 @@ function Dashboard({ session, theme, setTheme }) {
   const [collapsed, setCollapsed] = useState({})
   const [selected, setSelected] = useState({})
   const [sort, setSort] = useState({ key: 'due_date', dir: 'asc' })
-  const [editing, setEditing] = useState(null) // {id|null, isNewObjective}
+  const [editing, setEditing] = useState(null)
   const [editingAction, setEditingAction] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [showExport, setShowExport] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [showPpt, setShowPpt] = useState(null) // 'cpo' | 'personal' | null
+  const [showPpt, setShowPpt] = useState(null)
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -120,26 +116,15 @@ function Dashboard({ session, theme, setTheme }) {
   const ownerName = (id) => profiles.find((p) => p.id === id)?.full_name || 'Unassigned'
   const lastComment = (d) => (d.comments?.length ? d.comments[d.comments.length - 1] : null)
 
-  // An action item's "effective" status for the current user: their own status
-  // if it's shared, otherwise its single status. Used for filtering/metrics.
   const myActionStatus = (a) => {
     if (!a.shared) return a.status
     const row = actionStatuses.find((s) => s.action_id === a.id && s.user_id === userId)
     return row ? row.status : 'Not Started'
   }
-  // "Shared" doesn't mean "everyone" — Admin can select a subset of HRBPs when
-  // creating one. This checks whether a specific person was actually assigned,
-  // not just whether the item happens to be shared at all.
   const isPersonInAction = (a, personId) => a.shared
     ? actionStatuses.some((s) => s.action_id === a.id && s.user_id === personId)
     : a.owner_id === personId
   const isActionOverdue = (a, status) => a.due_date && status !== 'Completed' && a.due_date < todayISO()
-  // For metrics: admin sees every shared item once per assigned person (so 4 HRBPs on one
-  // shared item count as 4 rows); a member sees shared items collapsed to just their own row.
-  // A shared item's overall status, aggregated from everyone assigned to it:
-  // Completed only once everyone is; In Progress if anyone's made progress;
-  // otherwise Not Started. Used so admin totals count each action once,
-  // not once per assigned person.
   const aggregateSharedStatus = (rows) => {
     if (!rows.length) return 'Not Started'
     if (rows.every((r) => r.status === 'Completed')) return 'Completed'
@@ -157,7 +142,6 @@ function Dashboard({ session, theme, setTheme }) {
         .map((a) => ({ ...a, _effStatus: myActionStatus(a), _owner: userId })))
   const actionItemsForMetrics = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
 
-  // Team members only ever see their own deliverables. Admin sees everyone's.
   const visibleDeliverables = isAdmin ? deliverables : deliverables.filter((d) => d.owner_id === userId)
 
   const getFiltered = () =>
@@ -228,7 +212,7 @@ function Dashboard({ session, theme, setTheme }) {
     <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)' }}>
       <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
-        {view !== 'summary' && (
+        {view !== 'summary' && view !== 'recruitment' && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
             <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
@@ -300,6 +284,8 @@ function Dashboard({ session, theme, setTheme }) {
             onExport={() => setShowExport(true)} onImport={() => setShowImport(true)}
           />
         )}
+
+        {view === 'recruitment' && <RecruitmentModule />}
       </div>
 
       {editing && (
@@ -336,9 +322,6 @@ function Dashboard({ session, theme, setTheme }) {
               await Promise.all(form.sharedOwnerIds.map((pid) =>
                 supabase.from('action_item_statuses').upsert({ action_id: actionId, user_id: pid }, { onConflict: 'action_id,user_id', ignoreDuplicates: true })
               ))
-              // Anyone who was previously assigned but got unchecked this time
-              // needs their status row removed — otherwise they'd keep showing
-              // up as still "assigned" even after being taken off the item.
               const previouslyAssigned = actionStatuses.filter((s) => s.action_id === actionId).map((s) => s.user_id)
               const removed = previouslyAssigned.filter((pid) => !form.sharedOwnerIds.includes(pid))
               if (removed.length) {
@@ -410,7 +393,7 @@ function Header({ profile, userId, theme, setTheme }) {
 }
 
 function Nav({ view, setView, setSelected }) {
-  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
+  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items'], ['recruitment', 'Recruitment']]
   return (
     <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
       {tabs.map(([id, label]) => (
@@ -552,7 +535,7 @@ function buildTree(items) {
 
 function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport }) {
   const toggle = (k) => setCollapsed((c) => ({ ...c, [k]: !c[k] }))
-  const jump = () => {} // owner-jump handled at filter level in parent; simplified here
+  const jump = () => {}
   const selCount = Object.values(selected).filter(Boolean).length
   if (!items.length) return (
     <div>
@@ -811,8 +794,6 @@ function MetricGrid({ items, totalLabel }) {
   )
 }
 
-// Overdue takes priority over whatever status an item still technically has,
-// so the four segments never overlap and always sum to 100%.
 function segmentBreakdown(items) {
   let completed = 0, overdue = 0, inProgress = 0, notStarted = 0
   const today = todayISO()
@@ -824,10 +805,6 @@ function segmentBreakdown(items) {
     else notStarted++
   })
   const total = items.length || 1
-  // Deliberately NOT rounded here — these exact fractions are what drive the
-  // bar segment widths, so the four segments always add up to precisely 100%,
-  // with no gap or overlap. Rounding only happens where the number is
-  // actually displayed as text, not in the values used for layout.
   return {
     completedPct: (completed / total) * 100,
     inProgressPct: (inProgress / total) * 100,
@@ -951,8 +928,6 @@ function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName,
     </div>
   )
 
-  // Group by the session/meeting they were raised in — one header shown
-  // once per session, not repeated on every row.
   const groups = {}
   visible.forEach((a) => {
     const key = a.raised_in?.trim() || 'Not tied to a specific session'
@@ -1315,7 +1290,7 @@ function ExportDialog({ filters, onCancel, onExport }) {
 }
 
 function PptDialog({ scope, onCancel, onGenerate, busy }) {
-  const [from, setFrom] = useState(todayISO().slice(0, 8) + '01') // start of this month as a sane default
+  const [from, setFrom] = useState(todayISO().slice(0, 8) + '01')
   const [to, setTo] = useState(todayISO())
   const preset = (days) => { setFrom(localISODate(new Date(Date.now() - days * 86400000))); setTo(todayISO()) }
   return (
