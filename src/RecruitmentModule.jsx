@@ -41,6 +41,7 @@ export default function RecruitmentModule() {
   const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '' });
   const [rowsWithCandidates, setRowsWithCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [candidateStatusFilter, setCandidateStatusFilter] = useState(null); // set when a funnel/card is clicked
 
   const [loadError, setLoadError] = useState(null);
@@ -60,11 +61,12 @@ export default function RecruitmentModule() {
   }, []);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    if (initialLoad) setLoading(true);
     const data = await fetchRoleLocationsWithCandidates(filters);
     setRowsWithCandidates(data);
     setLoading(false);
-  }, [filters]);
+    setInitialLoad(false);
+  }, [filters, initialLoad]);
 
   useEffect(() => { if (scope) reload(); }, [scope, reload]);
 
