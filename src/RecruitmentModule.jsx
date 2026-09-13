@@ -5,10 +5,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   getCurrentUserScope, fetchDivisions, fetchRoleLocationsWithCandidates,
-  computeDashboardMetrics, computeStalledOnboarding,
+  computeDashboardMetrics, computeStalledOnboarding, fetchRolesByDivision,
 } from './recruitmentData';
 import { parseUploadFile, executeUpload } from './recruitmentUpload';
-import { bulkUpdateCandidateStatus } from './recruitmentActions';
+import { bulkUpdateCandidateStatus, createRole, createRoleLocation } from './recruitmentActions';
 
 const BRAND = {
   navy: '#1F4E78',
@@ -116,6 +116,7 @@ export default function RecruitmentModule() {
               stalledCount={stalled.length}
             />
           )}
+          {tab === 'roles' && <RolesTab rowsWithCandidates={rowsWithCandidates} />}
           {tab === 'candidates' && (
             <CandidatesTab
               rowsWithCandidates={rowsWithCandidates}
@@ -128,6 +129,7 @@ export default function RecruitmentModule() {
           {tab === 'yetToStart' && <YetToStartTab rowsWithCandidates={rowsWithCandidates} />}
           {tab === 'stalled' && <StalledTab stalled={stalled} />}
           {tab === 'dropped' && <DroppedTab rowsWithCandidates={rowsWithCandidates} />}
+          {tab === 'addRole' && <AddRoleTab divisions={divisions} onDone={reload} />}
           {tab === 'upload' && <UploadTab onDone={reload} />}
         </>
       )}
@@ -138,11 +140,13 @@ export default function RecruitmentModule() {
 function TabNav({ tab, setTab }) {
   const tabs = [
     ['overview', 'Overview'],
+    ['roles', 'Roles'],
     ['candidates', 'Candidates'],
     ['aging', 'Aging'],
     ['yetToStart', 'Yet to Start'],
     ['stalled', 'Stalled Onboarding'],
     ['dropped', 'Dropped / Rejected'],
+    ['addRole', 'Add Role'],
     ['upload', 'Upload'],
   ];
   return (
@@ -201,7 +205,8 @@ function OverviewTab({ metrics, onFunnelClick, onStalledClick, stalledCount, onY
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KpiCard label="Open slots" value={metrics.totalSlots} color={BRAND.navy} />
+        <KpiCard label="Total roles" value={metrics.totalRoles} color={BRAND.navy} />
+        <KpiCard label="Open positions" value={metrics.totalSlots} color={BRAND.navy} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer', flex: 1, minWidth: 130 }}>
           <KpiCard label="Yet to start" value={metrics.yetToStartSlots} />
         </div>
@@ -258,6 +263,94 @@ function Legend({ color, label }) {
       <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
       {label}
     </span>
+  );
+}
+
+const SECURED_STATUSES_UI = ['Offer', 'Awaiting Resumption', 'Closed'];
+
+function locationRates(rl) {
+  const secured = rl.candidates.filter(c => SECURED_STATUSES_UI.includes(c.status)).length;
+  const closed = rl.candidates.filter(c => c.status === 'Closed').length;
+  const fillPct = rl.no_of_positions ? Math.min(100, Math.round((secured / rl.no_of_positions) * 100)) : 0;
+  const closePct = rl.no_of_positions ? Math.min(100, Math.round((closed / rl.no_of_positions) * 100)) : 0;
+  return { fillPct, closePct };
+}
+
+function ProgressBar({ fillPct, closePct }) {
+  return (
+    <div style={{ background: '#F0F0F0', borderRadius: 4, height: 8, position: 'relative', flex: 1, minWidth: 100 }}>
+      <div style={{ width: `${fillPct}%`, background: BRAND.amber, height: 8, borderRadius: 4, position: 'absolute' }} />
+      <div style={{ width: `${closePct}%`, background: BRAND.green, height: 8, borderRadius: 4, position: 'absolute' }} />
+    </div>
+  );
+}
+
+function RolesTab({ rowsWithCandidates }) {
+  // Group: division name -> role_id -> { role_title, role_type, status, locations: [rl,...] }
+  const divisions = {};
+  for (const rl of rowsWithCandidates) {
+    const divName = rl.roles.divisions.name;
+    const roleId = rl.roles.role_id;
+    if (!divisions[divName]) divisions[divName] = {};
+    if (!divisions[divName][roleId]) {
+      divisions[divName][roleId] = { title: rl.roles.role_title, roleType: rl.roles.role_type, locations: [] };
+    }
+    divisions[divName][roleId].locations.push(rl);
+  }
+
+  const divNames = Object.keys(divisions).sort();
+
+  if (divNames.length === 0) {
+    return <div style={{ padding: 20, color: '#888', textAlign: 'center' }}>No roles uploaded yet. Use "Add Role" or "Upload" to get started.</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 14, fontSize: 11, color: '#888', marginBottom: 16 }}>
+        <Legend color={BRAND.amber} label="Fill rate" />
+        <Legend color={BRAND.green} label="Closure rate" />
+      </div>
+      {divNames.map(divName => {
+        const roles = divisions[divName];
+        return (
+          <div key={divName} style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: BRAND.navy, marginBottom: 10 }}>{divName}</div>
+            {Object.entries(roles).map(([roleId, role]) => {
+              const totalPositions = role.locations.reduce((sum, rl) => sum + rl.no_of_positions, 0);
+              const totalSecured = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => SECURED_STATUSES_UI.includes(c.status)).length, 0);
+              const totalClosed = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => c.status === 'Closed').length, 0);
+              const roleFillPct = totalPositions ? Math.min(100, Math.round((totalSecured / totalPositions) * 100)) : 0;
+              const roleClosePct = totalPositions ? Math.min(100, Math.round((totalClosed / totalPositions) * 100)) : 0;
+
+              return (
+                <div key={roleId} style={{ marginBottom: 14, paddingLeft: 8, borderLeft: `3px solid ${BRAND.paleBlue}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, minWidth: 200 }}>{role.title}</span>
+                    <span style={{ fontSize: 11, color: '#888' }}>{role.roleType}</span>
+                    <ProgressBar fillPct={roleFillPct} closePct={roleClosePct} />
+                    <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }}>{totalPositions} positions total</span>
+                  </div>
+                  <div style={{ paddingLeft: 20 }}>
+                    {role.locations.map(rl => {
+                      const { fillPct, closePct } = locationRates(rl);
+                      return (
+                        <div key={rl.role_location_id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, minWidth: 140 }}>{rl.location}</span>
+                          <ProgressBar fillPct={fillPct} closePct={closePct} />
+                          <span style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap' }}>
+                            {rl.no_of_positions} positions · {rl.status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -415,7 +508,7 @@ function YetToStartTab({ rowsWithCandidates }) {
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
       <thead>
         <tr style={{ borderBottom: `2px solid ${BRAND.paleBlue}`, textAlign: 'left' }}>
-          <th>Role</th><th>Division</th><th>Location</th><th>Slots</th><th>Planned start</th>
+          <th>Role</th><th>Division</th><th>Location</th><th>Positions</th><th>Planned start</th>
         </tr>
       </thead>
       <tbody>
@@ -456,6 +549,145 @@ function DroppedTab({ rowsWithCandidates }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+function AddRoleTab({ divisions, onDone }) {
+  const [mode, setMode] = useState('role'); // 'role' | 'location'
+  const [divisionId, setDivisionId] = useState('');
+  const [roleTitle, setRoleTitle] = useState('');
+  const [roleType, setRoleType] = useState('Sales');
+  const [suggestedGrade, setSuggestedGrade] = useState('');
+
+  const [rolesInDivision, setRolesInDivision] = useState([]);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [location, setLocation] = useState('');
+  const [noOfPositions, setNoOfPositions] = useState('');
+  const [status, setStatus] = useState('Open');
+  const [plannedStartDate, setPlannedStartDate] = useState('');
+  const [dateRequestReceived, setDateRequestReceived] = useState('');
+
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (mode !== 'location' || !divisionId) { setRolesInDivision([]); return; }
+    fetchRolesByDivision(divisionId).then(setRolesInDivision).catch(err => setError(err.message));
+  }, [mode, divisionId]);
+
+  async function submitRole() {
+    setError(''); setMessage('');
+    if (!divisionId || !roleTitle.trim()) { setError('Division and Role Title are required.'); return; }
+    setSaving(true);
+    try {
+      await createRole({ divisionId, roleTitle: roleTitle.trim(), roleType, suggestedGrade });
+      setMessage(`Role "${roleTitle}" created. Add a location for it next using "Add Location" above.`);
+      setRoleTitle(''); setSuggestedGrade('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitLocation() {
+    setError(''); setMessage('');
+    if (!selectedRoleId || !location.trim() || !noOfPositions) { setError('Role, Location, and No. of Positions are required.'); return; }
+    setSaving(true);
+    try {
+      await createRoleLocation({
+        roleId: selectedRoleId, location: location.trim(), noOfPositions: Number(noOfPositions),
+        status, plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+      });
+      setMessage(`Location "${location}" added.`);
+      setLocation(''); setNoOfPositions(''); setPlannedStartDate(''); setDateRequestReceived('');
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = { padding: 6, marginBottom: 8, display: 'block', width: '100%', maxWidth: 320 };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => { setMode('role'); setMessage(''); setError(''); }}
+          style={{ fontWeight: mode === 'role' ? 600 : 400, background: mode === 'role' ? BRAND.paleBlue : 'transparent', border: 'none', padding: '6px 12px', borderRadius: 6, cursor: 'pointer' }}>
+          New Role
+        </button>
+        <button onClick={() => { setMode('location'); setMessage(''); setError(''); }}
+          style={{ fontWeight: mode === 'location' ? 600 : 400, background: mode === 'location' ? BRAND.paleBlue : 'transparent', border: 'none', padding: '6px 12px', borderRadius: 6, cursor: 'pointer' }}>
+          Add Location to Existing Role
+        </button>
+      </div>
+
+      {message && <div style={{ color: BRAND.green, fontSize: 13, marginBottom: 12 }}>{message}</div>}
+      {error && <div style={{ color: BRAND.red, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+
+      {mode === 'role' ? (
+        <div>
+          <label style={{ fontSize: 12, color: '#666' }}>Division</label>
+          <select value={divisionId} onChange={e => setDivisionId(e.target.value)} style={inputStyle}>
+            <option value="">Select division…</option>
+            {divisions.map(d => <option key={d.division_id} value={d.division_id}>{d.name}</option>)}
+          </select>
+
+          <label style={{ fontSize: 12, color: '#666' }}>Role Title</label>
+          <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder="e.g. Sales Associate" style={inputStyle} />
+
+          <label style={{ fontSize: 12, color: '#666' }}>Role Type</label>
+          <select value={roleType} onChange={e => setRoleType(e.target.value)} style={inputStyle}>
+            <option>Sales</option><option>Support</option><option>Affiliate</option>
+          </select>
+
+          <label style={{ fontSize: 12, color: '#666' }}>Suggested Grade (optional)</label>
+          <input value={suggestedGrade} onChange={e => setSuggestedGrade(e.target.value)} style={inputStyle} />
+
+          <button onClick={submitRole} disabled={saving}>{saving ? 'Saving…' : 'Create Role'}</button>
+        </div>
+      ) : (
+        <div>
+          <label style={{ fontSize: 12, color: '#666' }}>Division</label>
+          <select value={divisionId} onChange={e => { setDivisionId(e.target.value); setSelectedRoleId(''); }} style={inputStyle}>
+            <option value="">Select division…</option>
+            {divisions.map(d => <option key={d.division_id} value={d.division_id}>{d.name}</option>)}
+          </select>
+
+          <label style={{ fontSize: 12, color: '#666' }}>Role</label>
+          <select value={selectedRoleId} onChange={e => setSelectedRoleId(e.target.value)} style={inputStyle} disabled={!divisionId}>
+            <option value="">Select role…</option>
+            {rolesInDivision.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
+          </select>
+
+          <label style={{ fontSize: 12, color: '#666' }}>Location</label>
+          <input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Kano" style={inputStyle} />
+
+          <label style={{ fontSize: 12, color: '#666' }}>No. of Positions</label>
+          <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle} />
+
+          <label style={{ fontSize: 12, color: '#666' }}>Status</label>
+          <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}>
+            <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
+          </select>
+
+          {status === 'Yet to Start' && (
+            <>
+              <label style={{ fontSize: 12, color: '#666' }}>Planned Start Date</label>
+              <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle} />
+            </>
+          )}
+
+          <label style={{ fontSize: 12, color: '#666' }}>Date Request Received</label>
+          <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle} />
+
+          <button onClick={submitLocation} disabled={saving}>{saving ? 'Saving…' : 'Add Location'}</button>
+        </div>
+      )}
+    </div>
   );
 }
 

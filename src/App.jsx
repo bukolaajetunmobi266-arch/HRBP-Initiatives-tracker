@@ -92,6 +92,7 @@ function Dashboard({ session, theme, setTheme }) {
   const [showPpt, setShowPpt] = useState(null)
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [appMode, setAppMode] = useState('deliverables') // 'deliverables' | 'recruitment'
 
   const userId = session.user.id
 
@@ -211,8 +212,11 @@ function Dashboard({ session, theme, setTheme }) {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)' }}>
       <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
+      <ModeSwitcher appMode={appMode} setAppMode={setAppMode} />
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
-        {view !== 'summary' && view !== 'recruitment' && (
+        {appMode === 'deliverables' && (
+        <>
+        {view !== 'summary' && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
             <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
@@ -284,8 +288,10 @@ function Dashboard({ session, theme, setTheme }) {
             onExport={() => setShowExport(true)} onImport={() => setShowImport(true)}
           />
         )}
+        </>
+        )}
 
-        {view === 'recruitment' && <RecruitmentModule />}
+        {appMode === 'recruitment' && <RecruitmentModule />}
       </div>
 
       {editing && (
@@ -378,7 +384,7 @@ function Header({ profile, userId, theme, setTheme }) {
   return (
     <header style={{ background: 'var(--navy)', color: '#fff' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>HRBP Deliverables Tracker</p>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>People Management Tracker</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
           <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
@@ -392,8 +398,27 @@ function Header({ profile, userId, theme, setTheme }) {
   )
 }
 
+function ModeSwitcher({ appMode, setAppMode }) {
+  return (
+    <div style={{ background: 'var(--bg1)', borderBottom: '0.5px solid var(--bd)' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '10px 1rem', display: 'flex', gap: 8 }}>
+        {[['deliverables', 'Deliverables Tracker'], ['recruitment', 'Recruitment Tracker']].map(([id, label]) => (
+          <button key={id} onClick={() => setAppMode(id)}
+            style={{
+              border: 'none', borderRadius: 999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: appMode === id ? 'var(--acc-fill)' : 'var(--bg2)',
+              color: appMode === id ? '#fff' : 'var(--tx2)',
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Nav({ view, setView, setSelected }) {
-  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items'], ['recruitment', 'Recruitment']]
+  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
   return (
     <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
       {tabs.map(([id, label]) => (

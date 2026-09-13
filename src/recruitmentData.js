@@ -58,6 +58,14 @@ export async function fetchDivisions() {
   return data;
 }
 
+export async function fetchRolesByDivision(divisionId) {
+  let query = supabase.from('roles').select('role_id, role_title, role_type, division_id').is('deleted_at', null);
+  if (divisionId) query = query.eq('division_id', divisionId);
+  const { data, error } = await query.order('role_title');
+  if (error) throw error;
+  return data;
+}
+
 // ---------------------------------------------------------------
 // Fetch roles + role_locations + candidate counts, with optional filters
 // ---------------------------------------------------------------
@@ -123,12 +131,14 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let securedCount = 0;
   let closedCount = 0;
   let yetToStartSlots = 0;
+  const uniqueRoleIds = new Set();
   const funnelCounts = Object.fromEntries(CANDIDATE_FUNNEL_STAGES.map(s => [s, 0]));
   const divisionAgg = {}; // name -> { slots, secured, closed }
 
   for (const rl of roleLocationsWithCandidates) {
     const divName = rl.roles.divisions.name;
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
+    uniqueRoleIds.add(rl.roles.role_id);
 
     if (rl.status === 'Yet to Start') {
       // Not yet active — excluded from slot totals, Fill Rate, Closure Rate, and the funnel.
@@ -156,6 +166,8 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 
   return {
     totalSlots,
+    totalRoles: uniqueRoleIds.size,
+    totalRoleLocations: roleLocationsWithCandidates.length,
     yetToStartSlots,
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
     closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
