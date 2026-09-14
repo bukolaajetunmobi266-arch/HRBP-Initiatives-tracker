@@ -149,13 +149,14 @@ export async function updateRole({ roleId, roleTitle, roleType, suggestedGrade }
   return data;
 }
 
-export async function updateRoleLocation({ roleLocationId, location, noOfPositions, status, plannedStartDate, dateRequestReceived }) {
+export async function updateRoleLocation({ roleLocationId, location, noOfPositions, status, plannedStartDate, dateRequestReceived, dateLocationClosed }) {
   const { data, error } = await supabase
     .from('role_locations')
     .update({
       location, no_of_positions: noOfPositions, status,
       planned_start_date: plannedStartDate || null,
       date_request_received: dateRequestReceived || null,
+      date_location_closed: dateLocationClosed || null,
     })
     .eq('role_location_id', roleLocationId)
     .select()

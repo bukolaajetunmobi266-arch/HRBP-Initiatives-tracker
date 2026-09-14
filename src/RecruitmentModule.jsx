@@ -10,7 +10,7 @@ import {
   computeDashboardMetrics, computeStalledOnboarding, computeTimeToClose, computeTimeToOnboard,
   fetchMyNotifications,
 } from './recruitmentData';
-import { parseUploadFile, parseXlsxUploadFile, executeUpload } from './recruitmentUpload';
+import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUpload } from './recruitmentUpload';
 import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
@@ -198,7 +198,6 @@ export default function RecruitmentModule({ tab, setTab }) {
               onChanged={reload}
             />
           )}
-          {tab === 'upload' && <UploadTab onDone={reload} />}
           {tab === 'deleted' && (canManageDivisions ? <DeletedTab onChanged={reload} /> : <div style={{ padding: 20, color: 'var(--txm)' }}>Admin or Recruitment Admin access needed.</div>)}
         </>
       )}
@@ -210,7 +209,7 @@ export default function RecruitmentModule({ tab, setTab }) {
 // Nav + Filters
 // =================================================================
 function TabNav({ tab, setTab, canManageDivisions }) {
-  const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates'], ['upload', 'Upload']];
+  const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates']];
   if (canManageDivisions) tabs.push(['deleted', 'Deleted']);
   return (
     <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -437,8 +436,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   const [editingLocation, setEditingLocation] = useState(null);
   const [addingLocationFor, setAddingLocationFor] = useState(null);
   const [showNewRole, setShowNewRole] = useState(false);
+  const [showRolesUpload, setShowRolesUpload] = useState(false);
   const [filterMode, setFilterMode] = useState(initialFilterMode || 'all');
   const [collapsedDivisions, setCollapsedDivisions] = useState({});
+  const [collapsedRoles, setCollapsedRoles] = useState({});
 
   useEffect(() => { if (initialFilterMode) setFilterMode(initialFilterMode); }, [initialFilterMode]);
 
@@ -500,6 +501,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={exportRoles} style={btnStyle()}>Export CSV</button>
           <button onClick={() => setShowNewRole(true)} style={primaryBtnStyle()}>+ New role</button>
+          <button onClick={() => setShowRolesUpload(true)} style={btnStyle()}>Bulk upload</button>
         </div>
       </div>
 
@@ -534,6 +536,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
             return (
               <div key={roleId} style={{ marginBottom: 14, paddingLeft: 8, borderLeft: '3px solid var(--acc-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                  <button onClick={() => setCollapsedRoles(c => ({ ...c, [roleId]: !c[roleId] }))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 12, padding: 0 }}>
+                    {collapsedRoles[roleId] ? '▸' : '▾'}
+                  </button>
                   <span style={{ fontSize: 13, fontWeight: 600, minWidth: 200 }}>{role.title}</span>
                   <span style={{ fontSize: 11, color: 'var(--txm)' }}>{role.roleType}</span>
                   <ProgressBar fillPct={roleFillPct} closePct={roleClosePct} />
@@ -542,6 +548,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                   <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
                   {canDelete && <button onClick={() => setConfirmDeleteRole(roleId)} style={dangerBtnStyle()}>Delete</button>}
                 </div>
+                {!collapsedRoles[roleId] && (
                 <div style={{ paddingLeft: 20 }}>
                   {role.locations.map(rl => {
                     const { fillPct, closePct } = locationRates(rl);
@@ -560,6 +567,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                     );
                   })}
                 </div>
+                )}
                 {addingLocationFor === roleId && (
                   <QuickAddLocationForm roleId={roleId} onDone={() => { setAddingLocationFor(null); onChanged(); }} onCancel={() => setAddingLocationFor(null)} />
                 )}
@@ -593,6 +601,15 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       )}
       {editingLocation && <EditLocationModal rl={editingLocation} onClose={() => setEditingLocation(null)} onSaved={() => { setEditingLocation(null); onChanged(); }} />}
       {showNewRole && <NewRoleModal divisions={divisions} onClose={() => setShowNewRole(false)} onSaved={() => { setShowNewRole(false); onChanged(); }} />}
+      {showRolesUpload && (
+        <BulkUploadModal
+          title="Bulk upload roles and locations"
+          helpText="Upload roles and their locations from a spreadsheet. Anything that doesn't already exist gets created — this is the structural upload, not for candidates."
+          executor={executeUpload}
+          onClose={() => setShowRolesUpload(false)}
+          onDone={() => { setShowRolesUpload(false); onChanged(); }}
+        />
+      )}
     </div>
   );
 }
@@ -670,6 +687,7 @@ function EditLocationModal({ rl, onClose, onSaved }) {
   const [status, setStatus] = useState(rl.status);
   const [plannedStartDate, setPlannedStartDate] = useState(rl.planned_start_date || '');
   const [dateRequestReceived, setDateRequestReceived] = useState(rl.date_request_received || '');
+  const [dateLocationClosed, setDateLocationClosed] = useState(rl.date_location_closed || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -679,6 +697,7 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       await updateRoleLocation({
         roleLocationId: rl.role_location_id, location, noOfPositions: Number(noOfPositions), status,
         plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+        dateLocationClosed: dateLocationClosed || null,
       });
       onSaved();
     } catch (err) {
@@ -702,6 +721,9 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <label style={labelStyle()}>Date location closed</label>
+      <input type="date" value={dateLocationClosed} onChange={e => setDateLocationClosed(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6, marginBottom: 10 }}>This is what Time to Close is calculated from — leave blank until every position here is filled.</p>
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={btnStyle()}>Cancel</button>
@@ -799,6 +821,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   const [bulkStatus, setBulkStatus] = useState('');
   const [error, setError] = useState('');
   const [showAddCandidate, setShowAddCandidate] = useState(false);
+  const [showCandidateUpload, setShowCandidateUpload] = useState(false);
   const [profileCandidate, setProfileCandidate] = useState(null); // { candidate, rl }
 
   useEffect(() => { setStatusFilter(initialStatusFilter); }, [initialStatusFilter]);
@@ -827,7 +850,15 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
   }
 
-  async function quickChangeStatus(candidateId, newStatus) {
+  const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
+
+  const STATUSES_NEEDING_DATE = ['Onboarding Approval', 'Awaiting Resumption', 'Closed'];
+
+  async function quickChangeStatus(candidateId, newStatus, rl) {
+    if (STATUSES_NEEDING_DATE.includes(newStatus)) {
+      setPendingStatusChange({ candidateId, newStatus, rl });
+      return;
+    }
     setError('');
     try {
       await updateCandidateStatus(candidateId, newStatus);
@@ -837,8 +868,14 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     }
   }
 
+  const [pendingBulkStatus, setPendingBulkStatus] = useState(null); // { candidateIds, newStatus }
+
   async function applyBulk() {
     if (!bulkStatus || selected.size === 0) return;
+    if (STATUSES_NEEDING_DATE.includes(bulkStatus)) {
+      setPendingBulkStatus({ candidateIds: [...selected], newStatus: bulkStatus });
+      return;
+    }
     try {
       await bulkUpdateCandidateStatus([...selected], bulkStatus);
       setSelected(new Set());
@@ -859,6 +896,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input placeholder="Search candidate name…" value={search} onChange={e => setSearch(e.target.value)} style={inputStyle({ flex: 1, minWidth: 160 })} />
         <button onClick={() => setShowAddCandidate(true)} style={primaryBtnStyle()}>+ Add candidate</button>
+        <button onClick={() => setShowCandidateUpload(true)} style={btnStyle()}>Bulk upload</button>
         <button onClick={exportCandidates} style={btnStyle()}>Export CSV</button>
         <button onClick={() => setStatusFilter('__dropped__')} style={btnStyle()}>Dropped / rejected</button>
         {(statusFilter || locationFilter) && (
@@ -916,7 +954,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.roleTitle}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.location}</td>
                   <td style={{ padding: '8px 10px' }}>
-                    <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
+                    <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
@@ -932,6 +970,15 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showAddCandidate && (
         <AddCandidateModal rowsWithCandidates={rowsWithCandidates} onClose={() => setShowAddCandidate(false)} onSaved={() => { setShowAddCandidate(false); onChanged(); }} />
       )}
+      {showCandidateUpload && (
+        <BulkUploadModal
+          title="Bulk upload candidates"
+          helpText="Upload candidates from a spreadsheet. Each row must match a Division, Role, and Location that already exists — this upload never creates new roles or locations. Add those on the Roles tab first."
+          executor={executeCandidateUpload}
+          onClose={() => setShowCandidateUpload(false)}
+          onDone={() => { setShowCandidateUpload(false); onChanged(); }}
+        />
+      )}
       {profileCandidate && (
         <CandidateProfilePanel
           candidate={profileCandidate.candidate}
@@ -939,6 +986,20 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           allRows={rowsWithCandidates}
           onClose={() => setProfileCandidate(null)}
           onSaved={() => { setProfileCandidate(null); onChanged(); }}
+        />
+      )}
+      {pendingStatusChange && (
+        <StatusDateModal
+          pending={pendingStatusChange}
+          onClose={() => setPendingStatusChange(null)}
+          onSaved={() => { setPendingStatusChange(null); onChanged(); }}
+        />
+      )}
+      {pendingBulkStatus && (
+        <BulkStatusDateModal
+          pending={pendingBulkStatus}
+          onClose={() => setPendingBulkStatus(null)}
+          onSaved={() => { setPendingBulkStatus(null); setSelected(new Set()); setBulkStatus(''); onChanged(); }}
         />
       )}
     </div>
@@ -1016,6 +1077,191 @@ function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
 
 // The candidate profile panel — every editable field on a candidate lives here,
 // so the Candidates table itself stays a clean, scannable list.
+// Prompts for the specific date(s) a status transition actually needs, right
+// when the analyst makes the change — instead of relying on a separate trip
+// to the candidate's profile later. Also detects when this change fills the
+// last open position at a location, and offers to close the location too
+// (the date Time to Close is calculated from).
+function StatusDateModal({ pending, onClose, onSaved }) {
+  const { candidateId, newStatus, rl } = pending;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [dateSentForApproval, setDateSentForApproval] = useState(today);
+  const [dateOfferAccepted, setDateOfferAccepted] = useState(today);
+  const [expectedResumptionDate, setExpectedResumptionDate] = useState('');
+  const [actualResumptionDate, setActualResumptionDate] = useState(today);
+  const [dateClosed, setDateClosed] = useState(today);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const closedSoFar = rl.candidates.filter(c => c.status === 'Closed' && c.candidate_id !== candidateId).length;
+  const willFillLastPosition = newStatus === 'Closed' && (closedSoFar + 1) >= rl.no_of_positions && rl.status !== 'Closed';
+  const [alsoCloseLocation, setAlsoCloseLocation] = useState(willFillLastPosition);
+  const [locationClosedDate, setLocationClosedDate] = useState(today);
+
+  async function submit() {
+    if (newStatus === 'Awaiting Resumption' && !expectedResumptionDate) {
+      setError('Expected resumption date is required.');
+      return;
+    }
+    setSaving(true); setError('');
+    try {
+      const extra = {};
+      if (newStatus === 'Onboarding Approval') extra.date_sent_for_onboarding_approval = dateSentForApproval;
+      if (newStatus === 'Awaiting Resumption') {
+        extra.date_offer_accepted = dateOfferAccepted;
+        extra.expected_resumption_date = expectedResumptionDate;
+      }
+      if (newStatus === 'Closed') {
+        extra.actual_resumption_date = actualResumptionDate;
+        extra.date_closed = dateClosed;
+      }
+      await updateCandidateStatus(candidateId, newStatus, extra);
+
+      if (newStatus === 'Closed' && alsoCloseLocation) {
+        await updateRoleLocation({
+          roleLocationId: rl.role_location_id, location: rl.location, noOfPositions: rl.no_of_positions,
+          status: 'Closed', plannedStartDate: rl.planned_start_date, dateRequestReceived: rl.date_request_received,
+          dateLocationClosed: locationClosedDate,
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ fontWeight: 600, marginBottom: 12 }}>Moving to "{newStatus}"</div>
+
+      {newStatus === 'Onboarding Approval' && (
+        <>
+          <label style={labelStyle()}>Date sent for onboarding approval</label>
+          <input type="date" value={dateSentForApproval} onChange={e => setDateSentForApproval(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
+      {newStatus === 'Awaiting Resumption' && (
+        <>
+          <label style={labelStyle()}>Date offer accepted</label>
+          <input type="date" value={dateOfferAccepted} onChange={e => setDateOfferAccepted(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={labelStyle()}>Expected resumption date</label>
+          <input type="date" value={expectedResumptionDate} onChange={e => setExpectedResumptionDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
+      {newStatus === 'Closed' && (
+        <>
+          <label style={labelStyle()}>Actual resumption date</label>
+          <input type="date" value={actualResumptionDate} onChange={e => setActualResumptionDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={labelStyle()}>Date closed</label>
+          <input type="date" value={dateClosed} onChange={e => setDateClosed(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+
+          {willFillLastPosition && (
+            <div style={{ background: 'var(--suc-bg)', borderRadius: 6, padding: 10, marginBottom: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--suc-tx)', marginBottom: alsoCloseLocation ? 8 : 0 }}>
+                <input type="checkbox" checked={alsoCloseLocation} onChange={e => setAlsoCloseLocation(e.target.checked)} />
+                This fills all {rl.no_of_positions} position{rl.no_of_positions > 1 ? 's' : ''} at {rl.location} — mark the location Closed too?
+              </label>
+              {alsoCloseLocation && (
+                <input type="date" value={locationClosedDate} onChange={e => setLocationClosedDate(e.target.value)} style={inputStyle({ width: '100%' })} />
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={btnStyle()}>Cancel</button>
+        <button onClick={submit} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Confirm'}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// Same idea as StatusDateModal, for the bulk-select path. One shared date is
+// applied to every selected candidate. Deliberately does NOT offer to
+// auto-close a location the way the single-candidate version does — a bulk
+// selection can span multiple locations, and guessing which ones just got
+// fully filled isn't safe to automate; do that from the Roles tab instead.
+function BulkStatusDateModal({ pending, onClose, onSaved }) {
+  const { candidateIds, newStatus } = pending;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [dateSentForApproval, setDateSentForApproval] = useState(today);
+  const [dateOfferAccepted, setDateOfferAccepted] = useState(today);
+  const [expectedResumptionDate, setExpectedResumptionDate] = useState('');
+  const [actualResumptionDate, setActualResumptionDate] = useState(today);
+  const [dateClosed, setDateClosed] = useState(today);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit() {
+    if (newStatus === 'Awaiting Resumption' && !expectedResumptionDate) {
+      setError('Expected resumption date is required.');
+      return;
+    }
+    setSaving(true); setError('');
+    try {
+      const extra = {};
+      if (newStatus === 'Onboarding Approval') extra.date_sent_for_onboarding_approval = dateSentForApproval;
+      if (newStatus === 'Awaiting Resumption') {
+        extra.date_offer_accepted = dateOfferAccepted;
+        extra.expected_resumption_date = expectedResumptionDate;
+      }
+      if (newStatus === 'Closed') {
+        extra.actual_resumption_date = actualResumptionDate;
+        extra.date_closed = dateClosed;
+      }
+      await bulkUpdateCandidateStatus(candidateIds, newStatus, extra);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ fontWeight: 600, marginBottom: 12 }}>Moving {candidateIds.length} candidates to "{newStatus}"</div>
+      <p style={{ fontSize: 12, color: 'var(--txm)', marginTop: -6, marginBottom: 12 }}>This date applies to all {candidateIds.length} selected candidates.</p>
+
+      {newStatus === 'Onboarding Approval' && (
+        <>
+          <label style={labelStyle()}>Date sent for onboarding approval</label>
+          <input type="date" value={dateSentForApproval} onChange={e => setDateSentForApproval(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {newStatus === 'Awaiting Resumption' && (
+        <>
+          <label style={labelStyle()}>Date offer accepted</label>
+          <input type="date" value={dateOfferAccepted} onChange={e => setDateOfferAccepted(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={labelStyle()}>Expected resumption date</label>
+          <input type="date" value={expectedResumptionDate} onChange={e => setExpectedResumptionDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {newStatus === 'Closed' && (
+        <>
+          <label style={labelStyle()}>Actual resumption date</label>
+          <input type="date" value={actualResumptionDate} onChange={e => setActualResumptionDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={labelStyle()}>Date closed</label>
+          <input type="date" value={dateClosed} onChange={e => setDateClosed(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6 }}>If this fills a location completely, mark it Closed separately from the Roles tab.</p>
+        </>
+      )}
+
+      {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={btnStyle()}>Cancel</button>
+        <button onClick={submit} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Confirm'}</button>
+      </div>
+    </Modal>
+  );
+}
+
 function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved }) {
   const [form, setForm] = useState({
     candidate_name: candidate.candidate_name || '',
@@ -1263,9 +1509,11 @@ function DeletedTab({ onChanged }) {
 }
 
 // =================================================================
-// Upload
+// Bulk upload — reusable modal. Roles tab passes executeUpload (can
+// create roles/locations); Candidates tab passes executeCandidateUpload
+// (never creates structure, only matches existing roles/locations).
 // =================================================================
-function UploadTab({ onDone }) {
+function BulkUploadModal({ title, helpText, executor, onClose, onDone }) {
   const [parsed, setParsed] = useState(null);
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
@@ -1277,9 +1525,7 @@ function UploadTab({ onDone }) {
     setResult(null);
     setUploadError('');
     if (file.name.toLowerCase().endsWith('.xlsx')) {
-      parseXlsxUploadFile(file)
-        .then(setParsed)
-        .catch(err => setUploadError(err.message));
+      parseXlsxUploadFile(file).then(setParsed).catch(err => setUploadError(err.message));
     } else {
       const reader = new FileReader();
       reader.onload = ev => setParsed(parseUploadFile(ev.target.result));
@@ -1291,7 +1537,7 @@ function UploadTab({ onDone }) {
     if (!parsed || parsed.errors.length) return;
     setRunning(true); setUploadError('');
     try {
-      const res = await executeUpload(parsed.rows);
+      const res = await executor(parsed.rows);
       setResult(res);
       onDone();
     } catch (err) {
@@ -1303,11 +1549,9 @@ function UploadTab({ onDone }) {
   }
 
   return (
-    <div>
-      <p style={{ fontSize: 13, color: 'var(--tx2)' }}>
-        Upload a CSV export of the recruitment template (Division, Role Title, Location, candidate details).
-        Existing roles/locations are matched by name; anything new is created automatically.
-      </p>
+    <Modal onClose={onClose}>
+      <div style={{ fontWeight: 600, marginBottom: 8 }}>{title}</div>
+      <p style={{ fontSize: 13, color: 'var(--tx2)' }}>{helpText}</p>
       <input type="file" accept=".csv,.xlsx" onChange={handleFile} />
 
       {uploadError && <div style={{ marginTop: 12, color: 'var(--dgr-tx)', fontSize: 13 }}><strong>Upload failed:</strong> {uploadError}</div>}
@@ -1337,6 +1581,6 @@ function UploadTab({ onDone }) {
           )}
         </div>
       )}
-    </div>
+    </Modal>
   );
 }
