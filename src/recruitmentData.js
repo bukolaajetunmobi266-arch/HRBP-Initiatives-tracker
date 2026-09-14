@@ -172,7 +172,6 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     }
   }
 
-  const totalInPipeline = Object.values(funnelCounts).reduce((a, b) => a + b, 0);
 
   const closeTimes = roleLocationsWithCandidates
     .map(rl => computeTimeToClose(rl))
@@ -196,7 +195,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
     funnelCounts,
     funnelPct: Object.fromEntries(
-      CANDIDATE_FUNNEL_STAGES.map(s => [s, totalInPipeline ? Math.round((funnelCounts[s] / totalInPipeline) * 100) : 0])
+      CANDIDATE_FUNNEL_STAGES.map(s => [s, totalSlots ? Math.round((funnelCounts[s] / totalSlots) * 100) : 0])
     ),
     byDivision: Object.entries(divisionAgg).map(([name, v]) => ({
       name,

@@ -152,7 +152,8 @@ export default function RecruitmentModule({ tab, setTab }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <TabNav tab={tab} setTab={setTab} canManageDivisions={canManageDivisions} />
         <RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
@@ -208,6 +209,21 @@ export default function RecruitmentModule({ tab, setTab }) {
 // =================================================================
 // Nav + Filters
 // =================================================================
+function TabNav({ tab, setTab, canManageDivisions }) {
+  const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates'], ['upload', 'Upload']];
+  if (canManageDivisions) tabs.push(['deleted', 'Deleted']);
+  return (
+    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+      {tabs.map(([id, label]) => (
+        <button key={id} onClick={() => setTab(id)}
+          style={{ border: 'none', background: tab === id ? 'var(--acc-bg)' : 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FilterBar({ divisions, roles, locations, filters, setFilters, showDivisionFilter }) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -422,6 +438,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   const [addingLocationFor, setAddingLocationFor] = useState(null);
   const [showNewRole, setShowNewRole] = useState(false);
   const [filterMode, setFilterMode] = useState(initialFilterMode || 'all');
+  const [collapsedDivisions, setCollapsedDivisions] = useState({});
 
   useEffect(() => { if (initialFilterMode) setFilterMode(initialFilterMode); }, [initialFilterMode]);
 
@@ -497,10 +514,17 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
         </div>
       )}
 
-      {divNames.map(divName => (
+      {divNames.map(divName => {
+        const isCollapsed = collapsedDivisions[divName];
+        return (
         <div key={divName} style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--tx1)', marginBottom: 10 }}>{divName}</div>
-          {Object.entries(divisionGroups[divName]).map(([roleId, role]) => {
+          <button onClick={() => setCollapsedDivisions(c => ({ ...c, [divName]: !c[divName] }))}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{isCollapsed ? '▸' : '▾'}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--tx1)' }}>{divName}</span>
+          </button>
+          {!isCollapsed &&
+          Object.entries(divisionGroups[divName]).map(([roleId, role]) => {
             const totalPositions = role.locations.reduce((sum, rl) => sum + rl.no_of_positions, 0);
             const totalSecured = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length, 0);
             const totalClosed = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => c.status === 'Closed').length, 0);
@@ -543,7 +567,8 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
             );
           })}
         </div>
-      ))}
+        );
+      })}
 
       {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} onSaved={() => { setEditingRole(null); onChanged(); }} />}
       {confirmDeleteRole && (

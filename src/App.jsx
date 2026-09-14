@@ -213,12 +213,7 @@ function Dashboard({ session, theme, setTheme }) {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
-      <Sidebar
-        appMode={appMode} setAppMode={setAppMode}
-        view={view} setView={setView} setSelected={setSelected}
-        recruitmentTab={recruitmentTab} setRecruitmentTab={setRecruitmentTab}
-        collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed}
-      />
+      <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
@@ -230,6 +225,7 @@ function Dashboard({ session, theme, setTheme }) {
             <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
           </div>
         )}
+        <Nav view={view} setView={setView} setSelected={setSelected} />
 
         {(view === 'board' || view === 'deliverables' || view === 'calendar') && (
           <FilterBar filters={filters} setFilters={setFilters} profiles={profiles} isAdmin={isAdmin} />
@@ -403,20 +399,12 @@ function Header({ profile, userId, theme, setTheme }) {
   )
 }
 
-const DELIVERABLES_NAV = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
-
-const RECRUITMENT_NAV = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates'], ['upload', 'Upload'], ['deleted', 'Deleted']]
-
-function Sidebar({ appMode, setAppMode, view, setView, setSelected, recruitmentTab, setRecruitmentTab, collapsed, setCollapsed }) {
+function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
   const width = collapsed ? 56 : 220
   const sectionButtonStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
     border: 'none', background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx1)',
     padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
-  })
-  const subItemStyle = (active) => ({
-    display: 'block', width: '100%', textAlign: 'left', border: 'none', background: active ? 'var(--acc-bg)' : 'transparent',
-    color: active ? 'var(--acc-tx)' : 'var(--tx2)', padding: '8px 14px 8px 38px', fontSize: 13, cursor: 'pointer', borderRadius: 8,
   })
 
   return (
@@ -432,24 +420,24 @@ function Sidebar({ appMode, setAppMode, view, setView, setSelected, recruitmentT
       <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
         <span>📋</span>{!collapsed && <span>Deliverables</span>}
       </button>
-      {!collapsed && appMode === 'deliverables' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
-          {DELIVERABLES_NAV.map(([id, label]) => (
-            <button key={id} onClick={() => { setView(id); setSelected({}) }} style={subItemStyle(view === id)}>{label}</button>
-          ))}
-        </div>
-      )}
 
       <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
         <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
       </button>
-      {!collapsed && appMode === 'recruitment' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
-          {RECRUITMENT_NAV.map(([id, label]) => (
-            <button key={id} onClick={() => setRecruitmentTab(id)} style={subItemStyle(recruitmentTab === id)}>{label}</button>
-          ))}
-        </div>
-      )}
+    </div>
+  )
+}
+
+function Nav({ view, setView, setSelected }) {
+  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
+  return (
+    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+      {tabs.map(([id, label]) => (
+        <button key={id} onClick={() => { setView(id); setSelected({}) }}
+          style={{ border: 'none', background: view === id ? 'var(--acc-bg)' : 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          {label}
+        </button>
+      ))}
     </div>
   )
 }
