@@ -256,3 +256,84 @@ export async function executeUpload(parsedRows, onProgress) {
 
   return results;
 }
+
+// ---------------------------------------------------------------
+// Candidate-only bulk upload — for the Candidates tab. Deliberately
+// stricter than executeUpload: it never creates a division, role, or
+// role_location. If the Division/Role/Location named in a row doesn't
+// already exist, that row fails with a clear message rather than
+// silently creating structure — creating roles/locations is the Roles
+// tab's job, not Candidates'. Every row here also requires a Candidate
+// Name; a blank name has nothing to do on this tab.
+// ---------------------------------------------------------------
+export async function executeCandidateUpload(parsedRows, onProgress) {
+  const results = { created: 0, skipped: 0, failed: [] };
+  const { data: { user } } = await supabase.auth.getUser();
+  const roleLocationCache = new Map(); // key: `${division}::${role}::${location}` -> role_location_id
+
+  for (const row of parsedRows) {
+    if (row.errors.length) { results.skipped++; continue; }
+    const r = row.raw;
+
+    try {
+      if (!r['Candidate Name']?.trim()) {
+        throw new Error('Candidate Name is required for a candidate upload.');
+      }
+
+      const key = `${r['Division'].trim()}::${r['Role Title'].trim()}::${r['Location'].trim()}`;
+      let roleLocationId = roleLocationCache.get(key);
+      if (!roleLocationId) {
+        const { data: div, error: divErr } = await supabase
+          .from('divisions').select('division_id').eq('name', r['Division'].trim()).maybeSingle();
+        if (divErr) throw divErr;
+        if (!div) throw new Error(`Division "${r['Division']}" doesn't exist.`);
+
+        const { data: role, error: roleErr } = await supabase
+          .from('roles').select('role_id')
+          .eq('division_id', div.division_id).eq('role_title', r['Role Title'].trim())
+          .is('deleted_at', null).maybeSingle();
+        if (roleErr) throw roleErr;
+        if (!role) throw new Error(`Role "${r['Role Title']}" doesn't exist under "${r['Division']}" — create it on the Roles tab first.`);
+
+        const { data: rl, error: rlErr } = await supabase
+          .from('role_locations').select('role_location_id')
+          .eq('role_id', role.role_id).eq('location', r['Location'].trim())
+          .is('deleted_at', null).maybeSingle();
+        if (rlErr) throw rlErr;
+        if (!rl) throw new Error(`Location "${r['Location']}" doesn't exist for "${r['Role Title']}" — add it on the Roles tab first.`);
+
+        roleLocationId = rl.role_location_id;
+        roleLocationCache.set(key, roleLocationId);
+      }
+
+      const { error } = await supabase.from('candidates').insert({
+        role_location_id: roleLocationId,
+        candidate_name: r['Candidate Name'].trim(),
+        contact_phone: r['Contact Phone']?.trim() || null,
+        source: r['Source']?.trim() || null,
+        status: r['Candidate Status']?.trim() || 'Sourcing',
+        medical_report_received: parseBool(r['Medical Report Received']),
+        date_sourced: parseDate(r['Date Sourced']),
+        date_interview: parseDate(r['Date Interview']),
+        date_sent_for_onboarding_approval: parseDate(r['Date Sent for Onboarding Approval']),
+        date_documentation_started: parseDate(r['Date Documentation Started']),
+        date_offer_extended: parseDate(r['Date Offer Extended']),
+        date_offer_accepted: parseDate(r['Date Offer Accepted']),
+        expected_resumption_date: parseDate(r['Expected Resumption Date']),
+        actual_resumption_date: parseDate(r['Actual Resumption Date']),
+        date_closed: parseDate(r['Date Closed']),
+        status_reason: r['Status Reason']?.trim() || null,
+        created_by: user?.id,
+        updated_by: user?.id,
+      });
+      if (error) throw error;
+
+      results.created++;
+    } catch (err) {
+      results.failed.push({ rowNum: row.rowNum, message: err.message });
+    }
+    onProgress?.(results);
+  }
+
+  return results;
+}
