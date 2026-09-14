@@ -66,9 +66,8 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 // =================================================================
 // Root component
 // =================================================================
-export default function RecruitmentModule() {
+export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
-  const [tab, setTab] = useState('overview');
   const [divisions, setDivisions] = useState([]);
   const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '' });
   const [rowsWithCandidates, setRowsWithCandidates] = useState([]);
@@ -153,8 +152,7 @@ export default function RecruitmentModule() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TabNav tab={tab} setTab={setTab} canManageDivisions={canManageDivisions} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
         <RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
@@ -200,7 +198,7 @@ export default function RecruitmentModule() {
             />
           )}
           {tab === 'upload' && <UploadTab onDone={reload} />}
-          {tab === 'deleted' && canManageDivisions && <DeletedTab onChanged={reload} />}
+          {tab === 'deleted' && (canManageDivisions ? <DeletedTab onChanged={reload} /> : <div style={{ padding: 20, color: 'var(--txm)' }}>Admin or Recruitment Admin access needed.</div>)}
         </>
       )}
     </div>
@@ -210,21 +208,6 @@ export default function RecruitmentModule() {
 // =================================================================
 // Nav + Filters
 // =================================================================
-function TabNav({ tab, setTab, canManageDivisions }) {
-  const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates'], ['upload', 'Upload']];
-  if (canManageDivisions) tabs.push(['deleted', 'Deleted']);
-  return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-      {tabs.map(([id, label]) => (
-        <button key={id} onClick={() => setTab(id)}
-          style={{ border: 'none', background: tab === id ? 'var(--acc-bg)' : 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function FilterBar({ divisions, roles, locations, filters, setFilters, showDivisionFilter }) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -342,6 +325,19 @@ function YearComparisonSection({ filters }) {
   );
 }
 
+function CollapsibleSection({ title, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: open ? 8 : 0 }}>
+        <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{open ? '▾' : '▸'}</span>
+        <span style={{ fontSize: 13, color: 'var(--tx2)', fontWeight: 500 }}>{title}</span>
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
@@ -356,42 +352,44 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 8px' }}>Candidate funnel — click any stage</p>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 32, flexWrap: 'wrap' }}>
-        {FUNNEL_STAGES.map(stage => {
-          const [role] = funnelStyle(stage);
-          return (
-            <div key={stage} onClick={() => onFunnelClick(stage)} style={{ flex: 1, minWidth: 90, textAlign: 'center', cursor: 'pointer' }}>
-              <div style={{ background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, borderRadius: 8, padding: '8px 4px' }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{metrics.funnelCounts[stage]}</div>
-                <div style={{ fontSize: 11 }}>{metrics.funnelPct[stage]}%</div>
+      <CollapsibleSection title="Candidate funnel — click any stage">
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {FUNNEL_STAGES.map(stage => {
+            const [role] = funnelStyle(stage);
+            return (
+              <div key={stage} onClick={() => onFunnelClick(stage)} style={{ flex: 1, minWidth: 90, textAlign: 'center', cursor: 'pointer' }}>
+                <div style={{ background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, borderRadius: 8, padding: '8px 4px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{metrics.funnelCounts[stage]}</div>
+                  <div style={{ fontSize: 11 }}>{metrics.funnelPct[stage]}%</div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 4 }}>{stage}</div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 4 }}>{stage}</div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
 
-      <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 4px' }}>Closure rates by division</p>
-      <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
-        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
-        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {metrics.byDivision.map(d => (
-          <div key={d.name}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 13 }}>
-              <span>{d.name}</span>
-              <span style={{ color: 'var(--tx2)', fontSize: 12 }}>{d.fillRatePct}% filled · {d.closureRatePct}% closed</span>
+      <CollapsibleSection title="Closure rates by division">
+        <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
+          <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
+          <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {metrics.byDivision.map(d => (
+            <div key={d.name}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 13 }}>
+                <span>{d.name}</span>
+                <span style={{ color: 'var(--tx2)', fontSize: 12 }}>{d.fillRatePct}% filled · {d.closureRatePct}% closed</span>
+              </div>
+              <div style={{ background: 'var(--bg1)', borderRadius: 4, height: 10, position: 'relative' }}>
+                <div style={{ width: `${d.fillRatePct}%`, background: 'var(--wrn-fill)', height: 10, borderRadius: 4, position: 'absolute' }} />
+                <div style={{ width: `${d.closureRatePct}%`, background: 'var(--suc-fill)', height: 10, borderRadius: 4, position: 'absolute' }} />
+              </div>
             </div>
-            <div style={{ background: 'var(--bg1)', borderRadius: 4, height: 10, position: 'relative' }}>
-              <div style={{ width: `${d.fillRatePct}%`, background: 'var(--wrn-fill)', height: 10, borderRadius: 4, position: 'absolute' }} />
-              <div style={{ width: `${d.closureRatePct}%`, background: 'var(--suc-fill)', height: 10, borderRadius: 4, position: 'absolute' }} />
-            </div>
-          </div>
-        ))}
-        {metrics.byDivision.length === 0 && <div style={{ color: 'var(--txm)', fontSize: 13 }}>No open roles yet.</div>}
-      </div>
+          ))}
+          {metrics.byDivision.length === 0 && <div style={{ color: 'var(--txm)', fontSize: 13 }}>No open roles yet.</div>}
+        </div>
+      </CollapsibleSection>
 
       <YearComparisonSection filters={filters} />
     </div>

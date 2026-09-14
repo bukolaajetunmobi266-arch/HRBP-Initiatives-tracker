@@ -71,7 +71,13 @@ export async function fetchRolesByDivision(divisionId) {
 // ---------------------------------------------------------------
 export async function fetchRoleLocationsWithCandidates(filters = {}) {
   // filters: { divisionId, roleId, location, year }
-  let query = supabase
+  // Division/Role/Location are applied client-side below, not as server
+  // query filters — filtering through a nested embedded resource
+  // (roles.division_id) proved unreliable, and divisionId in particular
+  // was never being applied to the query at all. Fetching everything RLS
+  // already scopes the user to, then filtering in plain JS, is simpler
+  // and something we can actually verify is correct.
+  const query = supabase
     .from('role_locations')
     .select(`
       role_location_id, location, no_of_positions, status, planned_start_date,
@@ -81,11 +87,16 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     `)
     .is('deleted_at', null)
     .is('roles.deleted_at', null);
-  if (filters.roleId) query = query.eq('role_id', filters.roleId);
-  if (filters.location) query = query.eq('location', filters.location);
 
-  const { data: roleLocations, error } = await query;
+  const { data: allRoleLocations, error } = await query;
   if (error) throw error;
+
+  const roleLocations = allRoleLocations.filter(rl => {
+    if (filters.divisionId && rl.roles.division_id !== filters.divisionId) return false;
+    if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
+    if (filters.location && rl.location !== filters.location) return false;
+    return true;
+  });
 
   const rlIds = roleLocations.map(rl => rl.role_location_id);
   if (rlIds.length === 0) return [];

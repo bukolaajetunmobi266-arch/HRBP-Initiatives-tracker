@@ -93,6 +93,7 @@ function Dashboard({ session, theme, setTheme }) {
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [appMode, setAppMode] = useState('deliverables') // 'deliverables' | 'recruitment'
+  const [recruitmentTab, setRecruitmentTab] = useState('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const userId = session.user.id
@@ -215,6 +216,7 @@ function Dashboard({ session, theme, setTheme }) {
       <Sidebar
         appMode={appMode} setAppMode={setAppMode}
         view={view} setView={setView} setSelected={setSelected}
+        recruitmentTab={recruitmentTab} setRecruitmentTab={setRecruitmentTab}
         collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -296,7 +298,7 @@ function Dashboard({ session, theme, setTheme }) {
         </>
         )}
 
-        {appMode === 'recruitment' && <RecruitmentModule />}
+        {appMode === 'recruitment' && <RecruitmentModule tab={recruitmentTab} setTab={setRecruitmentTab} />}
         </div>
       </div>
 
@@ -403,7 +405,9 @@ function Header({ profile, userId, theme, setTheme }) {
 
 const DELIVERABLES_NAV = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
 
-function Sidebar({ appMode, setAppMode, view, setView, setSelected, collapsed, setCollapsed }) {
+const RECRUITMENT_NAV = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates'], ['upload', 'Upload'], ['deleted', 'Deleted']]
+
+function Sidebar({ appMode, setAppMode, view, setView, setSelected, recruitmentTab, setRecruitmentTab, collapsed, setCollapsed }) {
   const width = collapsed ? 56 : 220
   const sectionButtonStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
@@ -439,6 +443,13 @@ function Sidebar({ appMode, setAppMode, view, setView, setSelected, collapsed, s
       <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
         <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
       </button>
+      {!collapsed && appMode === 'recruitment' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
+          {RECRUITMENT_NAV.map(([id, label]) => (
+            <button key={id} onClick={() => setRecruitmentTab(id)} style={subItemStyle(recruitmentTab === id)}>{label}</button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
