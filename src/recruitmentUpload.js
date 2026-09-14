@@ -69,10 +69,8 @@ function parseBool(val) {
 }
 
 // Returns { rows: [...], errors: [...] } — validates before writing anything.
-export function parseUploadFile(fileText) {
-  const parsed = parseCsv(fileText);
+function validateParsedRows(parsed) {
   const errors = [];
-
   const headers = parsed.meta.fields || [];
   const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
   if (missingHeaders.length) {
@@ -94,6 +92,53 @@ export function parseUploadFile(fileText) {
   });
 
   return { rows, errors };
+}
+
+// CSV entry point — unchanged behavior, no external dependency.
+export function parseUploadFile(fileText) {
+  return validateParsedRows(parseCsv(fileText));
+}
+
+// ---------------------------------------------------------------
+// XLSX entry point — loads SheetJS from a CDN at *runtime* (a plain
+// <script> tag, injected into the page), not as an npm import. This is
+// deliberate: an npm import (like the papaparse one that broke the build
+// earlier) needs to be listed in package.json and installed before Netlify
+// can build the app — something this workflow (editing files directly on
+// GitHub, no local npm install step) can't do. A runtime script tag has no
+// such requirement — it's fetched by the browser when the Upload tab is
+// used, exactly like a web font, and never touches the build at all.
+// ---------------------------------------------------------------
+let xlsxLibPromise = null;
+function loadXlsxLibrary() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (xlsxLibPromise) return xlsxLibPromise;
+  xlsxLibPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    script.onload = () => resolve(window.XLSX);
+    script.onerror = () => reject(new Error('Could not load the Excel reader. Check your internet connection and try again, or save the file as CSV instead.'));
+    document.head.appendChild(script);
+  });
+  return xlsxLibPromise;
+}
+
+export async function parseXlsxUploadFile(file) {
+  const XLSX = await loadXlsxLibrary();
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames.find(n => n.toLowerCase() === 'data') || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+  const meta = { fields: data.length ? Object.keys(data[0]) : [] };
+  // Coerce every cell to a string, same shape parseCsv produces, so
+  // validateParsedRows doesn't need to know which source it came from.
+  const stringified = data.map(row => {
+    const out = {};
+    for (const [k, v] of Object.entries(row)) out[k] = v === null || v === undefined ? '' : String(v).trim();
+    return out;
+  });
+  return validateParsedRows({ data: stringified, meta });
 }
 
 // Executes the upload: creates/reuses divisions lookup (divisions must already

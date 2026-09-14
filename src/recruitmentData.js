@@ -79,9 +79,8 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
       roles!inner ( role_id, role_title, role_type, suggested_grade, division_id,
         divisions!inner ( division_id, name, hrbp_id ) )
     `)
-    .is('deleted_at', null);
-
-  if (filters.divisionId) query = query.eq('roles.division_id', filters.divisionId);
+    .is('deleted_at', null)
+    .is('roles.deleted_at', null);
   if (filters.roleId) query = query.eq('role_id', filters.roleId);
   if (filters.location) query = query.eq('location', filters.location);
 
@@ -164,11 +163,24 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 
   const totalInPipeline = Object.values(funnelCounts).reduce((a, b) => a + b, 0);
 
+  const closeTimes = roleLocationsWithCandidates
+    .map(rl => computeTimeToClose(rl))
+    .filter(d => d !== null);
+  const avgTimeToClose = closeTimes.length ? Math.round(closeTimes.reduce((a, b) => a + b, 0) / closeTimes.length) : null;
+
+  const onboardTimes = roleLocationsWithCandidates
+    .flatMap(rl => rl.candidates)
+    .map(c => computeTimeToOnboard(c))
+    .filter(d => d !== null);
+  const avgTimeToOnboard = onboardTimes.length ? Math.round(onboardTimes.reduce((a, b) => a + b, 0) / onboardTimes.length) : null;
+
   return {
     totalSlots,
     totalRoles: uniqueRoleIds.size,
     totalRoleLocations: roleLocationsWithCandidates.length,
     yetToStartSlots,
+    avgTimeToClose,
+    avgTimeToOnboard,
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
     closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
     funnelCounts,
@@ -198,6 +210,7 @@ export function computeStalledOnboarding(roleLocationsWithCandidates) {
           candidateId: c.candidate_id,
           candidateName: c.candidate_name,
           roleLocationId: rl.role_location_id,
+          divisionId: rl.roles.division_id,
           roleTitle: rl.roles.role_title,
           division: rl.roles.divisions.name,
           location: rl.location,
@@ -208,6 +221,16 @@ export function computeStalledOnboarding(roleLocationsWithCandidates) {
     }
   }
   return results;
+}
+
+export async function fetchMyNotifications() {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return data;
 }
 
 // ---------------------------------------------------------------

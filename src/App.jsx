@@ -93,6 +93,7 @@ function Dashboard({ session, theme, setTheme }) {
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [appMode, setAppMode] = useState('deliverables') // 'deliverables' | 'recruitment'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const userId = session.user.id
 
@@ -210,10 +211,15 @@ function Dashboard({ session, theme, setTheme }) {
   if (loading || !profile) return <div style={{ minHeight: '100vh', background: 'var(--bg0)' }} />
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)' }}>
-      <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
-      <ModeSwitcher appMode={appMode} setAppMode={setAppMode} />
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+      <Sidebar
+        appMode={appMode} setAppMode={setAppMode}
+        view={view} setView={setView} setSelected={setSelected}
+        collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
         {appMode === 'deliverables' && (
         <>
         {view !== 'summary' && (
@@ -222,7 +228,6 @@ function Dashboard({ session, theme, setTheme }) {
             <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
           </div>
         )}
-        <Nav view={view} setView={setView} setSelected={setSelected} />
 
         {(view === 'board' || view === 'deliverables' || view === 'calendar') && (
           <FilterBar filters={filters} setFilters={setFilters} profiles={profiles} isAdmin={isAdmin} />
@@ -292,6 +297,7 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {appMode === 'recruitment' && <RecruitmentModule />}
+        </div>
       </div>
 
       {editing && (
@@ -383,50 +389,56 @@ function Dashboard({ session, theme, setTheme }) {
 function Header({ profile, userId, theme, setTheme }) {
   return (
     <header style={{ background: 'var(--navy)', color: '#fff' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>People Management Tracker</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
-          <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
-            {theme === 'light' ? 'Dark mode' : 'Light mode'}
-          </button>
-          <NotificationBell userId={userId} />
-          <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
-        </div>
+      <div style={{ margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+          {theme === 'light' ? 'Dark mode' : 'Light mode'}
+        </button>
+        <NotificationBell userId={userId} />
+        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
     </header>
   )
 }
 
-function ModeSwitcher({ appMode, setAppMode }) {
-  return (
-    <div style={{ background: 'var(--bg1)', borderBottom: '0.5px solid var(--bd)' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '10px 1rem', display: 'flex', gap: 8 }}>
-        {[['deliverables', 'Deliverables Tracker'], ['recruitment', 'Recruitment Tracker']].map(([id, label]) => (
-          <button key={id} onClick={() => setAppMode(id)}
-            style={{
-              border: 'none', borderRadius: 999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: appMode === id ? 'var(--acc-fill)' : 'var(--bg2)',
-              color: appMode === id ? '#fff' : 'var(--tx2)',
-            }}>
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+const DELIVERABLES_NAV = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
 
-function Nav({ view, setView, setSelected }) {
-  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
+function Sidebar({ appMode, setAppMode, view, setView, setSelected, collapsed, setCollapsed }) {
+  const width = collapsed ? 56 : 220
+  const sectionButtonStyle = (active) => ({
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+    border: 'none', background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx1)',
+    padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+  })
+  const subItemStyle = (active) => ({
+    display: 'block', width: '100%', textAlign: 'left', border: 'none', background: active ? 'var(--acc-bg)' : 'transparent',
+    color: active ? 'var(--acc-tx)' : 'var(--tx2)', padding: '8px 14px 8px 38px', fontSize: 13, cursor: 'pointer', borderRadius: 8,
+  })
+
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-      {tabs.map(([id, label]) => (
-        <button key={id} onClick={() => { setView(id); setSelected({}) }}
-          style={{ border: 'none', background: view === id ? 'var(--acc-bg)' : 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
-          {label}
+    <div style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg1)', borderRight: '0.5px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '12px 8px', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '4px 6px 14px' }}>
+        {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>People Management</span>}
+        <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 16, padding: 4 }}>
+          {collapsed ? '»' : '«'}
         </button>
-      ))}
+      </div>
+
+      <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
+        <span>📋</span>{!collapsed && <span>Deliverables</span>}
+      </button>
+      {!collapsed && appMode === 'deliverables' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
+          {DELIVERABLES_NAV.map(([id, label]) => (
+            <button key={id} onClick={() => { setView(id); setSelected({}) }} style={subItemStyle(view === id)}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
+        <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
+      </button>
     </div>
   )
 }

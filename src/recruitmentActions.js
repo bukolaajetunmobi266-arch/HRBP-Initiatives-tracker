@@ -25,6 +25,22 @@ export async function updateCandidateStatus(candidateId, newStatus, extraFields 
   return data;
 }
 
+// Full profile update — every editable field on a candidate, used by the
+// Candidate Profile panel. Only the fields actually passed in `fields` are
+// written; callers send the whole form state each save.
+export async function updateCandidate(candidateId, fields) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const payload = { ...fields, updated_by: user?.id };
+  const { data, error } = await supabase
+    .from('candidates')
+    .update(payload)
+    .eq('candidate_id', candidateId)
+    .select()
+    .single();
+  if (error) throw friendlyError(error);
+  return data;
+}
+
 // Bulk update — same status applied to multiple candidates at once.
 export async function bulkUpdateCandidateStatus(candidateIds, newStatus, extraFields = {}) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -122,6 +138,32 @@ export async function createRole({ divisionId, roleTitle, roleType, suggestedGra
   return data;
 }
 
+export async function updateRole({ roleId, roleTitle, roleType, suggestedGrade }) {
+  const { data, error } = await supabase
+    .from('roles')
+    .update({ role_title: roleTitle, role_type: roleType, suggested_grade: suggestedGrade || null })
+    .eq('role_id', roleId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateRoleLocation({ roleLocationId, location, noOfPositions, status, plannedStartDate, dateRequestReceived }) {
+  const { data, error } = await supabase
+    .from('role_locations')
+    .update({
+      location, no_of_positions: noOfPositions, status,
+      planned_start_date: plannedStartDate || null,
+      date_request_received: dateRequestReceived || null,
+    })
+    .eq('role_location_id', roleLocationId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // Add a new candidate against a role_location
 export async function addCandidate({ roleLocationId, candidateName, contactPhone, source, status = 'Sourcing' }) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -141,3 +183,78 @@ export async function addCandidate({ roleLocationId, candidateName, contactPhone
   if (error) throw friendlyError(error);
   return data;
 }
+
+// ---------------------------------------------------------------
+// Stalled Onboarding notifications — computed client-side (see
+// computeStalledOnboarding), written here so they persist and can be
+// marked read. One row per candidate per threshold crossed — a second,
+// distinct 'stalled_onboarding_escalation' row is written once a
+// candidate passes 28 days, without touching the first 14-day row.
+// ---------------------------------------------------------------
+export async function syncStalledNotifications(stalledList) {
+  for (const s of stalledList) {
+    const type = s.isEscalated ? 'stalled_onboarding_escalation' : 'stalled_onboarding';
+    const { data: existing, error: checkErr } = await supabase
+      .from('notifications')
+      .select('notification_id')
+      .eq('candidate_id', s.candidateId)
+      .eq('type', type)
+      .maybeSingle();
+    if (checkErr) continue; // don't let a notification glitch break the page
+    if (existing) continue; // already recorded, don't spam duplicates
+
+    const message = s.isEscalated
+      ? `${s.candidateName} has been stalled in onboarding for ${s.daysStalled} days (${s.roleTitle}, ${s.location}) — still no offer acceptance recorded.`
+      : `${s.candidateName} has been stalled in onboarding for ${s.daysStalled} days (${s.roleTitle}, ${s.location}).`;
+
+    await supabase.from('notifications').insert({
+      type, candidate_id: s.candidateId, role_location_id: s.roleLocationId,
+      division_id: s.divisionId, message,
+    });
+  }
+}
+
+export async function markNotificationRead(notificationId, userId) {
+  const { data: row, error: fetchErr } = await supabase
+    .from('notifications').select('read_by').eq('notification_id', notificationId).single();
+  if (fetchErr) throw fetchErr;
+  const readBy = row.read_by || [];
+  if (readBy.includes(userId)) return;
+  const { error } = await supabase
+    .from('notifications').update({ read_by: [...readBy, userId] }).eq('notification_id', notificationId);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------
+// Delete / restore — soft delete only, per the design (nothing is
+// ever hard-deleted; a Recently Deleted view can always bring it back)
+// ---------------------------------------------------------------
+export async function deleteRole(roleId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('roles').update({ deleted_at: new Date().toISOString(), deleted_by: user?.id }).eq('role_id', roleId);
+  if (error) throw error;
+}
+
+export async function restoreRole(roleId) {
+  const { error } = await supabase.from('roles').update({ deleted_at: null, deleted_by: null }).eq('role_id', roleId);
+  if (error) throw error;
+}
+
+export async function deleteRoleLocationAction(roleLocationId) {
+  // Distinct name from softDeleteRoleLocation above to avoid confusion — same underlying call.
+  return softDeleteRoleLocation(roleLocationId);
+}
+
+export async function fetchDeletedRolesAndLocations() {
+  const { data: roles, error: rErr } = await supabase
+    .from('roles').select('role_id, role_title, deleted_at, divisions(name)').not('deleted_at', 'is', null);
+  if (rErr) throw rErr;
+  const { data: locations, error: lErr } = await supabase
+    .from('role_locations')
+    .select('role_location_id, location, deleted_at, roles(role_title, divisions(name))')
+    .not('deleted_at', 'is', null);
+  if (lErr) throw lErr;
+  return { roles: roles || [], locations: locations || [] };
+}
+
