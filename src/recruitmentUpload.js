@@ -50,11 +50,11 @@ function parseCsv(text) {
 
 const REQUIRED_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Suggested Grade',
-  'Location', 'No of Positions', 'Role Location Status', 'Planned Start Date', 'Date Request Received',
+  'Location', 'No of Positions', 'Role Location Status', 'Planned Start Date', 'Date Request Received', 'Date Location Closed',
   'Candidate Name', 'Contact Phone', 'Source', 'Candidate Status', 'Medical Report Received',
   'Date Sourced', 'Date Interview', 'Date Sent for Onboarding Approval', 'Date Documentation Started',
   'Date Offer Extended', 'Date Offer Accepted', 'Expected Resumption Date', 'Actual Resumption Date',
-  'Date Closed', 'Status Reason',
+  'Date Closed', 'Status Reason', 'Status Stage at Exit',
 ];
 
 function parseDate(val) {
@@ -69,7 +69,7 @@ function parseBool(val) {
 }
 
 // Returns { rows: [...], errors: [...] } — validates before writing anything.
-function validateParsedRows(parsed) {
+function validateParsedRows(parsed, mode) {
   const errors = [];
   const headers = parsed.meta.fields || [];
   const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
@@ -87,6 +87,34 @@ function validateParsedRows(parsed) {
     if (!row['No of Positions'] || isNaN(Number(row['No of Positions']))) {
       rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
     }
+
+    // Location-level rules — only apply to the Roles upload path, since only
+    // that one creates/updates role_locations. Time to Close depends on both
+    // of these, so a blank one here silently breaks that metric forever.
+    if (mode === 'roles') {
+      if (!row['Date Request Received']?.trim()) {
+        rowErrors.push(`Row ${rowNum}: Date Request Received is blank — required so Time to Close can be calculated.`);
+      }
+      if (row['Role Location Status']?.trim() === 'Closed' && !row['Date Location Closed']?.trim()) {
+        rowErrors.push(`Row ${rowNum}: Role Location Status is Closed but Date Location Closed is blank.`);
+      }
+    }
+
+    // Candidate-level rules — apply to both paths, since both write candidates.
+    // Only enforced once the candidate has actually reached the stage where
+    // Time to Onboard's two dates should exist.
+    if (row['Candidate Name']?.trim()) {
+      const status = row['Candidate Status']?.trim();
+      if (status === 'Awaiting Resumption' || status === 'Closed') {
+        if (!row['Date Sent for Onboarding Approval']?.trim()) {
+          rowErrors.push(`Row ${rowNum}: Candidate Status is "${status}" but Date Sent for Onboarding Approval is blank — required for Time to Onboard.`);
+        }
+        if (!row['Date Offer Accepted']?.trim()) {
+          rowErrors.push(`Row ${rowNum}: Candidate Status is "${status}" but Date Offer Accepted is blank — required for Time to Onboard.`);
+        }
+      }
+    }
+
     if (rowErrors.length) errors.push(...rowErrors);
     return { rowNum, raw: row, errors: rowErrors };
   });
@@ -95,8 +123,8 @@ function validateParsedRows(parsed) {
 }
 
 // CSV entry point — unchanged behavior, no external dependency.
-export function parseUploadFile(fileText) {
-  return validateParsedRows(parseCsv(fileText));
+export function parseUploadFile(fileText, mode = 'roles') {
+  return validateParsedRows(parseCsv(fileText), mode);
 }
 
 // ---------------------------------------------------------------
@@ -123,7 +151,7 @@ function loadXlsxLibrary() {
   return xlsxLibPromise;
 }
 
-export async function parseXlsxUploadFile(file) {
+export async function parseXlsxUploadFile(file, mode = 'roles') {
   const XLSX = await loadXlsxLibrary();
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -138,7 +166,7 @@ export async function parseXlsxUploadFile(file) {
     for (const [k, v] of Object.entries(row)) out[k] = v === null || v === undefined ? '' : String(v).trim();
     return out;
   });
-  return validateParsedRows({ data: stringified, meta });
+  return validateParsedRows({ data: stringified, meta }, mode);
 }
 
 // Executes the upload: creates/reuses divisions lookup (divisions must already
@@ -214,6 +242,7 @@ export async function executeUpload(parsedRows, onProgress) {
               status: r['Role Location Status']?.trim() || 'Yet to Start',
               planned_start_date: parseDate(r['Planned Start Date']),
               date_request_received: parseDate(r['Date Request Received']),
+              date_location_closed: parseDate(r['Date Location Closed']),
               created_by: user?.id,
             }).select('role_location_id').single();
           if (error) throw error;
@@ -241,6 +270,7 @@ export async function executeUpload(parsedRows, onProgress) {
           actual_resumption_date: parseDate(r['Actual Resumption Date']),
           date_closed: parseDate(r['Date Closed']),
           status_reason: r['Status Reason']?.trim() || null,
+          status_stage_at_exit: r['Status Stage at Exit']?.trim() || null,
           created_by: user?.id,
           updated_by: user?.id,
         });
@@ -323,6 +353,7 @@ export async function executeCandidateUpload(parsedRows, onProgress) {
         actual_resumption_date: parseDate(r['Actual Resumption Date']),
         date_closed: parseDate(r['Date Closed']),
         status_reason: r['Status Reason']?.trim() || null,
+        status_stage_at_exit: r['Status Stage at Exit']?.trim() || null,
         created_by: user?.id,
         updated_by: user?.id,
       });

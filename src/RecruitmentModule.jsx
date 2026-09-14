@@ -14,8 +14,7 @@ import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUp
 import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
-  syncStalledNotifications, markNotificationRead, deleteRole, restoreRole,
-  deleteRoleLocationAction, restoreRoleLocation, fetchDeletedRolesAndLocations,
+  syncStalledNotifications, markNotificationRead,
 } from './recruitmentActions';
 
 // ---------------------------------------------------------------
@@ -153,7 +152,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TabNav tab={tab} setTab={setTab} canManageDivisions={canManageDivisions} />
+        <TabNav tab={tab} setTab={setTab} />
         <RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
@@ -186,7 +185,6 @@ export default function RecruitmentModule({ tab, setTab }) {
               initialFilterMode={roleFilterMode}
               divisions={divisions}
               onViewCandidates={jumpToCandidatesByLocation}
-              canDelete={canManageDivisions}
             />
           )}
           {tab === 'candidates' && (
@@ -198,7 +196,6 @@ export default function RecruitmentModule({ tab, setTab }) {
               onChanged={reload}
             />
           )}
-          {tab === 'deleted' && (canManageDivisions ? <DeletedTab onChanged={reload} /> : <div style={{ padding: 20, color: 'var(--txm)' }}>Admin or Recruitment Admin access needed.</div>)}
         </>
       )}
     </div>
@@ -208,9 +205,8 @@ export default function RecruitmentModule({ tab, setTab }) {
 // =================================================================
 // Nav + Filters
 // =================================================================
-function TabNav({ tab, setTab, canManageDivisions }) {
+function TabNav({ tab, setTab }) {
   const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates']];
-  if (canManageDivisions) tabs.push(['deleted', 'Deleted']);
   return (
     <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
       {tabs.map(([id, label]) => (
@@ -431,7 +427,7 @@ function locationRates(rl) {
   return { fillPct, closePct };
 }
 
-function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates, canDelete }) {
+function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates }) {
   const [editingRole, setEditingRole] = useState(null);
   const [editingLocation, setEditingLocation] = useState(null);
   const [addingLocationFor, setAddingLocationFor] = useState(null);
@@ -463,20 +459,6 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
     divisionGroups[divName][roleId].locations.push(rl);
   }
   const divNames = Object.keys(divisionGroups).sort();
-
-  const [confirmDeleteRole, setConfirmDeleteRole] = useState(null);
-  const [confirmDeleteLocation, setConfirmDeleteLocation] = useState(null);
-
-  async function doDeleteRole(roleId) {
-    await deleteRole(roleId);
-    setConfirmDeleteRole(null);
-    onChanged();
-  }
-  async function doDeleteLocation(roleLocationId) {
-    await deleteRoleLocationAction(roleLocationId);
-    setConfirmDeleteLocation(null);
-    onChanged();
-  }
 
   function exportRoles() {
     const rows = rowsWithCandidates.filter(passesFilter).map(rl => ({
@@ -546,7 +528,6 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                   <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalPositions} positions</span>
                   <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
                   <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
-                  {canDelete && <button onClick={() => setConfirmDeleteRole(roleId)} style={dangerBtnStyle()}>Delete</button>}
                 </div>
                 {!collapsedRoles[roleId] && (
                 <div style={{ paddingLeft: 20 }}>
@@ -562,7 +543,6 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                         </span>
                         <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>View candidates ({rl.candidates.length})</button>
                         <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
-                        {canDelete && <button onClick={() => setConfirmDeleteLocation(rl.role_location_id)} style={dangerBtnStyle()}>Delete</button>}
                       </div>
                     );
                   })}
@@ -579,26 +559,6 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       })}
 
       {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} onSaved={() => { setEditingRole(null); onChanged(); }} />}
-      {confirmDeleteRole && (
-        <Modal onClose={() => setConfirmDeleteRole(null)}>
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>Delete this role?</div>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', marginBottom: 16 }}>This also hides all of its locations. Nothing is lost — restore it any time from the Deleted tab.</p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setConfirmDeleteRole(null)} style={btnStyle()}>Cancel</button>
-            <button onClick={() => doDeleteRole(confirmDeleteRole)} style={primaryBtnStyle({ background: 'var(--dgr-fill)' })}>Delete</button>
-          </div>
-        </Modal>
-      )}
-      {confirmDeleteLocation && (
-        <Modal onClose={() => setConfirmDeleteLocation(null)}>
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>Delete this location?</div>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', marginBottom: 16 }}>Nothing is lost — restore it any time from the Deleted tab.</p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setConfirmDeleteLocation(null)} style={btnStyle()}>Cancel</button>
-            <button onClick={() => doDeleteLocation(confirmDeleteLocation)} style={primaryBtnStyle({ background: 'var(--dgr-fill)' })}>Delete</button>
-          </div>
-        </Modal>
-      )}
       {editingLocation && <EditLocationModal rl={editingLocation} onClose={() => setEditingLocation(null)} onSaved={() => { setEditingLocation(null); onChanged(); }} />}
       {showNewRole && <NewRoleModal divisions={divisions} onClose={() => setShowNewRole(false)} onSaved={() => { setShowNewRole(false); onChanged(); }} />}
       {showRolesUpload && (
@@ -606,6 +566,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
           title="Bulk upload roles and locations"
           helpText="Upload roles and their locations from a spreadsheet. Anything that doesn't already exist gets created — this is the structural upload, not for candidates."
           executor={executeUpload}
+          mode="roles"
           onClose={() => setShowRolesUpload(false)}
           onDone={() => { setShowRolesUpload(false); onChanged(); }}
         />
@@ -852,11 +813,11 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
 
   const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
 
-  const STATUSES_NEEDING_DATE = ['Onboarding Approval', 'Awaiting Resumption', 'Closed'];
+  const STATUSES_NEEDING_DATE = ['Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 
-  async function quickChangeStatus(candidateId, newStatus, rl) {
+  async function quickChangeStatus(candidateId, newStatus, rl, previousStatus) {
     if (STATUSES_NEEDING_DATE.includes(newStatus)) {
-      setPendingStatusChange({ candidateId, newStatus, rl });
+      setPendingStatusChange({ candidateId, newStatus, rl, previousStatus });
       return;
     }
     setError('');
@@ -873,7 +834,8 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   async function applyBulk() {
     if (!bulkStatus || selected.size === 0) return;
     if (STATUSES_NEEDING_DATE.includes(bulkStatus)) {
-      setPendingBulkStatus({ candidateIds: [...selected], newStatus: bulkStatus });
+      const selectedCandidates = flat.filter(c => selected.has(c.candidate_id));
+      setPendingBulkStatus({ candidates: selectedCandidates, newStatus: bulkStatus });
       return;
     }
     try {
@@ -954,7 +916,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.roleTitle}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.location}</td>
                   <td style={{ padding: '8px 10px' }}>
-                    <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
+                    <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl, c.status)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
@@ -975,6 +937,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           title="Bulk upload candidates"
           helpText="Upload candidates from a spreadsheet. Each row must match a Division, Role, and Location that already exists — this upload never creates new roles or locations. Add those on the Roles tab first."
           executor={executeCandidateUpload}
+          mode="candidates"
           onClose={() => setShowCandidateUpload(false)}
           onDone={() => { setShowCandidateUpload(false); onChanged(); }}
         />
@@ -1083,31 +1046,45 @@ function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
 // last open position at a location, and offers to close the location too
 // (the date Time to Close is calculated from).
 function StatusDateModal({ pending, onClose, onSaved }) {
-  const { candidateId, newStatus, rl } = pending;
+  const { candidateId, newStatus, rl, previousStatus } = pending;
   const today = new Date().toISOString().slice(0, 10);
 
+  const [dateInterview, setDateInterview] = useState(today);
   const [dateSentForApproval, setDateSentForApproval] = useState(today);
+  const [dateDocumentationStarted, setDateDocumentationStarted] = useState(today);
+  const [medicalReportReceived, setMedicalReportReceived] = useState(false);
+  const [dateOfferExtended, setDateOfferExtended] = useState(today);
   const [dateOfferAccepted, setDateOfferAccepted] = useState(today);
   const [expectedResumptionDate, setExpectedResumptionDate] = useState('');
   const [actualResumptionDate, setActualResumptionDate] = useState(today);
   const [dateClosed, setDateClosed] = useState(today);
+  const [statusReason, setStatusReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const closedSoFar = rl.candidates.filter(c => c.status === 'Closed' && c.candidate_id !== candidateId).length;
   const willFillLastPosition = newStatus === 'Closed' && (closedSoFar + 1) >= rl.no_of_positions && rl.status !== 'Closed';
-  const [alsoCloseLocation, setAlsoCloseLocation] = useState(willFillLastPosition);
-  const [locationClosedDate, setLocationClosedDate] = useState(today);
+  const isExit = newStatus === 'Dropped' || newStatus === 'Rejected';
 
   async function submit() {
     if (newStatus === 'Awaiting Resumption' && !expectedResumptionDate) {
       setError('Expected resumption date is required.');
       return;
     }
+    if (isExit && !statusReason.trim()) {
+      setError('A reason is required.');
+      return;
+    }
     setSaving(true); setError('');
     try {
       const extra = {};
+      if (newStatus === 'Interview') extra.date_interview = dateInterview;
       if (newStatus === 'Onboarding Approval') extra.date_sent_for_onboarding_approval = dateSentForApproval;
+      if (newStatus === 'Documentation') {
+        extra.date_documentation_started = dateDocumentationStarted;
+        extra.medical_report_received = medicalReportReceived;
+      }
+      if (newStatus === 'Offer') extra.date_offer_extended = dateOfferExtended;
       if (newStatus === 'Awaiting Resumption') {
         extra.date_offer_accepted = dateOfferAccepted;
         extra.expected_resumption_date = expectedResumptionDate;
@@ -1116,13 +1093,17 @@ function StatusDateModal({ pending, onClose, onSaved }) {
         extra.actual_resumption_date = actualResumptionDate;
         extra.date_closed = dateClosed;
       }
+      if (isExit) {
+        extra.status_reason = statusReason.trim();
+        extra.status_stage_at_exit = previousStatus;
+      }
       await updateCandidateStatus(candidateId, newStatus, extra);
 
-      if (newStatus === 'Closed' && alsoCloseLocation) {
+      if (willFillLastPosition) {
         await updateRoleLocation({
           roleLocationId: rl.role_location_id, location: rl.location, noOfPositions: rl.no_of_positions,
           status: 'Closed', plannedStartDate: rl.planned_start_date, dateRequestReceived: rl.date_request_received,
-          dateLocationClosed: locationClosedDate,
+          dateLocationClosed: dateClosed,
         });
       }
       onSaved();
@@ -1136,10 +1117,35 @@ function StatusDateModal({ pending, onClose, onSaved }) {
     <Modal onClose={onClose}>
       <div style={{ fontWeight: 600, marginBottom: 12 }}>Moving to "{newStatus}"</div>
 
+      {newStatus === 'Interview' && (
+        <>
+          <label style={labelStyle()}>Date of interview</label>
+          <input type="date" value={dateInterview} onChange={e => setDateInterview(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
       {newStatus === 'Onboarding Approval' && (
         <>
           <label style={labelStyle()}>Date sent for onboarding approval</label>
           <input type="date" value={dateSentForApproval} onChange={e => setDateSentForApproval(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
+      {newStatus === 'Documentation' && (
+        <>
+          <label style={labelStyle()}>Date documentation started</label>
+          <input type="date" value={dateDocumentationStarted} onChange={e => setDateDocumentationStarted(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 10 }}>
+            <input type="checkbox" checked={medicalReportReceived} onChange={e => setMedicalReportReceived(e.target.checked)} />
+            Medical report received
+          </label>
+        </>
+      )}
+
+      {newStatus === 'Offer' && (
+        <>
+          <label style={labelStyle()}>Date offer extended</label>
+          <input type="date" value={dateOfferExtended} onChange={e => setDateOfferExtended(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
         </>
       )}
 
@@ -1160,16 +1166,18 @@ function StatusDateModal({ pending, onClose, onSaved }) {
           <input type="date" value={dateClosed} onChange={e => setDateClosed(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
           {willFillLastPosition && (
-            <div style={{ background: 'var(--suc-bg)', borderRadius: 6, padding: 10, marginBottom: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--suc-tx)', marginBottom: alsoCloseLocation ? 8 : 0 }}>
-                <input type="checkbox" checked={alsoCloseLocation} onChange={e => setAlsoCloseLocation(e.target.checked)} />
-                This fills all {rl.no_of_positions} position{rl.no_of_positions > 1 ? 's' : ''} at {rl.location} — mark the location Closed too?
-              </label>
-              {alsoCloseLocation && (
-                <input type="date" value={locationClosedDate} onChange={e => setLocationClosedDate(e.target.value)} style={inputStyle({ width: '100%' })} />
-              )}
+            <div style={{ background: 'var(--suc-bg)', borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 13, color: 'var(--suc-tx)' }}>
+              This fills all {rl.no_of_positions} position{rl.no_of_positions > 1 ? 's' : ''} at {rl.location} — the location will be marked Closed automatically, using this same date. You can change it later from the Roles tab if needed.
             </div>
           )}
+        </>
+      )}
+
+      {isExit && (
+        <>
+          <label style={labelStyle()}>Reason</label>
+          <input value={statusReason} onChange={e => setStatusReason(e.target.value)} placeholder="e.g. Failed medical, Offer declined, Withdrew" style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6, marginBottom: 10 }}>Recorded as dropping out at the "{previousStatus}" stage.</p>
         </>
       )}
 
@@ -1188,26 +1196,62 @@ function StatusDateModal({ pending, onClose, onSaved }) {
 // selection can span multiple locations, and guessing which ones just got
 // fully filled isn't safe to automate; do that from the Roles tab instead.
 function BulkStatusDateModal({ pending, onClose, onSaved }) {
-  const { candidateIds, newStatus } = pending;
+  const { candidates, newStatus } = pending;
+  const candidateIds = candidates.map(c => c.candidate_id);
   const today = new Date().toISOString().slice(0, 10);
 
+  const [dateInterview, setDateInterview] = useState(today);
   const [dateSentForApproval, setDateSentForApproval] = useState(today);
+  const [dateDocumentationStarted, setDateDocumentationStarted] = useState(today);
+  const [medicalReportReceived, setMedicalReportReceived] = useState(false);
+  const [dateOfferExtended, setDateOfferExtended] = useState(today);
   const [dateOfferAccepted, setDateOfferAccepted] = useState(today);
   const [expectedResumptionDate, setExpectedResumptionDate] = useState('');
   const [actualResumptionDate, setActualResumptionDate] = useState(today);
   const [dateClosed, setDateClosed] = useState(today);
+  const [statusReason, setStatusReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const isExit = newStatus === 'Dropped' || newStatus === 'Rejected';
+
+  // For each distinct location among the selected candidates, work out
+  // whether closing this whole batch completes every position there —
+  // computed per location, not guessed, so a batch spanning several
+  // locations only closes the ones it actually finishes.
+  const locationsToAutoClose = newStatus === 'Closed' ? (() => {
+    const byLocation = new Map(); // role_location_id -> { rl, idsInBatch: Set }
+    for (const c of candidates) {
+      if (!byLocation.has(c.rl.role_location_id)) byLocation.set(c.rl.role_location_id, { rl: c.rl, idsInBatch: new Set() });
+      byLocation.get(c.rl.role_location_id).idsInBatch.add(c.candidate_id);
+    }
+    const result = [];
+    for (const { rl, idsInBatch } of byLocation.values()) {
+      if (rl.status === 'Closed') continue;
+      const alreadyClosed = rl.candidates.filter(c => c.status === 'Closed' && !idsInBatch.has(c.candidate_id)).length;
+      if (alreadyClosed + idsInBatch.size >= rl.no_of_positions) result.push(rl);
+    }
+    return result;
+  })() : [];
 
   async function submit() {
     if (newStatus === 'Awaiting Resumption' && !expectedResumptionDate) {
       setError('Expected resumption date is required.');
       return;
     }
+    if (isExit && !statusReason.trim()) {
+      setError('A reason is required.');
+      return;
+    }
     setSaving(true); setError('');
     try {
       const extra = {};
+      if (newStatus === 'Interview') extra.date_interview = dateInterview;
       if (newStatus === 'Onboarding Approval') extra.date_sent_for_onboarding_approval = dateSentForApproval;
+      if (newStatus === 'Documentation') {
+        extra.date_documentation_started = dateDocumentationStarted;
+        extra.medical_report_received = medicalReportReceived;
+      }
+      if (newStatus === 'Offer') extra.date_offer_extended = dateOfferExtended;
       if (newStatus === 'Awaiting Resumption') {
         extra.date_offer_accepted = dateOfferAccepted;
         extra.expected_resumption_date = expectedResumptionDate;
@@ -1216,7 +1260,30 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
         extra.actual_resumption_date = actualResumptionDate;
         extra.date_closed = dateClosed;
       }
-      await bulkUpdateCandidateStatus(candidateIds, newStatus, extra);
+
+      if (isExit) {
+        // Selected candidates may be at different stages right now — group by
+        // their actual current status so status_stage_at_exit is correct per
+        // candidate, not one guessed value applied to everyone.
+        const groups = new Map(); // previousStatus -> [candidateId, ...]
+        for (const c of candidates) {
+          if (!groups.has(c.status)) groups.set(c.status, []);
+          groups.get(c.status).push(c.candidate_id);
+        }
+        for (const [prevStatus, ids] of groups.entries()) {
+          await bulkUpdateCandidateStatus(ids, newStatus, { ...extra, status_reason: statusReason.trim(), status_stage_at_exit: prevStatus });
+        }
+      } else {
+        await bulkUpdateCandidateStatus(candidateIds, newStatus, extra);
+      }
+
+      for (const rl of locationsToAutoClose) {
+        await updateRoleLocation({
+          roleLocationId: rl.role_location_id, location: rl.location, noOfPositions: rl.no_of_positions,
+          status: 'Closed', plannedStartDate: rl.planned_start_date, dateRequestReceived: rl.date_request_received,
+          dateLocationClosed: dateClosed,
+        });
+      }
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -1227,12 +1294,34 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
   return (
     <Modal onClose={onClose}>
       <div style={{ fontWeight: 600, marginBottom: 12 }}>Moving {candidateIds.length} candidates to "{newStatus}"</div>
-      <p style={{ fontSize: 12, color: 'var(--txm)', marginTop: -6, marginBottom: 12 }}>This date applies to all {candidateIds.length} selected candidates.</p>
+      <p style={{ fontSize: 12, color: 'var(--txm)', marginTop: -6, marginBottom: 12 }}>This applies to all {candidateIds.length} selected candidates.</p>
 
+      {newStatus === 'Interview' && (
+        <>
+          <label style={labelStyle()}>Date of interview</label>
+          <input type="date" value={dateInterview} onChange={e => setDateInterview(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
       {newStatus === 'Onboarding Approval' && (
         <>
           <label style={labelStyle()}>Date sent for onboarding approval</label>
           <input type="date" value={dateSentForApproval} onChange={e => setDateSentForApproval(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {newStatus === 'Documentation' && (
+        <>
+          <label style={labelStyle()}>Date documentation started</label>
+          <input type="date" value={dateDocumentationStarted} onChange={e => setDateDocumentationStarted(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 10 }}>
+            <input type="checkbox" checked={medicalReportReceived} onChange={e => setMedicalReportReceived(e.target.checked)} />
+            Medical report received (for all selected)
+          </label>
+        </>
+      )}
+      {newStatus === 'Offer' && (
+        <>
+          <label style={labelStyle()}>Date offer extended</label>
+          <input type="date" value={dateOfferExtended} onChange={e => setDateOfferExtended(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
         </>
       )}
       {newStatus === 'Awaiting Resumption' && (
@@ -1249,7 +1338,18 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
           <input type="date" value={actualResumptionDate} onChange={e => setActualResumptionDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
           <label style={labelStyle()}>Date closed</label>
           <input type="date" value={dateClosed} onChange={e => setDateClosed(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-          <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6 }}>If this fills a location completely, mark it Closed separately from the Roles tab.</p>
+          {locationsToAutoClose.length > 0 && (
+            <div style={{ background: 'var(--suc-bg)', borderRadius: 6, padding: 10, fontSize: 13, color: 'var(--suc-tx)' }}>
+              This completes every position at: {locationsToAutoClose.map(rl => rl.location).join(', ')} — {locationsToAutoClose.length > 1 ? 'these locations' : 'this location'} will be marked Closed automatically, using this same date.
+            </div>
+          )}
+        </>
+      )}
+      {isExit && (
+        <>
+          <label style={labelStyle()}>Reason</label>
+          <input value={statusReason} onChange={e => setStatusReason(e.target.value)} placeholder="e.g. Failed medical, Offer declined, Withdrew" style={inputStyle({ width: '100%', marginBottom: 10 })} />
+          <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6, marginBottom: 10 }}>Each candidate's exit stage is recorded from their own current status, even if the selection spans different stages.</p>
         </>
       )}
 
@@ -1447,73 +1547,11 @@ function RecruitmentNotificationBell({ notifications, myUserId, onRead }) {
 }
 
 // =================================================================
-// Deleted — Admin / Recruitment Admin only. Nothing is ever hard-deleted;
-// this is where a mistaken delete gets undone.
-// =================================================================
-function DeletedTab({ onChanged }) {
-  const [data, setData] = useState({ roles: [], locations: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  async function load() {
-    setLoading(true);
-    try {
-      const d = await fetchDeletedRolesAndLocations();
-      setData(d);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function restore(kind, id) {
-    setError('');
-    try {
-      if (kind === 'role') await restoreRole(id);
-      else await restoreRoleLocation(id);
-      await load();
-      onChanged();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  if (loading) return <div style={{ padding: 20, color: 'var(--txm)' }}>Loading…</div>;
-
-  return (
-    <div>
-      {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 13, marginBottom: 8 }}>{error}</div>}
-
-      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx2)', marginBottom: 6 }}>Deleted roles</p>
-      {data.roles.length === 0 && <div style={{ fontSize: 13, color: 'var(--txm)', marginBottom: 16 }}>None.</div>}
-      {data.roles.map(r => (
-        <div key={r.role_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid var(--bd)' }}>
-          <span style={{ fontSize: 13 }}>{r.divisions?.name} — {r.role_title}</span>
-          <button onClick={() => restore('role', r.role_id)} style={btnStyle()}>Restore</button>
-        </div>
-      ))}
-
-      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx2)', margin: '20px 0 6px' }}>Deleted locations</p>
-      {data.locations.length === 0 && <div style={{ fontSize: 13, color: 'var(--txm)' }}>None.</div>}
-      {data.locations.map(l => (
-        <div key={l.role_location_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid var(--bd)' }}>
-          <span style={{ fontSize: 13 }}>{l.roles?.divisions?.name} — {l.roles?.role_title} — {l.location}</span>
-          <button onClick={() => restore('location', l.role_location_id)} style={btnStyle()}>Restore</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// =================================================================
 // Bulk upload — reusable modal. Roles tab passes executeUpload (can
 // create roles/locations); Candidates tab passes executeCandidateUpload
 // (never creates structure, only matches existing roles/locations).
 // =================================================================
-function BulkUploadModal({ title, helpText, executor, onClose, onDone }) {
+function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
   const [parsed, setParsed] = useState(null);
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
@@ -1525,10 +1563,10 @@ function BulkUploadModal({ title, helpText, executor, onClose, onDone }) {
     setResult(null);
     setUploadError('');
     if (file.name.toLowerCase().endsWith('.xlsx')) {
-      parseXlsxUploadFile(file).then(setParsed).catch(err => setUploadError(err.message));
+      parseXlsxUploadFile(file, mode).then(setParsed).catch(err => setUploadError(err.message));
     } else {
       const reader = new FileReader();
-      reader.onload = ev => setParsed(parseUploadFile(ev.target.result));
+      reader.onload = ev => setParsed(parseUploadFile(ev.target.result, mode));
       reader.readAsText(file);
     }
   }

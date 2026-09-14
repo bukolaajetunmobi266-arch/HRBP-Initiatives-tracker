@@ -82,24 +82,6 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
   return data;
 }
 
-// Soft delete a role_location (Admin / Recruitment Admin only — RLS enforces this)
-export async function softDeleteRoleLocation(roleLocationId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from('role_locations')
-    .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id })
-    .eq('role_location_id', roleLocationId);
-  if (error) throw error;
-}
-
-export async function restoreRoleLocation(roleLocationId) {
-  const { error } = await supabase
-    .from('role_locations')
-    .update({ deleted_at: null, deleted_by: null })
-    .eq('role_location_id', roleLocationId);
-  if (error) throw error;
-}
-
 // Create a new role_location under an existing role (analysts/HRBPs allowed, per RLS)
 export async function createRoleLocation({ roleId, location, noOfPositions, status = 'Yet to Start', plannedStartDate, dateRequestReceived }) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -224,38 +206,5 @@ export async function markNotificationRead(notificationId, userId) {
   const { error } = await supabase
     .from('notifications').update({ read_by: [...readBy, userId] }).eq('notification_id', notificationId);
   if (error) throw error;
-}
-
-// ---------------------------------------------------------------
-// Delete / restore — soft delete only, per the design (nothing is
-// ever hard-deleted; a Recently Deleted view can always bring it back)
-// ---------------------------------------------------------------
-export async function deleteRole(roleId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from('roles').update({ deleted_at: new Date().toISOString(), deleted_by: user?.id }).eq('role_id', roleId);
-  if (error) throw error;
-}
-
-export async function restoreRole(roleId) {
-  const { error } = await supabase.from('roles').update({ deleted_at: null, deleted_by: null }).eq('role_id', roleId);
-  if (error) throw error;
-}
-
-export async function deleteRoleLocationAction(roleLocationId) {
-  // Distinct name from softDeleteRoleLocation above to avoid confusion — same underlying call.
-  return softDeleteRoleLocation(roleLocationId);
-}
-
-export async function fetchDeletedRolesAndLocations() {
-  const { data: roles, error: rErr } = await supabase
-    .from('roles').select('role_id, role_title, deleted_at, divisions(name)').not('deleted_at', 'is', null);
-  if (rErr) throw rErr;
-  const { data: locations, error: lErr } = await supabase
-    .from('role_locations')
-    .select('role_location_id, location, deleted_at, roles(role_title, divisions(name))')
-    .not('deleted_at', 'is', null);
-  if (lErr) throw lErr;
-  return { roles: roles || [], locations: locations || [] };
 }
 
