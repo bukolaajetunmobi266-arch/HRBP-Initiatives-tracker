@@ -828,10 +828,10 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   function exportCandidates() {
     const rows = flat.map(c => ({
       Name: c.candidate_name, Division: c.division, Role: c.roleTitle, Location: c.location,
-      Status: c.status, Source: c.source || '', Phone: c.contact_phone || '',
+      'Candidate Type': c.candidate_type || '', Status: c.status, Source: c.source || '', Phone: c.contact_phone || '',
       'Time to Onboard (days)': computeTimeToOnboard(c) ?? '',
     }));
-    downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
+    downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Candidate Type', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
   }
 
   const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
@@ -912,6 +912,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Division</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Role</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Location</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Candidate Type</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Status</th>
             </tr>
           </thead>
@@ -936,6 +937,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.division}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.roleTitle}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.location}</td>
+                  <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.candidate_type || '—'}</td>
                   <td style={{ padding: '8px 10px' }}>
                     <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl, c.status)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
