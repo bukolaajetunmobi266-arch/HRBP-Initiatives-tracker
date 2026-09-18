@@ -580,7 +580,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       {showRolesUpload && (
         <BulkUploadModal
           title="Bulk upload roles and locations"
-          helpText="Upload roles and their locations from a spreadsheet. Anything that doesn't already exist gets created — this is the structural upload, not for candidates."
+          helpText="Use the analyst template to upload roles and, where available, candidates in one go. Only the essential setup fields are required; update recruitment-stage details in the tracker after upload."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowRolesUpload(false)}
@@ -957,7 +957,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showCandidateUpload && (
         <BulkUploadModal
           title="Bulk upload candidates"
-          helpText="Upload candidates from a spreadsheet. Each row must match a Division, Role, and Location that already exists — this upload never creates new roles or locations. Add those on the Roles tab first."
+          helpText="Upload candidates against existing roles/locations using the same streamlined template. Candidate Type is required for mixed roles such as Relationship Officer."
           executor={executeCandidateUpload}
           mode="candidates"
           onClose={() => setShowCandidateUpload(false)}
