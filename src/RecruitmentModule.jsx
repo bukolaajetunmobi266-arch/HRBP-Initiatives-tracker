@@ -554,14 +554,6 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
 // =================================================================
 // Roles — structural only, no candidate list, links out to Candidates
 // =================================================================
-function ProgressBar({ pct }) {
-  return (
-    <div style={{ background: 'var(--bg1)', borderRadius: 999, height: 6, overflow: 'hidden', width: 90, flexShrink: 0 }}>
-      <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: 'var(--suc-fill)', height: '100%', borderRadius: 999 }} />
-    </div>
-  );
-}
-
 function locationProgress(rl) {
   const closed = rl.candidates.filter(c => c.status === 'Closed').length;
   const secured = rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length;
@@ -681,7 +673,6 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                     const totalPositions = role.locations.reduce((sum, rl) => sum + Number(rl.no_of_positions || 0), 0);
                     const totalClosed = role.locations.reduce((sum, rl) => sum + locationProgress(rl).closed, 0);
                     const totalRemaining = Math.max(0, totalPositions - totalClosed);
-                    const closePct = totalPositions ? Math.round((totalClosed / totalPositions) * 100) : 0;
                     const roleIsExpanded = expandedRoles[roleId];
 
                     return (
@@ -695,10 +686,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{role.title}</div>
                             <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{role.locations.length} location{role.locations.length !== 1 ? 's' : ''} · {totalPositions} slots</div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 190 }}>
-                            <ProgressBar pct={closePct} />
-                            <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} remaining</span>
-                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} remaining</span>
                           <span style={{ fontSize: 11, color: totalRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)', background: totalRemaining ? 'var(--wrn-bg)' : 'var(--suc-bg)', padding: '3px 8px', borderRadius: 999 }}>
                             {totalRemaining ? 'Open' : 'Closed'}
                           </span>
