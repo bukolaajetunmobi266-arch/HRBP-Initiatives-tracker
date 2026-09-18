@@ -409,7 +409,7 @@ function funnelStyle(stage) {
 
 function KpiCard({ label, value, role }) {
   return (
-    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderTop: role === 'acc' ? '3px solid var(--acc-fill)' : role === 'suc' ? '3px solid var(--suc-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)', borderRadius: 8, padding: '13px 14px', flex: 1, minWidth: 130, boxShadow: '0 1px 2px rgba(15,42,67,0.04)' }}>
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderTop: role === 'acc' ? '3px solid var(--acc-fill)' : role === 'suc' ? '3px solid var(--suc-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)', borderRadius: 8, padding: '13px 14px', flex: 1, minWidth: 0, boxShadow: '0 1px 2px rgba(15,42,67,0.04)' }}>
       <p style={{ fontSize: 11, color: role ? `var(--${role}-tx)` : 'var(--tx2)', margin: '0 0 4px' }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 500, margin: 0, color: role ? `var(--${role}-tx)` : 'var(--tx1)' }}>{value}</p>
     </div>
@@ -504,7 +504,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Open positions" value={metrics.totalSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
