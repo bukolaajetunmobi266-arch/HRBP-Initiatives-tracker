@@ -36,6 +36,12 @@ function Badge({ status }) {
 
 const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
+const CANDIDATE_TYPE_OPTIONS = ['Sales Associate', 'Sales Affiliate'];
+const FIXED_ROLE_TYPES = new Set(['Sales Associate', 'Sales Affiliate']);
+function candidateTypeState(roleType, value) {
+  if (FIXED_ROLE_TYPES.has(roleType)) return { value: roleType, locked: true, required: true };
+  return { value: value || '', locked: false, required: true };
+}
 
 function downloadCsv(filename, headers, rows) {
   const escape = v => {
@@ -645,7 +651,7 @@ function EditRoleModal({ role, onClose, onSaved }) {
       <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Role type</label>
       <select value={roleType} onChange={e => setRoleType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Sales</option><option>Support</option><option>Affiliate</option>
+        <option>Sales Associate</option><option>Sales Affiliate</option><option>Relationship Officer</option>
       </select>
       <label style={labelStyle()}>Suggested grade</label>
       <input value={suggestedGrade} onChange={e => setSuggestedGrade(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
@@ -990,6 +996,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
   const [roleId, setRoleId] = useState('');
   const [roleLocationId, setRoleLocationId] = useState(presetRoleLocationId || '');
   const [candidateName, setCandidateName] = useState('');
+  const [candidateType, setCandidateType] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [source, setSource] = useState('');
   const [status, setStatus] = useState('Sourcing');
@@ -1030,6 +1037,9 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
 
   async function submit() {
     if (!roleLocationId || !candidateName.trim()) { setError('Role/Location and Candidate Name are required.'); return; }
+    const selectedRl = rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
+    const typeState = candidateTypeState(selectedRl?.roles?.role_type, candidateType);
+    if (typeState.required && !typeState.value) { setError('Candidate Type is required.'); return; }
     if (!confirmedDespiteDuplicate) {
       const dup = await checkForDuplicate();
       if (dup.found) {
@@ -1039,7 +1049,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
     }
     setSaving(true); setError('');
     try {
-      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), contactPhone, source, status });
+      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), candidateType: typeState.value, contactPhone, source, status });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -1075,6 +1085,29 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       )}
       <label style={labelStyle()}>Candidate name</label>
       <input value={candidateName} onChange={e => setCandidateName(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      {(() => {
+        const role = presetRl || rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
+        const typeState = candidateTypeState(role?.roles?.role_type, candidateType);
+        return (
+          <>
+            <label style={labelStyle()}>Candidate Type</label>
+            {typeState.locked ? (
+              <>
+                <input value={typeState.value} disabled style={inputStyle({ width: '100%', marginBottom: 4, opacity: 0.75 })} />
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Inherited from role.</div>
+              </>
+            ) : (
+              <>
+                <select value={candidateType} onChange={e => setCandidateType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+                  <option value="">Select candidate type…</option>
+                  {CANDIDATE_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>This role covers multiple types — select one for this candidate.</div>
+              </>
+            )}
+          </>
+        );
+      })()}
       <label style={labelStyle()}>Contact phone</label>
       <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Source</label>
@@ -1433,6 +1466,7 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
 function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved }) {
   const [form, setForm] = useState({
     candidate_name: candidate.candidate_name || '',
+    candidate_type: candidate.candidate_type || '',
     contact_phone: candidate.contact_phone || '',
     source: candidate.source || '',
     status: candidate.status || 'Sourcing',
@@ -1508,6 +1542,28 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
       <label style={labelStyle()}>Name</label>
       <input value={form.candidate_name} onChange={e => set('candidate_name', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
+      {(() => {
+        const typeState = candidateTypeState(currentRl.roles.role_type, form.candidate_type);
+        return (
+          <>
+            <label style={labelStyle()}>Candidate Type</label>
+            {typeState.locked ? (
+              <>
+                <input value={typeState.value} disabled style={inputStyle({ width: '100%', marginBottom: 4, opacity: 0.75 })} />
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Inherited from role.</div>
+              </>
+            ) : (
+              <>
+                <select value={form.candidate_type} onChange={e => set('candidate_type', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+                  <option value="">Select candidate type…</option>
+                  {CANDIDATE_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>This role covers multiple types — select one for this candidate.</div>
+              </>
+            )}
+          </>
+        );
+      })()}
       <label style={labelStyle()}>Contact phone</label>
       <input value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
