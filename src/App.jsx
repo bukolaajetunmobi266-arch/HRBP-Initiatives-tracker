@@ -8,8 +8,8 @@ import ImportDialog from './ImportDialog'
 import { OWNER_FUNCTIONS, DIVISIONS, STATUSES, CO_COLORS } from './constants'
 import RecruitmentModule from './RecruitmentModule'
 
-const LIGHT = { '--bg0': '#F4F8FC', '--bg1': '#EAF2F8', '--bg2': '#FFFFFF', '--tx1': '#172033', '--tx2': '#4B5B6B', '--txm': '#8492A0', '--bd': '#D8E3EC', '--bds': '#C2D2DF', '--acc-bg': '#E5F3FB', '--acc-tx': '#006FB9', '--acc-fill': '#0077BD', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#E9EEF3', '--neu-tx': '#52606D', '--neu-fill': '#AAB8C4', '--navy': '#152B3F' }
-const DARK = { '--bg0': '#071725', '--bg1': '#0D2234', '--bg2': '#132D42', '--tx1': '#F4F8FC', '--tx2': '#C2D2DF', '--txm': '#8296A8', '--bd': '#244257', '--bds': '#34556B', '--acc-bg': '#0A3655', '--acc-tx': '#72C4F2', '--acc-fill': '#1594D0', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#1A3347', '--neu-tx': '#C2D2DF', '--neu-fill': '#637A8C', '--navy': '#061B2B' }
+const LIGHT = { '--bg0': '#F4F6F8', '--bg1': '#FFFFFF', '--bg2': '#FFFFFF', '--tx1': '#172033', '--tx2': '#4B5B6B', '--txm': '#8492A0', '--bd': '#E1E7EC', '--bds': '#CBD7E0', '--acc-bg': '#E5F3FB', '--acc-tx': '#006FB9', '--acc-fill': '#0077BD', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EEF2F5', '--neu-tx': '#52606D', '--neu-fill': '#AAB8C4', '--navy': '#0E2A43' }
+const DARK = { '--bg0': '#091722', '--bg1': '#0F2233', '--bg2': '#142C40', '--tx1': '#F4F8FC', '--tx2': '#C2D2DF', '--txm': '#8296A8', '--bd': '#274357', '--bds': '#39576B', '--acc-bg': '#0A3655', '--acc-tx': '#72C4F2', '--acc-fill': '#1594D0', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#1A3347', '--neu-tx': '#C2D2DF', '--neu-fill': '#637A8C', '--navy': '#061B2B' }
 
 function localISODate(date) {
   const d = date || new Date()
@@ -216,7 +216,7 @@ function Dashboard({ session, theme, setTheme }) {
       <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
+        <main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
         {view !== 'summary' && (
@@ -386,55 +386,64 @@ function Dashboard({ session, theme, setTheme }) {
 
 function Header({ profile, userId, theme, setTheme }) {
   return (
-    <header style={{ background: 'var(--navy)', color: '#fff' }}>
-      <div style={{ margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
-        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+    <header style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderBottom: '1px solid var(--bd)', position: 'sticky', top: 0, zIndex: 30 }}>
+      <div style={{ minHeight: 58, padding: '0 28px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--tx2)', padding: '7px 10px', border: '1px solid var(--bd)', borderRadius: 7, background: 'var(--bg2)' }}>
+          {profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}
+        </span>
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', color: 'var(--tx2)', borderRadius: 7, padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}>
           {theme === 'light' ? 'Dark mode' : 'Light mode'}
         </button>
         <NotificationBell userId={userId} />
-        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
+        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'var(--tx2)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
     </header>
   )
 }
 
 function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
-  const width = collapsed ? 56 : 220
+  const width = collapsed ? 64 : 236
   const sectionButtonStyle = (active) => ({
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-    border: 'none', background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx1)',
-    padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+    border: 'none', borderLeft: active ? '3px solid var(--acc-fill)' : '3px solid transparent',
+    background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx2)',
+    padding: '11px 14px', fontSize: 13, fontWeight: active ? 600 : 500, cursor: 'pointer', borderRadius: '0 7px 7px 0',
   })
 
   return (
-    <div style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg1)', borderRight: '0.5px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '12px 8px', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '4px 6px 14px' }}>
-        {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>People Management</span>}
+    <aside style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
+        {!collapsed && (
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.1px' }}>People Management</div>
+            <div style={{ fontSize: 9, color: 'var(--txm)', marginTop: 4, letterSpacing: 1.2, textTransform: 'uppercase' }}>Credit Direct</div>
+          </div>
+        )}
         <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 16, padding: 4 }}>
+          style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', cursor: 'pointer', color: 'var(--tx2)', fontSize: 15, padding: '5px 7px', borderRadius: 7 }}>
           {collapsed ? '»' : '«'}
         </button>
       </div>
 
+      <div style={{ fontSize: 9, color: 'var(--txm)', padding: '0 10px 6px', letterSpacing: 1.1, textTransform: 'uppercase' }}>People</div>
       <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
-        <span>📋</span>{!collapsed && <span>Deliverables</span>}
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables</span>}
       </button>
 
       <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
-        <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
       </button>
-    </div>
+    </aside>
   )
 }
 
 function Nav({ view, setView, setSelected }) {
   const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => { setView(id); setSelected({}) }}
-          style={{ border: 'none', background: view === id ? 'var(--acc-bg)' : 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          style={{ border: 'none', borderBottom: view === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: view === id ? 600 : 500, padding: '9px 12px 10px', borderRadius: 0, cursor: 'pointer' }}>
           {label}
         </button>
       ))}
@@ -493,7 +502,7 @@ function FilterBar({ filters, setFilters, profiles, isAdmin }) {
   )
 }
 
-function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '7px 10px', fontSize: 13, ...extra } }
+function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra } }
 
 function StatusBadge({ status, overdue }) {
   const role = overdue ? 'dgr' : status === 'Completed' ? 'suc' : status === 'In Progress' ? 'wrn' : 'neu'
