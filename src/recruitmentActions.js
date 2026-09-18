@@ -148,13 +148,14 @@ export async function updateRoleLocation({ roleLocationId, location, noOfPositio
 }
 
 // Add a new candidate against a role_location
-export async function addCandidate({ roleLocationId, candidateName, contactPhone, source, status = 'Sourcing' }) {
+export async function addCandidate({ roleLocationId, candidateName, candidateType, contactPhone, source, status = 'Sourcing' }) {
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('candidates')
     .insert({
       role_location_id: roleLocationId,
       candidate_name: candidateName,
+      candidate_type: candidateType || null,
       contact_phone: contactPhone || null,
       source: source || null,
       status,
