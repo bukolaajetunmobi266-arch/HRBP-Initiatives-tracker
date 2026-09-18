@@ -51,11 +51,10 @@ function parseCsv(text) {
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const REQUIRED_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions',
-  'Role Location Status', 'Candidate Name', 'Candidate Type', 'Contact Phone',
+  'Role Location Status', 'Candidate Name', 'Employment Type', 'Contact Phone',
 ];
 
-const FIXED_CANDIDATE_TYPES = ['Sales Associate', 'Sales Affiliate'];
-const VALID_CANDIDATE_TYPES = [...FIXED_CANDIDATE_TYPES];
+const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 
 function parseDate(val) {
   if (!val || String(val).trim() === '') return null;
@@ -92,16 +91,18 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
     }
 
-    // Candidate Type is always represented in the template, but is only required
+    // Employment Type is always represented in the template, but is only required
     // when the role does not have one fixed candidate type.
+    if (row['Role Type']?.trim() && !['Sales', 'Support'].includes(row['Role Type'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Role Type must be Sales or Support.`);
+    }
+
     if (row['Candidate Name']?.trim()) {
-      const candidateType = row['Candidate Type']?.trim();
-      const roleType = row['Role Type']?.trim();
-      if (!FIXED_CANDIDATE_TYPES.includes(roleType) && !candidateType) {
-        rowErrors.push(`Row ${rowNum}: Candidate Type is required because this role does not have a fixed candidate type.`);
-      }
-      if (candidateType && !VALID_CANDIDATE_TYPES.includes(candidateType)) {
-        rowErrors.push(`Row ${rowNum}: Candidate Type must be Sales Associate or Sales Affiliate.`);
+      const employmentType = row['Employment Type']?.trim();
+      if (!employmentType) {
+        rowErrors.push(`Row ${rowNum}: Employment Type is required when Candidate Name is provided.`);
+      } else if (!VALID_EMPLOYMENT_TYPES.includes(employmentType)) {
+        rowErrors.push(`Row ${rowNum}: Employment Type must be Full-Time, Contract, Affiliate, or Intern.`);
       }
     }
 
@@ -249,7 +250,7 @@ export async function executeUpload(parsedRows, onProgress) {
           contact_phone: r['Contact Phone']?.trim() || null,
           source: null,
           status: 'Sourcing',
-          candidate_type: r['Candidate Type']?.trim() || (FIXED_CANDIDATE_TYPES.includes(r['Role Type']?.trim()) ? r['Role Type'].trim() : null),
+          employment_type: r['Employment Type']?.trim() || null,
           medical_report_received: false,
           date_sourced: null,
           date_interview: null,
