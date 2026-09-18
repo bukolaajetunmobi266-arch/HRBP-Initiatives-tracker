@@ -12,6 +12,24 @@ function friendlyError(error) {
   return error;
 }
 
+export async function deleteCandidates(candidateIds) {
+  const ids = [...new Set(candidateIds || [])].filter(Boolean);
+  if (!ids.length) return [];
+
+  const { data, error } = await supabase
+    .from('candidates')
+    .delete()
+    .in('candidate_id', ids)
+    .select('candidate_id');
+
+  if (error) throw friendlyError(error);
+  return data || [];
+}
+
+export async function deleteCandidate(candidateId) {
+  return deleteCandidates([candidateId]);
+}
+
 export async function updateCandidateStatus(candidateId, newStatus, extraFields = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   const payload = { status: newStatus, updated_by: user?.id, ...extraFields };
