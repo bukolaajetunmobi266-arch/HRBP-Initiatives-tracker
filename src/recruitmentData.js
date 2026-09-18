@@ -70,7 +70,7 @@ export async function fetchRolesByDivision(divisionId) {
 // Fetch roles + role_locations + candidate counts, with optional filters
 // ---------------------------------------------------------------
 export async function fetchRoleLocationsWithCandidates(filters = {}) {
-  // filters: { divisionId, roleId, location, year }
+  // filters: { divisionId, roleId, location, year, employmentType }
   // Division/Role/Location are applied client-side below, not as server
   // query filters — filtering through a nested embedded resource
   // (roles.division_id) proved unreliable, and divisionId in particular
@@ -111,6 +111,9 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     candQuery = candQuery
       .gte('created_at', `${filters.year}-01-01`)
       .lt('created_at', `${Number(filters.year) + 1}-01-01`);
+  }
+  if (filters.employmentType) {
+    candQuery = candQuery.eq('employment_type', filters.employmentType);
   }
 
   const { data: candidates, error: candErr } = await candQuery;
