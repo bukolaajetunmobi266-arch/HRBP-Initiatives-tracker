@@ -66,6 +66,17 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
   if (fetchErr) throw fetchErr;
 
   const { data: { user } } = await supabase.auth.getUser();
+  const { data: target, error: targetErr } = await supabase
+    .from('role_locations')
+    .select('roles!inner(role_type)')
+    .eq('role_location_id', newRoleLocationId)
+    .single();
+  if (targetErr) throw targetErr;
+
+  const fixedType = ['Sales Associate', 'Sales Affiliate'].includes(target.roles.role_type)
+    ? target.roles.role_type
+    : null;
+
   const { data, error } = await supabase
     .from('candidates')
     .update({
@@ -73,6 +84,7 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
       previous_role_location_id: current.role_location_id,
       moved_reason: movedReason,
       status: resetToStatus,
+      ...(fixedType ? { candidate_type: fixedType } : {}),
       updated_by: user?.id,
     })
     .eq('candidate_id', candidateId)
