@@ -66,17 +66,6 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
   if (fetchErr) throw fetchErr;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: target, error: targetErr } = await supabase
-    .from('role_locations')
-    .select('roles!inner(role_type)')
-    .eq('role_location_id', newRoleLocationId)
-    .single();
-  if (targetErr) throw targetErr;
-
-  const fixedType = ['Sales Associate', 'Sales Affiliate'].includes(target.roles.role_type)
-    ? target.roles.role_type
-    : null;
-
   const { data, error } = await supabase
     .from('candidates')
     .update({
@@ -84,7 +73,6 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
       previous_role_location_id: current.role_location_id,
       moved_reason: movedReason,
       status: resetToStatus,
-      ...(fixedType ? { candidate_type: fixedType } : {}),
       updated_by: user?.id,
     })
     .eq('candidate_id', candidateId)
@@ -160,14 +148,14 @@ export async function updateRoleLocation({ roleLocationId, location, noOfPositio
 }
 
 // Add a new candidate against a role_location
-export async function addCandidate({ roleLocationId, candidateName, candidateType, contactPhone, source, status = 'Sourcing' }) {
+export async function addCandidate({ roleLocationId, candidateName, employmentType, contactPhone, source, status = 'Sourcing' }) {
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('candidates')
     .insert({
       role_location_id: roleLocationId,
       candidate_name: candidateName,
-      candidate_type: candidateType || null,
+      employment_type: employmentType || null,
       contact_phone: contactPhone || null,
       source: source || null,
       status,
