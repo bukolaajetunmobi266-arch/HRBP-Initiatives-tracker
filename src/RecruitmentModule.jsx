@@ -244,6 +244,10 @@ function FilterBar({ divisions, roles, locations, filters, setFilters, showDivis
         <option value="">Year: All</option>
         {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
       </select>
+      <select value={filters.employmentType} onChange={e => setFilters(f => ({ ...f, employmentType: e.target.value }))} style={inputStyle({ width: 'auto' })}>
+        <option value="">Employment Type: All</option>
+        {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
     </div>
   );
 }
