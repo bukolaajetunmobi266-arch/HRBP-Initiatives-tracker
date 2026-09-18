@@ -208,3 +208,11 @@ export async function markNotificationRead(notificationId, userId) {
   if (error) throw error;
 }
 
+export async function checkCandidateDuplicate(name, phone, excludeCandidateId) {
+  const { data, error } = await supabase.rpc('check_candidate_duplicate', {
+    p_name: name || null, p_phone: phone || null, p_exclude_candidate_id: excludeCandidateId || null,
+  });
+  if (error) throw error;
+  return data?.[0] || { found: false };
+}
+

@@ -14,7 +14,7 @@ import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUp
 import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
-  syncStalledNotifications, markNotificationRead,
+  syncStalledNotifications, markNotificationRead, checkCandidateDuplicate,
 } from './recruitmentActions';
 
 // ---------------------------------------------------------------
@@ -434,8 +434,8 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   const [showNewRole, setShowNewRole] = useState(false);
   const [showRolesUpload, setShowRolesUpload] = useState(false);
   const [filterMode, setFilterMode] = useState(initialFilterMode || 'all');
-  const [collapsedDivisions, setCollapsedDivisions] = useState({});
-  const [collapsedRoles, setCollapsedRoles] = useState({});
+  const [expandedDivisions, setExpandedDivisions] = useState({});
+  const [expandedRoles, setExpandedRoles] = useState({});
 
   useEffect(() => { if (initialFilterMode) setFilterMode(initialFilterMode); }, [initialFilterMode]);
 
@@ -471,6 +471,9 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
 
   return (
     <div>
+      <style>{`
+        .role-row:hover .row-actions, .location-row:hover .row-actions { opacity: 1 !important; }
+      `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {[['all', 'All'], ['aging', 'Aging (30+ days)'], ['yetToStart', 'Yet to start']].map(([key, label]) => (
@@ -499,50 +502,57 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       )}
 
       {divNames.map(divName => {
-        const isCollapsed = collapsedDivisions[divName];
+        const isExpanded = expandedDivisions[divName];
         return (
-        <div key={divName} style={{ marginBottom: 28 }}>
-          <button onClick={() => setCollapsedDivisions(c => ({ ...c, [divName]: !c[divName] }))}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{isCollapsed ? '▸' : '▾'}</span>
+        <div key={divName} style={{ marginBottom: isExpanded ? 28 : 4 }}>
+          <button onClick={() => setExpandedDivisions(c => ({ ...c, [divName]: !c[divName] }))}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10, width: '100%', textAlign: 'left' }}>
+            <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{isExpanded ? '▾' : '▸'}</span>
             <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--tx1)' }}>{divName}</span>
+            <span style={{ fontSize: 11, color: 'var(--txm)', marginLeft: 4 }}>({Object.keys(divisionGroups[divName]).length} role{Object.keys(divisionGroups[divName]).length !== 1 ? 's' : ''})</span>
           </button>
-          {!isCollapsed &&
+          {isExpanded &&
           Object.entries(divisionGroups[divName]).map(([roleId, role]) => {
             const totalPositions = role.locations.reduce((sum, rl) => sum + rl.no_of_positions, 0);
             const totalSecured = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length, 0);
             const totalClosed = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => c.status === 'Closed').length, 0);
             const roleFillPct = totalPositions ? Math.min(100, Math.round((totalSecured / totalPositions) * 100)) : 0;
             const roleClosePct = totalPositions ? Math.min(100, Math.round((totalClosed / totalPositions) * 100)) : 0;
+            const roleIsExpanded = expandedRoles[roleId];
 
             return (
-              <div key={roleId} style={{ marginBottom: 14, paddingLeft: 8, borderLeft: '3px solid var(--acc-bg)' }}>
+              <div key={roleId} className="role-row" style={{ marginBottom: 10, paddingLeft: 8, borderLeft: '3px solid var(--acc-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <button onClick={() => setCollapsedRoles(c => ({ ...c, [roleId]: !c[roleId] }))}
+                  <button onClick={() => setExpandedRoles(c => ({ ...c, [roleId]: !c[roleId] }))}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 12, padding: 0 }}>
-                    {collapsedRoles[roleId] ? '▸' : '▾'}
+                    {roleIsExpanded ? '▾' : '▸'}
                   </button>
                   <span style={{ fontSize: 13, fontWeight: 600, minWidth: 200 }}>{role.title}</span>
-                  <span style={{ fontSize: 11, color: 'var(--txm)' }}>{role.roleType}</span>
                   <ProgressBar fillPct={roleFillPct} closePct={roleClosePct} />
-                  <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalPositions} positions</span>
-                  <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
-                  <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
+                  <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 8px', borderRadius: 999 }}>{totalPositions} positions</span>
+                  <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
+                    <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
+                    <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
+                  </span>
                 </div>
-                {!collapsedRoles[roleId] && (
+                {roleIsExpanded && (
                 <div style={{ paddingLeft: 20 }}>
                   {role.locations.map(rl => {
                     const { fillPct, closePct } = locationRates(rl);
                     const daysToClose = computeTimeToClose(rl);
                     return (
-                      <div key={rl.role_location_id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <div key={rl.role_location_id} className="location-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 12, minWidth: 120 }}>{rl.location}</span>
                         <ProgressBar fillPct={fillPct} closePct={closePct} />
-                        <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>
-                          {rl.no_of_positions} positions · {rl.status}{daysToClose !== null ? ` · closed in ${daysToClose}d` : ''}
+                        <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 7px', borderRadius: 999 }}>{rl.no_of_positions}</span>
+                        <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 7px', borderRadius: 999 }}>{rl.status}</span>
+                        {daysToClose !== null && (
+                          <span style={{ fontSize: 11, color: 'var(--suc-tx)', background: 'var(--suc-bg)', padding: '2px 7px', borderRadius: 999 }}>{daysToClose}d</span>
+                        )}
+                        <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
+                          <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
+                          <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
                         </span>
-                        <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>View candidates ({rl.candidates.length})</button>
-                        <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
                       </div>
                     );
                   })}
@@ -576,8 +586,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
 }
 
 function QuickAddLocationForm({ roleId, onDone, onCancel }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
+  const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -585,7 +597,7 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     if (!location.trim() || !noOfPositions) { setError('Location and No. of Positions are required.'); return; }
     setSaving(true); setError('');
     try {
-      await createRoleLocation({ roleId, location: location.trim(), noOfPositions: Number(noOfPositions), status: 'Open' });
+      await createRoleLocation({ roleId, location: location.trim(), noOfPositions: Number(noOfPositions), status: 'Open', dateRequestReceived });
       onDone();
     } catch (err) {
       setError(err.message);
@@ -597,6 +609,10 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     <div style={{ marginLeft: 20, marginTop: 8, padding: 10, background: 'var(--bg1)', borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
       <input placeholder="Location" value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: 140 })} />
       <input type="number" min="1" placeholder="Positions" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: 90 })} />
+      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        Requested
+        <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: 130 })} />
+      </label>
       <button onClick={submit} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Add'}</button>
       <button onClick={onCancel} style={btnStyle()}>Cancel</button>
       {error && <span style={{ color: 'var(--dgr-tx)', fontSize: 12 }}>{error}</span>}
@@ -695,6 +711,7 @@ function EditLocationModal({ rl, onClose, onSaved }) {
 }
 
 function NewRoleModal({ divisions, onClose, onSaved }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [divisionId, setDivisionId] = useState('');
   const [roleTitle, setRoleTitle] = useState('');
   const [roleType, setRoleType] = useState('Sales');
@@ -703,7 +720,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
   const [noOfPositions, setNoOfPositions] = useState('');
   const [status, setStatus] = useState('Open');
   const [plannedStartDate, setPlannedStartDate] = useState('');
-  const [dateRequestReceived, setDateRequestReceived] = useState('');
+  const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -890,13 +907,11 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Role</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Location</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Status</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Time to onboard</th>
             </tr>
           </thead>
           <tbody>
             {flat.map(c => {
               const isStalled = stalledIds.has(c.candidate_id);
-              const ttOnboard = computeTimeToOnboard(c);
               return (
                 <tr key={c.candidate_id} style={{ borderTop: '0.5px solid var(--bd)', background: isStalled ? 'var(--dgr-bg)' : 'transparent' }}>
                   <td style={{ padding: '8px 10px' }}>
@@ -920,7 +935,6 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
-                  <td style={{ padding: '8px 10px', color: isStalled ? 'var(--dgr-tx)' : 'var(--tx2)' }}>{ttOnboard !== null ? `${ttOnboard}d` : '—'}</td>
                 </tr>
               );
             })}
@@ -930,7 +944,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       </div>
 
       {showAddCandidate && (
-        <AddCandidateModal rowsWithCandidates={rowsWithCandidates} onClose={() => setShowAddCandidate(false)} onSaved={() => { setShowAddCandidate(false); onChanged(); }} />
+        <AddCandidateModal rowsWithCandidates={rowsWithCandidates} presetRoleLocationId={locationFilter} onClose={() => setShowAddCandidate(false)} onSaved={() => { setShowAddCandidate(false); onChanged(); }} />
       )}
       {showCandidateUpload && (
         <BulkUploadModal
@@ -969,10 +983,12 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   );
 }
 
-function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
+function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, onSaved }) {
+  const presetRl = presetRoleLocationId ? rowsWithCandidates.find(rl => rl.role_location_id === presetRoleLocationId) : null;
+
   const [divisionName, setDivisionName] = useState('');
   const [roleId, setRoleId] = useState('');
-  const [roleLocationId, setRoleLocationId] = useState('');
+  const [roleLocationId, setRoleLocationId] = useState(presetRoleLocationId || '');
   const [candidateName, setCandidateName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [source, setSource] = useState('');
@@ -986,8 +1002,41 @@ function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
   ).values()];
   const locationsForRole = rowsWithCandidates.filter(rl => rl.roles.role_id === roleId);
 
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [confirmedDespiteDuplicate, setConfirmedDespiteDuplicate] = useState(false);
+
+  function normPhone(p) { return (p || '').replace(/[\s\-+]/g, ''); }
+
+  async function checkForDuplicate() {
+    const name = candidateName.trim().toLowerCase();
+    const phone = normPhone(contactPhone);
+    // Cheap client-side check first — covers everything already visible to
+    // this user, no network call needed.
+    const localMatch = rowsWithCandidates.flatMap(rl => rl.candidates.map(c => ({ ...c, rl }))).find(c =>
+      !['Dropped', 'Rejected'].includes(c.status) &&
+      ((name && c.candidate_name?.trim().toLowerCase() === name) || (phone && normPhone(c.contact_phone) === phone))
+    );
+    if (localMatch) {
+      return { found: true, within_scope: true, candidate_name: localMatch.candidate_name, division_name: localMatch.rl.roles.divisions.name, role_title: localMatch.rl.roles.role_title, location: localMatch.rl.location, status: localMatch.status };
+    }
+    // Nothing visible locally — ask the server whether a match exists
+    // somewhere outside this user's own scope.
+    try {
+      return await checkCandidateDuplicate(candidateName.trim(), contactPhone.trim());
+    } catch {
+      return { found: false }; // don't block adding a candidate if the check itself fails
+    }
+  }
+
   async function submit() {
     if (!roleLocationId || !candidateName.trim()) { setError('Role/Location and Candidate Name are required.'); return; }
+    if (!confirmedDespiteDuplicate) {
+      const dup = await checkForDuplicate();
+      if (dup.found) {
+        setDuplicateWarning(dup);
+        return;
+      }
+    }
     setSaving(true); setError('');
     try {
       await addCandidate({ roleLocationId, candidateName: candidateName.trim(), contactPhone, source, status });
@@ -1001,21 +1050,29 @@ function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
   return (
     <Modal onClose={onClose}>
       <div style={{ fontWeight: 600, marginBottom: 12 }}>Add candidate</div>
-      <label style={labelStyle()}>Division</label>
-      <select value={divisionName} onChange={e => { setDivisionName(e.target.value); setRoleId(''); setRoleLocationId(''); }} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option value="">Select division…</option>
-        {divisionNames.map(d => <option key={d} value={d}>{d}</option>)}
-      </select>
-      <label style={labelStyle()}>Role</label>
-      <select value={roleId} onChange={e => { setRoleId(e.target.value); setRoleLocationId(''); }} style={inputStyle({ width: '100%', marginBottom: 10 })} disabled={!divisionName}>
-        <option value="">Select role…</option>
-        {rolesInDivision.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
-      </select>
-      <label style={labelStyle()}>Location</label>
-      <select value={roleLocationId} onChange={e => setRoleLocationId(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} disabled={!roleId}>
-        <option value="">Select location…</option>
-        {locationsForRole.map(rl => <option key={rl.role_location_id} value={rl.role_location_id}>{rl.location}</option>)}
-      </select>
+      {presetRl ? (
+        <div style={{ background: 'var(--acc-bg)', color: 'var(--acc-tx)', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 13 }}>
+          {presetRl.roles.divisions.name} → {presetRl.roles.role_title} → {presetRl.location}
+        </div>
+      ) : (
+        <>
+          <label style={labelStyle()}>Division</label>
+          <select value={divisionName} onChange={e => { setDivisionName(e.target.value); setRoleId(''); setRoleLocationId(''); }} style={inputStyle({ width: '100%', marginBottom: 10 })}>
+            <option value="">Select division…</option>
+            {divisionNames.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <label style={labelStyle()}>Role</label>
+          <select value={roleId} onChange={e => { setRoleId(e.target.value); setRoleLocationId(''); }} style={inputStyle({ width: '100%', marginBottom: 10 })} disabled={!divisionName}>
+            <option value="">Select role…</option>
+            {rolesInDivision.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
+          </select>
+          <label style={labelStyle()}>Location</label>
+          <select value={roleLocationId} onChange={e => setRoleLocationId(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} disabled={!roleId}>
+            <option value="">Select location…</option>
+            {locationsForRole.map(rl => <option key={rl.role_location_id} value={rl.role_location_id}>{rl.location}</option>)}
+          </select>
+        </>
+      )}
       <label style={labelStyle()}>Candidate name</label>
       <input value={candidateName} onChange={e => setCandidateName(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Contact phone</label>
@@ -1029,6 +1086,17 @@ function AddCandidateModal({ rowsWithCandidates, onClose, onSaved }) {
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
         {STATUS_OPTIONS.slice(0, 7).map(s => <option key={s} value={s}>{s}</option>)}
       </select>
+      {duplicateWarning && (
+        <div style={{ background: 'var(--wrn-bg)', color: 'var(--wrn-tx)', borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 13 }}>
+          {duplicateWarning.within_scope
+            ? `${duplicateWarning.candidate_name} already appears in ${duplicateWarning.role_title} at ${duplicateWarning.location} (${duplicateWarning.division_name}) — status: ${duplicateWarning.status}.`
+            : 'This name or phone number already appears in another division\'s pipeline. Details are hidden since you don\'t have access to that division.'}
+          <div style={{ marginTop: 8 }}>
+            <button onClick={() => { setConfirmedDespiteDuplicate(true); setDuplicateWarning(null); }} style={btnStyle()}>Add anyway</button>
+            <button onClick={() => setDuplicateWarning(null)} style={{ ...btnStyle(), marginLeft: 6 }}>Cancel</button>
+          </div>
+        </div>
+      )}
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={btnStyle()}>Cancel</button>
