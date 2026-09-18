@@ -157,8 +157,15 @@ export default function RecruitmentModule({ tab, setTab }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TabNav tab={tab} setTab={setTab} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, marginBottom: 18 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 50, background: 'var(--acc-fill)', display: 'inline-block' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--acc-tx)' }}>People Management</span>
+          </div>
+          <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Recruitment</h1>
+          <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Track requisitions, candidate movement and hiring progress.</p>
+        </div>
         <RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
@@ -166,6 +173,7 @@ export default function RecruitmentModule({ tab, setTab }) {
         />
       </div>
 
+      <TabNav tab={tab} setTab={setTab} />
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
         filters={filters} setFilters={setFilters}
@@ -215,10 +223,10 @@ export default function RecruitmentModule({ tab, setTab }) {
 function TabNav({ tab, setTab }) {
   const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates']];
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--bd)', marginBottom: 18 }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => setTab(id)}
-          style={{ border: 'none', background: tab === id ? 'var(--acc-bg)' : 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          style={{ border: 'none', borderBottom: tab === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: tab === id ? 650 : 500, padding: '9px 16px 10px', cursor: 'pointer' }}>
           {label}
         </button>
       ))}
@@ -267,7 +275,7 @@ function FilterBar({ divisions, roles, locations, filters, setFilters, showDivis
   ].filter(Boolean);
 
   return (
-    <div style={{ marginBottom: 20, position: 'relative' }}>
+    <div style={{ marginBottom: 22, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button
           onClick={() => setOpen(o => !o)}
@@ -401,7 +409,7 @@ function funnelStyle(stage) {
 
 function KpiCard({ label, value, role }) {
   return (
-    <div style={{ background: role ? `var(--${role}-bg)` : 'var(--bg1)', borderRadius: 12, padding: '10px 8px', flex: 1, minWidth: 130 }}>
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderTop: role === 'acc' ? '3px solid var(--acc-fill)' : role === 'suc' ? '3px solid var(--suc-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)', borderRadius: 8, padding: '13px 14px', flex: 1, minWidth: 130, boxShadow: '0 1px 2px rgba(15,42,67,0.04)' }}>
       <p style={{ fontSize: 11, color: role ? `var(--${role}-tx)` : 'var(--tx2)', margin: '0 0 4px' }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 500, margin: 0, color: role ? `var(--${role}-tx)` : 'var(--tx1)' }}>{value}</p>
     </div>
@@ -496,7 +504,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Open positions" value={metrics.totalSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
@@ -507,7 +515,8 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
       </div>
 
-      <CollapsibleSection title="Candidate funnel — click any stage">
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
+        <CollapsibleSection title="Candidate funnel — click any stage">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {FUNNEL_STAGES.map(stage => {
             const [role] = funnelStyle(stage);
@@ -522,9 +531,11 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
             );
           })}
         </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      </div>
 
-      <CollapsibleSection title="Closure rates by division">
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
+        <CollapsibleSection title="Closure rates by division">
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
@@ -544,7 +555,8 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
           ))}
           {metrics.byDivision.length === 0 && <div style={{ color: 'var(--txm)', fontSize: 13 }}>No open roles yet.</div>}
         </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      </div>
 
       <YearComparisonSection filters={filters} />
     </div>
