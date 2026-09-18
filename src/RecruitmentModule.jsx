@@ -21,8 +21,8 @@ import {
 // ---------------------------------------------------------------
 // Shared style helpers — same pattern and same CSS variables as App.jsx
 // ---------------------------------------------------------------
-function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '7px 10px', fontSize: 13, ...extra }; }
-function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra }; }
+function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra }; }
+function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '1px solid var(--bds)', borderRadius: 6, padding: '7px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra }; }
 function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', ...extra }; }
 function dangerBtnStyle(extra = {}) { return { fontSize: 12, background: 'none', border: 'none', color: 'var(--dgr-tx)', cursor: 'pointer', ...extra }; }
 function labelStyle() { return { fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }; }
