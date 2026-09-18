@@ -91,8 +91,7 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
     }
 
-    // Employment Type is always represented in the template, but is only required
-    // when the role does not have one fixed candidate type.
+    // Employment Type is represented in the template and is required when a candidate is being uploaded.
     if (row['Role Type']?.trim() && !['Sales', 'Support'].includes(row['Role Type'].trim())) {
       rowErrors.push(`Row ${rowNum}: Role Type must be Sales or Support.`);
     }
