@@ -295,7 +295,7 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {appMode === 'recruitment' && <RecruitmentModule tab={recruitmentTab} setTab={setRecruitmentTab} />}
-        </div>
+        </main>
       </div>
 
       {editing && (
