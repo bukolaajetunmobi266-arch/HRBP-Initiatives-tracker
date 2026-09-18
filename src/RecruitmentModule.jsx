@@ -72,7 +72,7 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
   const [divisions, setDivisions] = useState([]);
-  const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '' });
+  const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '', employmentType: '' });
   const [rowsWithCandidates, setRowsWithCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -996,7 +996,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
   const [roleId, setRoleId] = useState('');
   const [roleLocationId, setRoleLocationId] = useState(presetRoleLocationId || '');
   const [candidateName, setCandidateName] = useState('');
-  const [employmentType, setCandidateType] = useState('');
+  const [employmentType, setEmploymentType] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [source, setSource] = useState('');
   const [status, setStatus] = useState('Sourcing');
@@ -1038,8 +1038,8 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
   async function submit() {
     if (!roleLocationId || !candidateName.trim()) { setError('Role/Location and Candidate Name are required.'); return; }
     const selectedRl = rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
-    const typeState = employmentTypeState(selectedRl?.roles?.role_type, employmentType);
-    if (typeState.required && !typeState.value) { setError('Employment Type is required.'); return; }
+    const typeState = employmentTypeState(employmentType);
+    if (!employmentType) { setError('Employment Type is required.'); return; }
     if (!confirmedDespiteDuplicate) {
       const dup = await checkForDuplicate();
       if (dup.found) {
@@ -1049,7 +1049,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
     }
     setSaving(true); setError('');
     try {
-      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), employmentType: typeState.value, contactPhone, source, status });
+      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), employmentType: employmentType, contactPhone, source, status });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -1087,7 +1087,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       <input value={candidateName} onChange={e => setCandidateName(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       {(() => {
         const role = presetRl || rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
-        const typeState = employmentTypeState(role?.roles?.role_type, employmentType);
+        const typeState = employmentTypeState(employmentType);
         return (
           <>
             <label style={labelStyle()}>Employment Type</label>
@@ -1098,8 +1098,8 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
               </>
             ) : (
               <>
-                <select value={employmentType} onChange={e => setCandidateType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
-                  <option value="">Select candidate type…</option>
+                <select value={employmentType} onChange={e => setEmploymentType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+                  <option value="">Select employment type…</option>
                   {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
                 </select>
                 <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Select the engagement type for this candidate.</div>
@@ -1555,7 +1555,7 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
             ) : (
               <>
                 <select value={form.employment_type} onChange={e => set('employment_type', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
-                  <option value="">Select candidate type…</option>
+                  <option value="">Select employment type…</option>
                   {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
                 </select>
                 <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Select the engagement type for this candidate.</div>
