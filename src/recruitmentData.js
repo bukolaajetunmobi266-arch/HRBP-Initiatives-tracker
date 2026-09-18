@@ -122,10 +122,16 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   const { data: candidates, error: candErr } = await candQuery;
   if (candErr) throw candErr;
 
-  return roleLocations.map(rl => ({
+  const result = roleLocations.map(rl => ({
     ...rl,
     candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
   }));
+
+  // Candidate-level filters (Year, Employment Type, Recruitment Stage) must
+  // affect the entire recruitment module, not just the candidate list.
+  // Keep only role-locations that contain at least one matching candidate.
+  const candidateScoped = Boolean(filters.year || filters.employmentType || filters.stage);
+  return candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
 }
 
 // ---------------------------------------------------------------
