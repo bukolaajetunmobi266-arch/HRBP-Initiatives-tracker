@@ -219,6 +219,16 @@ function Dashboard({ session, theme, setTheme }) {
         <main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 50, background: 'var(--acc-fill)', display: 'inline-block' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--acc-tx)' }}>People Management</span>
+            </div>
+            <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables</h1>
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
+          </div>
+        </div>
         {view !== 'summary' && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
@@ -563,8 +573,8 @@ function BoardView({ items, isAdmin, onOpen, onStatus, onDelete, onAdd, ownerNam
   )
 }
 
-function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
-function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', ...extra } }
+function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
+function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontWeight: 600, ...extra } }
 
 function buildTree(items) {
   const tree = {}
@@ -827,12 +837,18 @@ function metricSet(items, totalLabel) {
 }
 function MetricGrid({ items, totalLabel }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}>
       {metricSet(items, totalLabel).map(([icon, label, val, role]) => (
-        <div key={label} style={{ background: `var(--${role === 'flat' ? 'bg1' : role + '-bg'})`, borderRadius: 12, padding: '10px 8px' }}>
-          <i className={`ti ${icon}`} style={{ fontSize: 16, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)` }} aria-hidden="true" />
-          <p style={{ fontSize: 11, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)`, margin: '6px 0 2px' }}>{label}</p>
-          <p style={{ fontSize: 16, fontWeight: 500, margin: 0, color: role === 'flat' ? 'var(--tx1)' : `var(--${role}-tx)` }}>{val}</p>
+        <div key={label} style={{
+          background: 'var(--bg2)',
+          border: '1px solid var(--bd)',
+          borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : role === 'acc' ? '3px solid var(--acc-fill)' : '3px solid var(--bds)',
+          borderRadius: 8, padding: '13px 14px', minHeight: 72,
+          boxSizing: 'border-box', boxShadow: '0 1px 2px rgba(15,42,67,0.04)'
+        }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 15, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
+          <p style={{ fontSize: 11, color: 'var(--tx2)', margin: '7px 0 3px' }}>{label}</p>
+          <p style={{ fontSize: 19, fontWeight: 650, margin: 0, color: 'var(--tx1)', letterSpacing: '-0.2px' }}>{val}</p>
         </div>
       ))}
     </div>
