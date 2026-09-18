@@ -424,9 +424,8 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
     <aside style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
         {!collapsed && (
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.1px' }}>People Management</div>
-            <div style={{ fontSize: 9, color: 'var(--txm)', marginTop: 4, letterSpacing: 1.2, textTransform: 'uppercase' }}>Credit Direct</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+            <img src="/credit-direct-logo.png" alt="Credit Direct" style={{ width: 122, height: 'auto', display: 'block' }} />
           </div>
         )}
         <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
