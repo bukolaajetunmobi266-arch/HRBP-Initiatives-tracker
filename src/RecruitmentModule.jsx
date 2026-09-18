@@ -15,6 +15,7 @@ import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
   syncStalledNotifications, markNotificationRead, checkCandidateDuplicate,
+  deleteCandidates,
 } from './recruitmentActions';
 
 // ---------------------------------------------------------------
@@ -137,6 +138,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
   const canManageDivisions = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
+  const canDeleteCandidates = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
 
   function jumpToCandidatesByStatus(statusFilter) {
     setCandidateStatusFilter(statusFilter);
@@ -197,6 +199,7 @@ export default function RecruitmentModule({ tab, setTab }) {
               initialStatusFilter={candidateStatusFilter}
               initialLocationFilter={candidateLocationFilter}
               stalled={stalled}
+              canDeleteCandidates={canDeleteCandidates}
               onChanged={reload}
             />
           )}
@@ -799,7 +802,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
 // =================================================================
 // Candidates — the only place candidates are added, edited, or have status changed
 // =================================================================
-function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, onChanged }) {
+function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, canDeleteCandidates, onChanged }) {
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [locationFilter, setLocationFilter] = useState(initialLocationFilter);
   const [search, setSearch] = useState('');
@@ -809,6 +812,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   const [showAddCandidate, setShowAddCandidate] = useState(false);
   const [showCandidateUpload, setShowCandidateUpload] = useState(false);
   const [profileCandidate, setProfileCandidate] = useState(null); // { candidate, rl }
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { setStatusFilter(initialStatusFilter); }, [initialStatusFilter]);
   useEffect(() => { setLocationFilter(initialLocationFilter); }, [initialLocationFilter]);
@@ -873,6 +877,27 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     }
   }
 
+  async function deleteSelectedCandidates() {
+    if (!canDeleteCandidates || selected.size === 0) return;
+    const count = selected.size;
+    const confirmed = window.confirm(
+      `Delete ${count} selected candidate${count === 1 ? '' : 's'} permanently? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteCandidates([...selected]);
+      setSelected(new Set());
+      onChanged();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const activeFilterLabel = statusFilter === '__stalled__' ? 'Stalled'
     : statusFilter === '__dropped__' ? 'Dropped/Rejected'
     : locationFilter ? `Location: ${flat[0]?.location || ''}`
@@ -901,6 +926,11 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button onClick={applyBulk} style={primaryBtnStyle()}>Apply</button>
+          {canDeleteCandidates && (
+            <button onClick={deleteSelectedCandidates} disabled={deleting} style={dangerBtnStyle({ color: 'var(--dgr-tx)', border: '1px solid var(--dgr-tx)', borderRadius: 8, padding: '6px 10px' })}>
+              {deleting ? 'Deleting…' : 'Delete selected'}
+            </button>
+          )}
         </div>
       )}
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 13, marginBottom: 8 }}>{error}</div>}
@@ -909,7 +939,20 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg1)' }}>
-              <th style={{ padding: '8px 10px' }}></th>
+              <th style={{ padding: '8px 10px', width: 36 }}>
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible candidates"
+                  checked={flat.length > 0 && flat.every(c => selected.has(c.candidate_id))}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      setSelected(new Set(flat.map(c => c.candidate_id)));
+                    } else {
+                      setSelected(new Set());
+                    }
+                  }}
+                />
+              </th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Name</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Division</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Role</th>
@@ -971,6 +1014,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           candidate={profileCandidate.candidate}
           currentRl={profileCandidate.rl}
           allRows={rowsWithCandidates}
+          canDelete={canDeleteCandidates}
           onClose={() => setProfileCandidate(null)}
           onSaved={() => { setProfileCandidate(null); onChanged(); }}
         />
@@ -1467,7 +1511,7 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
   );
 }
 
-function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved }) {
+function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClose, onSaved }) {
   const [form, setForm] = useState({
     candidate_name: candidate.candidate_name || '',
     employment_type: candidate.employment_type || '',
@@ -1493,6 +1537,7 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
   const [moveTargetId, setMoveTargetId] = useState('');
   const [moveReason, setMoveReason] = useState('');
   const [moving, setMoving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })); }
 
@@ -1508,6 +1553,24 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
     } catch (err) {
       setError(err.message);
       setSaving(false);
+    }
+  }
+
+  async function deleteThisCandidate() {
+    if (!canDelete || deleting) return;
+    const confirmed = window.confirm(
+      `Delete ${candidate.candidate_name} permanently? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteCandidates([candidate.candidate_id]);
+      onSaved();
+    } catch (err) {
+      setError(err.message || String(err));
+      setDeleting(false);
     }
   }
 
@@ -1606,7 +1669,12 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 16 }}>
         <button onClick={onClose} style={btnStyle()}>Cancel</button>
-        <button onClick={save} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={save} disabled={saving || deleting} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Save'}</button>
+        {canDelete && (
+          <button onClick={deleteThisCandidate} disabled={saving || deleting} style={dangerBtnStyle({ color: 'var(--dgr-tx)', border: '1px solid var(--dgr-tx)', borderRadius: 8, padding: '6px 10px' })}>
+            {deleting ? 'Deleting…' : 'Delete candidate'}
+          </button>
+        )}
       </div>
 
       <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 12 }}>
