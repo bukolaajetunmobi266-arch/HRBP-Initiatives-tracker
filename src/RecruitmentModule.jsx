@@ -588,9 +588,9 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
 
   const now = new Date();
   function passesFilter(rl) {
-    if (filterMode === 'yetToStart') return rl.status === 'Yet to Start';
+    if (filterMode === 'yetToStart') return rl.derived_status === 'Yet to Start';
     if (filterMode === 'aging') {
-      if (rl.status !== 'Open' || !rl.date_request_received) return false;
+      if (['Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(rl.derived_status) || !rl.date_request_received) return false;
       return Math.floor((now - new Date(rl.date_request_received)) / 86400000) >= 30;
     }
     return true;
@@ -625,7 +625,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
         'No of Positions': rl.no_of_positions,
         Closed: closed,
         Left: left,
-        Status: rl.status,
+        Status: rl.derived_status,
         'Time to Close (days)': computeTimeToClose(rl) ?? '',
       };
     });
@@ -721,7 +721,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                   <span>{rl.no_of_positions}</span>
                                   <span>{closed}</span>
                                   <span style={{ color: left ? 'var(--wrn-tx)' : 'var(--suc-tx)', fontWeight: 500 }}>{left}</span>
-                                  <span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: rl.status === 'Closed' || left === 0 ? 'var(--suc-tx)' : 'var(--tx2)' }}><span style={{ width: 6, height: 6, borderRadius: 999, background: rl.status === 'Closed' || left === 0 ? 'var(--suc-fill)' : 'var(--txm)' }} />{left === 0 ? 'Closed' : rl.status}</span></span>
+                                  <span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: rl.derived_status === 'Closed' || left === 0 ? 'var(--suc-tx)' : 'var(--tx2)' }}><span style={{ width: 6, height: 6, borderRadius: 999, background: rl.derived_status === 'Closed' || left === 0 ? 'var(--suc-fill)' : 'var(--txm)' }} />{left === 0 ? 'Closed' : rl.derived_status}</span></span>
                                   <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s', justifyContent: 'flex-end' }}>
                                     <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
                                     <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
