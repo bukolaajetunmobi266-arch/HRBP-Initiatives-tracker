@@ -95,6 +95,11 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.divisionId && rl.roles.division_id !== filters.divisionId) return false;
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.location && rl.location !== filters.location) return false;
+    if (filters.year) {
+      const start = `${filters.year}-01-01`;
+      const end = `${Number(filters.year) + 1}-01-01`;
+      if (!rl.date_request_received || rl.date_request_received < start || rl.date_request_received >= end) return false;
+    }
     return true;
   });
 
@@ -107,11 +112,6 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .in('role_location_id', rlIds)
     .is('deleted_at', null);
 
-  if (filters.year) {
-    candQuery = candQuery
-      .gte('created_at', `${filters.year}-01-01`)
-      .lt('created_at', `${Number(filters.year) + 1}-01-01`);
-  }
   if (filters.employmentType) {
     candQuery = candQuery.eq('employment_type', filters.employmentType);
   }
@@ -134,7 +134,6 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   // Overview, Roles and Candidates views. Role-location filters such as
   // Sourcing / Yet to Start are evaluated from the derived role status.
   const candidateScoped = Boolean(
-    filters.year ||
     filters.employmentType ||
     (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage))
   );
