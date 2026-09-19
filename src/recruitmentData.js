@@ -181,7 +181,7 @@ function deriveRoleLocationStatus(rl) {
     if (planned > today) return 'Yet to Start';
   }
 
-  const activeCandidates = rl.candidates.filter(c => !['Dropped', 'Rejected'].includes(c.status));
+  const activeCandidates = rl.candidates.filter(c => !['Dropped', 'Rejected', 'Closed'].includes(c.status));
   if (activeCandidates.length === 0) return 'Sourcing';
 
   // The role/location status reflects the most advanced active candidate stage.
