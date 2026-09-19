@@ -127,7 +127,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
       ...rl,
       candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
     };
-    return { ...row, status: deriveRoleLocationStatus(row) };
+    return { ...row, derived_status: deriveRoleLocationStatus(row) };
   });
 
   // Candidate-level filters affect the candidate population and therefore the
@@ -141,7 +141,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   let scoped = candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
 
   if (filters.stage && ROLE_LOCATION_STATUS_FILTERS.includes(filters.stage)) {
-    scoped = scoped.filter(rl => rl.status === filters.stage);
+    scoped = scoped.filter(rl => rl.derived_status === filters.stage);
   }
 
   return scoped;
@@ -207,7 +207,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
     uniqueRoleIds.add(rl.roles.role_id);
 
-    if (rl.status === 'Yet to Start') {
+    if (rl.derived_status === 'Yet to Start') {
       // Not yet active — excluded from slot totals, Fill Rate, Closure Rate, and the funnel.
       yetToStartSlots += rl.no_of_positions;
       continue;
@@ -216,7 +216,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     totalSlots += rl.no_of_positions;
     divisionAgg[divName].slots += rl.no_of_positions;
 
-    if (rl.status === 'Sourcing') funnelCounts.Sourcing++;
+    if (rl.derived_status === 'Sourcing') funnelCounts.Sourcing++;
 
     for (const c of rl.candidates) {
       if (c.status !== 'Sourcing' && funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
