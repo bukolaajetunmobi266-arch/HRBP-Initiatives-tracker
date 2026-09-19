@@ -115,23 +115,36 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   if (filters.employmentType) {
     candQuery = candQuery.eq('employment_type', filters.employmentType);
   }
-  if (filters.stage) {
+  if (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage)) {
     candQuery = candQuery.eq('status', filters.stage);
   }
 
   const { data: candidates, error: candErr } = await candQuery;
   if (candErr) throw candErr;
 
-  const result = roleLocations.map(rl => ({
-    ...rl,
-    candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
-  }));
+  const result = roleLocations.map(rl => {
+    const row = {
+      ...rl,
+      candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
+    };
+    return { ...row, status: deriveRoleLocationStatus(row) };
+  });
 
-  // Candidate-level filters (Year, Employment Type, Recruitment Stage) must
-  // affect the entire recruitment module, not just the candidate list.
-  // Keep only role-locations that contain at least one matching candidate.
-  const candidateScoped = Boolean(filters.year || filters.employmentType || filters.stage);
-  return candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
+  // Candidate-level filters affect the candidate population and therefore the
+  // Overview, Roles and Candidates views. Role-location filters such as
+  // Sourcing / Yet to Start are evaluated from the derived role status.
+  const candidateScoped = Boolean(
+    filters.year ||
+    filters.employmentType ||
+    (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage))
+  );
+  let scoped = candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
+
+  if (filters.stage && ROLE_LOCATION_STATUS_FILTERS.includes(filters.stage)) {
+    scoped = scoped.filter(rl => rl.status === filters.stage);
+  }
+
+  return scoped;
 }
 
 // ---------------------------------------------------------------
@@ -147,6 +160,38 @@ const FUNNEL_STAGES = [
 // tracked separately in slot units and deliberately excluded from Fill Rate,
 // Closure Rate, and the funnel percentage base — see design notes.
 const CANDIDATE_FUNNEL_STAGES = FUNNEL_STAGES.filter(s => s !== 'Yet to Start');
+
+const CANDIDATE_STATUS_FILTERS = [...CANDIDATE_FUNNEL_STAGES, 'Dropped', 'Rejected'];
+const ROLE_LOCATION_STATUS_FILTERS = ['Yet to Start', 'Sourcing', 'On Hold', 'Cancelled'];
+
+function deriveRoleLocationStatus(rl) {
+  // On Hold and Cancelled are deliberate manual overrides.
+  if (rl.status === 'On Hold' || rl.status === 'Cancelled') return rl.status;
+
+  const positions = Number(rl.no_of_positions || 0);
+  const closed = rl.candidates.filter(c => c.status === 'Closed').length;
+  if (positions > 0 && closed >= positions) return 'Closed';
+
+  // A future planned start date means recruitment has not started yet.
+  if (rl.planned_start_date) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const planned = new Date(rl.planned_start_date);
+    planned.setHours(0, 0, 0, 0);
+    if (planned > today) return 'Yet to Start';
+  }
+
+  const activeCandidates = rl.candidates.filter(c => !['Dropped', 'Rejected'].includes(c.status));
+  if (activeCandidates.length === 0) return 'Sourcing';
+
+  // The role/location status reflects the most advanced active candidate stage.
+  const stageOrder = CANDIDATE_FUNNEL_STAGES;
+  return activeCandidates.reduce((current, candidate) => {
+    const currentIndex = stageOrder.indexOf(current);
+    const candidateIndex = stageOrder.indexOf(candidate.status);
+    return candidateIndex > currentIndex ? candidate.status : current;
+  }, 'Sourcing');
+}
 
 export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let totalSlots = 0;
@@ -171,8 +216,10 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     totalSlots += rl.no_of_positions;
     divisionAgg[divName].slots += rl.no_of_positions;
 
+    if (rl.status === 'Sourcing') funnelCounts.Sourcing++;
+
     for (const c of rl.candidates) {
-      if (funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
+      if (c.status !== 'Sourcing' && funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
       if (SECURED_STATUSES.includes(c.status)) {
         securedCount++;
         divisionAgg[divName].secured++;
