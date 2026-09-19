@@ -212,11 +212,63 @@ function Dashboard({ session, theme, setTheme }) {
   if (loading || !profile) return <div style={{ minHeight: '100vh', background: 'var(--bg0)' }} />
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+    <div data-app-shell style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+      <style>{`
+        @media (max-width: 1100px) {
+          [data-app-main] { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+        @media (max-width: 900px) {
+          [data-app-shell] { flex-direction: column !important; }
+          [data-app-sidebar] {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            height: 64px !important;
+            box-sizing: border-box !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            padding: 6px 8px !important;
+            gap: 6px !important;
+            border-right: none !important;
+            border-top: 1px solid var(--bd) !important;
+            z-index: 100 !important;
+          }
+          [data-sidebar-brand], [data-sidebar-section] { display: none !important; }
+          [data-app-sidebar] [data-nav] {
+            flex: 1 !important;
+            justify-content: center !important;
+            border-left: none !important;
+            border-top: 3px solid transparent !important;
+            border-radius: 7px !important;
+            padding: 8px 10px !important;
+          }
+          [data-app-sidebar] [data-nav][data-active="true"] {
+            border-top-color: var(--acc-fill) !important;
+          }
+          [data-app-sidebar] [data-nav] span:last-child { white-space: nowrap; }
+          [data-app-main] {
+            max-width: none !important;
+            padding: 16px 12px 88px !important;
+          }
+          [data-recruitment-kpis] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 600px) {
+          [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
+          [data-recruitment-header] { align-items: flex-start !important; }
+          [data-recruitment-actions] { width: 100% !important; }
+          [data-recruitment-actions] > * { flex: 1 !important; }
+        }
+      `}</style>
       <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
-        <main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
+        <main data-app-main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
@@ -421,8 +473,8 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
   })
 
   return (
-    <aside style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
+    <aside data-app-sidebar style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
+      <div data-sidebar-brand style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
             <img src="/credit-direct-logo.png" alt="Credit Direct" style={{ width: 122, height: 'auto', display: 'block' }} />
@@ -434,13 +486,13 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <div style={{ fontSize: 9, color: 'var(--txm)', padding: '0 10px 6px', letterSpacing: 1.1, textTransform: 'uppercase' }}>People</div>
-      <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
-        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables</span>}
+      <div data-sidebar-section style={{ fontSize: 9, color: 'var(--txm)', padding: '0 10px 6px', letterSpacing: 1.1, textTransform: 'uppercase' }}>People</div>
+      <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables Tracker</span>}
       </button>
 
-      <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
-        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
+      <button data-nav data-active={appMode === 'recruitment'} onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment Tracker</span>}
       </button>
     </aside>
   )
