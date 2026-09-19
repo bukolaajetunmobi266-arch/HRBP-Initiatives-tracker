@@ -767,6 +767,7 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
+  const [plannedStartDate, setPlannedStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -774,7 +775,14 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     if (!location.trim() || !noOfPositions) { setError('Location and No. of Positions are required.'); return; }
     setSaving(true); setError('');
     try {
-      await createRoleLocation({ roleId, location: location.trim(), noOfPositions: Number(noOfPositions), status: 'Open', dateRequestReceived });
+      await createRoleLocation({
+        roleId,
+        location: location.trim(),
+        noOfPositions: Number(noOfPositions),
+        status: 'Open',
+        plannedStartDate: plannedStartDate || null,
+        dateRequestReceived,
+      });
       onDone();
     } catch (err) {
       setError(err.message);
@@ -786,6 +794,10 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     <div style={{ marginLeft: 20, marginTop: 8, padding: 10, background: 'var(--bg1)', borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
       <input placeholder="Location" value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: 140 })} />
       <input type="number" min="1" placeholder="Positions" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: 90 })} />
+      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        Planned start
+        <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: 130 })} />
+      </label>
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
         Requested
         <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: 130 })} />
@@ -867,12 +879,14 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <input value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>No. of positions</label>
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-      <label style={labelStyle()}>Status</label>
-      <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
+      <label style={labelStyle()}>Status override</label>
+      <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+        <option>Open</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
       </select>
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the planned start date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
       <label style={labelStyle()}>Planned start date</label>
-      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date location closed</label>
@@ -947,12 +961,9 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
         <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
       </select>
-      {status === 'Yet to Start' && (
-        <>
-          <label style={labelStyle()}>Planned start date</label>
-          <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-        </>
-      )}
+      <label style={labelStyle()}>Planned start date</label>
+      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
