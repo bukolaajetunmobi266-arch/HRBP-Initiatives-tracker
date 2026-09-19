@@ -217,7 +217,7 @@ function Dashboard({ session, theme, setTheme }) {
         @media (max-width: 1100px) {
           [data-app-main] { padding-left: 20px !important; padding-right: 20px !important; }
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1100px) {
           [data-app-shell] { flex-direction: column !important; }
           [data-app-sidebar] {
             position: fixed !important;
