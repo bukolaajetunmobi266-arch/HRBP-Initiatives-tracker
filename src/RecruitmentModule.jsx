@@ -15,13 +15,14 @@ import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
   syncStalledNotifications, markNotificationRead, checkCandidateDuplicate,
+  deleteCandidates,
 } from './recruitmentActions';
 
 // ---------------------------------------------------------------
 // Shared style helpers — same pattern and same CSS variables as App.jsx
 // ---------------------------------------------------------------
-function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '7px 10px', fontSize: 13, ...extra }; }
-function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra }; }
+function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra }; }
+function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '1px solid var(--bds)', borderRadius: 6, padding: '7px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra }; }
 function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', ...extra }; }
 function dangerBtnStyle(extra = {}) { return { fontSize: 12, background: 'none', border: 'none', color: 'var(--dgr-tx)', cursor: 'pointer', ...extra }; }
 function labelStyle() { return { fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }; }
@@ -36,6 +37,10 @@ function Badge({ status }) {
 
 const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
+const EMPLOYMENT_TYPE_OPTIONS = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
+function employmentTypeState(value) {
+  return { value: value || '', locked: false, required: false };
+}
 
 function downloadCsv(filename, headers, rows) {
   const escape = v => {
@@ -68,7 +73,7 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
   const [divisions, setDivisions] = useState([]);
-  const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '' });
+  const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' });
   const [rowsWithCandidates, setRowsWithCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -133,6 +138,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
   const canManageDivisions = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
+  const canDeleteCandidates = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
 
   function jumpToCandidatesByStatus(statusFilter) {
     setCandidateStatusFilter(statusFilter);
@@ -151,15 +157,19 @@ export default function RecruitmentModule({ tab, setTab }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TabNav tab={tab} setTab={setTab} />
-        <RecruitmentNotificationBell
+      <div data-recruitment-header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, marginBottom: 18 }}>
+        <div>
+          <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Recruitment Tracker</h1>
+          <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Track requisitions, candidate movement and hiring progress.</p>
+        </div>
+        <div data-recruitment-actions><RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
           onRead={async (id) => { await markNotificationRead(id, scope.id); const list = await fetchMyNotifications(); setNotifications(list); }}
-        />
+        /></div>
       </div>
 
+      <TabNav tab={tab} setTab={setTab} />
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
         filters={filters} setFilters={setFilters}
@@ -193,6 +203,7 @@ export default function RecruitmentModule({ tab, setTab }) {
               initialStatusFilter={candidateStatusFilter}
               initialLocationFilter={candidateLocationFilter}
               stalled={stalled}
+              canDeleteCandidates={canDeleteCandidates}
               onChanged={reload}
             />
           )}
@@ -208,10 +219,10 @@ export default function RecruitmentModule({ tab, setTab }) {
 function TabNav({ tab, setTab }) {
   const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates']];
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--bd)', marginBottom: 18 }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => setTab(id)}
-          style={{ border: 'none', background: tab === id ? 'var(--acc-bg)' : 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          style={{ border: 'none', borderBottom: tab === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: tab === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: tab === id ? 650 : 500, padding: '9px 16px 10px', cursor: 'pointer' }}>
           {label}
         </button>
       ))}
@@ -220,26 +231,163 @@ function TabNav({ tab, setTab }) {
 }
 
 function FilterBar({ divisions, roles, locations, filters, setFilters, showDivisionFilter }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(filters);
+
+  useEffect(() => { if (open) setDraft(filters); }, [open, filters]);
+
+  const activeCount = Object.values(filters).filter(Boolean).length;
+
+  function update(key, value) {
+    setDraft(f => ({ ...f, [key]: value }));
+  }
+
+  function apply() {
+    setFilters(draft);
+    setOpen(false);
+  }
+
+  function clearAll() {
+    const empty = { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+    setDraft(empty);
+    setFilters(empty);
+    setOpen(false);
+  }
+
+  function removeFilter(key) {
+    setFilters(f => ({ ...f, [key]: '' }));
+  }
+
+  const divisionName = divisions.find(d => d.division_id === filters.divisionId)?.name;
+  const roleName = roles.find(r => r.role_id === filters.roleId)?.role_title;
+
+  const chips = [
+    showDivisionFilter && filters.divisionId ? ['divisionId', divisionName || 'Division'] : null,
+    filters.roleId ? ['roleId', roleName || 'Role'] : null,
+    filters.location ? ['location', filters.location] : null,
+    filters.year ? ['year', filters.year] : null,
+    filters.employmentType ? ['employmentType', filters.employmentType] : null,
+    filters.stage ? ['stage', filters.stage] : null,
+  ].filter(Boolean);
+
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-      {showDivisionFilter && (
-        <select value={filters.divisionId} onChange={e => setFilters(f => ({ ...f, divisionId: e.target.value }))} style={inputStyle({ width: 'auto' })}>
-          <option value="">Division: All</option>
-          {divisions.map(d => <option key={d.division_id} value={d.division_id}>{d.name}</option>)}
-        </select>
+    <div style={{ marginBottom: 22, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            ...btnStyle({
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)',
+              color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)',
+              borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)',
+            }),
+          }}
+          aria-expanded={open}
+        >
+          <span style={{ fontSize: 14 }}>☷</span>
+          <span>Filters</span>
+          {activeCount > 0 && (
+            <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {activeCount}
+            </span>
+          )}
+          <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        </button>
+
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {chips.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => removeFilter(key)}
+                title="Remove filter"
+                style={{ ...btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' }) }}
+              >
+                {label} ×
+              </button>
+            ))}
+            <button onClick={clearAll} style={dangerBtnStyle({ fontSize: 11, padding: '3px 4px' })}>Clear all</button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          zIndex: 45,
+          width: 'min(620px, calc(100vw - 40px))',
+          background: 'var(--bg2)',
+          border: '0.5px solid var(--bds)',
+          borderRadius: 12,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.14)',
+          padding: 16,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Filter recruitment</div>
+              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Apply filters across the recruitment views.</div>
+            </div>
+            {activeCount > 0 && <button onClick={clearAll} style={dangerBtnStyle({ fontSize: 11 })}>Clear all</button>}
+          </div>
+
+          <div data-recruitment-filter-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            {showDivisionFilter && (
+              <label>
+                <span style={labelStyle()}>Division</span>
+                <select value={draft.divisionId} onChange={e => update('divisionId', e.target.value)} style={inputStyle({ width: '100%' })}>
+                  <option value="">All divisions</option>
+                  {divisions.map(d => <option key={d.division_id} value={d.division_id}>{d.name}</option>)}
+                </select>
+              </label>
+            )}
+            <label>
+              <span style={labelStyle()}>Role</span>
+              <select value={draft.roleId} onChange={e => update('roleId', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All roles</option>
+                {roles.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
+              </select>
+            </label>
+            <label>
+              <span style={labelStyle()}>Location</span>
+              <select value={draft.location} onChange={e => update('location', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All locations</option>
+                {locations.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </label>
+            <label>
+              <span style={labelStyle()}>Year</span>
+              <select value={draft.year} onChange={e => update('year', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All years</option>
+                {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </label>
+            <label>
+              <span style={labelStyle()}>Employment Type</span>
+              <select value={draft.employmentType} onChange={e => update('employmentType', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All employment types</option>
+                {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label>
+              <span style={labelStyle()}>Recruitment Stage</span>
+              <select value={draft.stage} onChange={e => update('stage', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All stages</option>
+                {STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--bd)' }}>
+            <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={apply} style={primaryBtnStyle()}>Apply filters</button>
+          </div>
+        </div>
       )}
-      <select value={filters.roleId} onChange={e => setFilters(f => ({ ...f, roleId: e.target.value }))} style={inputStyle({ width: 'auto' })}>
-        <option value="">Role: All</option>
-        {roles.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
-      </select>
-      <select value={filters.location} onChange={e => setFilters(f => ({ ...f, location: e.target.value }))} style={inputStyle({ width: 'auto' })}>
-        <option value="">Location: All</option>
-        {locations.map(l => <option key={l} value={l}>{l}</option>)}
-      </select>
-      <select value={filters.year} onChange={e => setFilters(f => ({ ...f, year: e.target.value }))} style={inputStyle({ width: 'auto' })}>
-        <option value="">Year: All</option>
-        {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-      </select>
     </div>
   );
 }
@@ -257,7 +405,7 @@ function funnelStyle(stage) {
 
 function KpiCard({ label, value, role }) {
   return (
-    <div style={{ background: role ? `var(--${role}-bg)` : 'var(--bg1)', borderRadius: 12, padding: '10px 8px', flex: 1, minWidth: 130 }}>
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderTop: role === 'acc' ? '3px solid var(--acc-fill)' : role === 'suc' ? '3px solid var(--suc-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)', borderRadius: 8, padding: '13px 14px', flex: 1, minWidth: 0, boxShadow: '0 1px 2px rgba(15,42,67,0.04)' }}>
       <p style={{ fontSize: 11, color: role ? `var(--${role}-tx)` : 'var(--tx2)', margin: '0 0 4px' }}>{label}</p>
       <p style={{ fontSize: 18, fontWeight: 500, margin: 0, color: role ? `var(--${role}-tx)` : 'var(--tx1)' }}>{value}</p>
     </div>
@@ -352,7 +500,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 24 }}>
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Open positions" value={metrics.totalSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
@@ -363,7 +511,8 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
       </div>
 
-      <CollapsibleSection title="Candidate funnel — click any stage">
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
+        <CollapsibleSection title="Candidate funnel — click any stage">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {FUNNEL_STAGES.map(stage => {
             const [role] = funnelStyle(stage);
@@ -378,9 +527,11 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
             );
           })}
         </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      </div>
 
-      <CollapsibleSection title="Closure rates by division">
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
+        <CollapsibleSection title="Closure rates by division">
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
@@ -400,7 +551,8 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
           ))}
           {metrics.byDivision.length === 0 && <div style={{ color: 'var(--txm)', fontSize: 13 }}>No open roles yet.</div>}
         </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      </div>
 
       <YearComparisonSection filters={filters} />
     </div>
@@ -410,21 +562,12 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
 // =================================================================
 // Roles — structural only, no candidate list, links out to Candidates
 // =================================================================
-function ProgressBar({ fillPct, closePct }) {
-  return (
-    <div style={{ background: 'var(--bg1)', borderRadius: 4, height: 8, position: 'relative', flex: 1, minWidth: 100 }}>
-      <div style={{ width: `${fillPct}%`, background: 'var(--wrn-fill)', height: 8, borderRadius: 4, position: 'absolute' }} />
-      <div style={{ width: `${closePct}%`, background: 'var(--suc-fill)', height: 8, borderRadius: 4, position: 'absolute' }} />
-    </div>
-  );
-}
-
-function locationRates(rl) {
-  const secured = rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length;
+function locationProgress(rl) {
   const closed = rl.candidates.filter(c => c.status === 'Closed').length;
-  const fillPct = rl.no_of_positions ? Math.min(100, Math.round((secured / rl.no_of_positions) * 100)) : 0;
-  const closePct = rl.no_of_positions ? Math.min(100, Math.round((closed / rl.no_of_positions) * 100)) : 0;
-  return { fillPct, closePct };
+  const secured = rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length;
+  const left = Math.max(0, Number(rl.no_of_positions || 0) - closed);
+  const pct = rl.no_of_positions ? Math.min(100, Math.round((closed / rl.no_of_positions) * 100)) : 0;
+  return { closed, secured, left, pct };
 }
 
 function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates }) {
@@ -441,9 +584,9 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
 
   const now = new Date();
   function passesFilter(rl) {
-    if (filterMode === 'yetToStart') return rl.status === 'Yet to Start';
+    if (filterMode === 'yetToStart') return rl.derived_status === 'Yet to Start';
     if (filterMode === 'aging') {
-      if (rl.status !== 'Open' || !rl.date_request_received) return false;
+      if (['Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(rl.derived_status) || !rl.date_request_received) return false;
       return Math.floor((now - new Date(rl.date_request_received)) / 86400000) >= 30;
     }
     return true;
@@ -455,25 +598,46 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
     const divName = rl.roles.divisions.name;
     const roleId = rl.roles.role_id;
     if (!divisionGroups[divName]) divisionGroups[divName] = {};
-    if (!divisionGroups[divName][roleId]) divisionGroups[divName][roleId] = { title: rl.roles.role_title, roleType: rl.roles.role_type, locations: [] };
+    if (!divisionGroups[divName][roleId]) {
+      divisionGroups[divName][roleId] = {
+        title: rl.roles.role_title,
+        roleType: rl.roles.role_type,
+        locations: [],
+      };
+    }
     divisionGroups[divName][roleId].locations.push(rl);
   }
+
   const divNames = Object.keys(divisionGroups).sort();
 
   function exportRoles() {
-    const rows = rowsWithCandidates.filter(passesFilter).map(rl => ({
-      Division: rl.roles.divisions.name, 'Role Title': rl.roles.role_title, 'Role Type': rl.roles.role_type,
-      Location: rl.location, 'No of Positions': rl.no_of_positions, Status: rl.status,
-      'Time to Close (days)': computeTimeToClose(rl) ?? '',
-    }));
-    downloadCsv('roles_export.csv', ['Division', 'Role Title', 'Role Type', 'Location', 'No of Positions', 'Status', 'Time to Close (days)'], rows);
+    const rows = rowsWithCandidates.filter(passesFilter).map(rl => {
+      const { closed, left } = locationProgress(rl);
+      return {
+        Division: rl.roles.divisions.name,
+        'Role Title': rl.roles.role_title,
+        'Role Type': rl.roles.role_type,
+        Location: rl.location,
+        'No of Positions': rl.no_of_positions,
+        Closed: closed,
+        Left: left,
+        Status: rl.derived_status,
+        'Time to Close (days)': computeTimeToClose(rl) ?? '',
+      };
+    });
+    downloadCsv('roles_export.csv', ['Division', 'Role Title', 'Role Type', 'Location', 'No of Positions', 'Closed', 'Left', 'Status', 'Time to Close (days)'], rows);
   }
 
   return (
     <div>
       <style>{`
-        .role-row:hover .row-actions, .location-row:hover .row-actions { opacity: 1 !important; }
+        .role-row:hover .row-actions, .location-card:hover .row-actions { opacity: 1 !important; }
+        @media (max-width: 900px) {
+          .role-row .row-actions, .location-card .row-actions { opacity: 1 !important; }
+          .role-locations { margin-left: 0 !important; }
+        }
       `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {[['all', 'All'], ['aging', 'Aging (30+ days)'], ['yetToStart', 'Yet to start']].map(([key, label]) => (
@@ -490,83 +654,116 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 16 }}>
-        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
-        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
-      </div>
-
       {divNames.length === 0 && (
-        <div style={{ padding: 20, color: 'var(--txm)', textAlign: 'center' }}>
+        <div style={{ padding: 24, color: 'var(--txm)', textAlign: 'center', background: 'var(--bg1)', borderRadius: 10 }}>
           {filterMode === 'all' ? 'No roles yet. Click "+ New role" or use Upload to get started.' : 'Nothing matches this filter.'}
         </div>
       )}
 
-      {divNames.map(divName => {
-        const isExpanded = expandedDivisions[divName];
-        return (
-        <div key={divName} style={{ marginBottom: isExpanded ? 28 : 4 }}>
-          <button onClick={() => setExpandedDivisions(c => ({ ...c, [divName]: !c[divName] }))}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10, width: '100%', textAlign: 'left' }}>
-            <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{isExpanded ? '▾' : '▸'}</span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--tx1)' }}>{divName}</span>
-            <span style={{ fontSize: 11, color: 'var(--txm)', marginLeft: 4 }}>({Object.keys(divisionGroups[divName]).length} role{Object.keys(divisionGroups[divName]).length !== 1 ? 's' : ''})</span>
-          </button>
-          {isExpanded &&
-          Object.entries(divisionGroups[divName]).map(([roleId, role]) => {
-            const totalPositions = role.locations.reduce((sum, rl) => sum + rl.no_of_positions, 0);
-            const totalSecured = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length, 0);
-            const totalClosed = role.locations.reduce((sum, rl) => sum + rl.candidates.filter(c => c.status === 'Closed').length, 0);
-            const roleFillPct = totalPositions ? Math.min(100, Math.round((totalSecured / totalPositions) * 100)) : 0;
-            const roleClosePct = totalPositions ? Math.min(100, Math.round((totalClosed / totalPositions) * 100)) : 0;
-            const roleIsExpanded = expandedRoles[roleId];
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {divNames.map(divName => {
+          const isExpanded = expandedDivisions[divName];
+          const roles = Object.values(divisionGroups[divName]);
+          const divisionSlots = roles.reduce((sum, role) => sum + role.locations.reduce((a, rl) => a + Number(rl.no_of_positions || 0), 0), 0);
+          const divisionClosed = roles.reduce((sum, role) => sum + role.locations.reduce((a, rl) => a + locationProgress(rl).closed, 0), 0);
+          const divisionRemaining = Math.max(0, divisionSlots - divisionClosed);
 
-            return (
-              <div key={roleId} className="role-row" style={{ marginBottom: 10, paddingLeft: 8, borderLeft: '3px solid var(--acc-bg)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <button onClick={() => setExpandedRoles(c => ({ ...c, [roleId]: !c[roleId] }))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 12, padding: 0 }}>
-                    {roleIsExpanded ? '▾' : '▸'}
-                  </button>
-                  <span style={{ fontSize: 13, fontWeight: 600, minWidth: 200 }}>{role.title}</span>
-                  <ProgressBar fillPct={roleFillPct} closePct={roleClosePct} />
-                  <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 8px', borderRadius: 999 }}>{totalPositions} positions</span>
-                  <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
-                    <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
-                    <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
-                  </span>
-                </div>
-                {roleIsExpanded && (
-                <div style={{ paddingLeft: 20 }}>
-                  {role.locations.map(rl => {
-                    const { fillPct, closePct } = locationRates(rl);
-                    const daysToClose = computeTimeToClose(rl);
+          return (
+            <div key={divName} style={{ background: 'var(--bg1)', border: '0.5px solid var(--bd)', borderRadius: 12, overflow: 'hidden' }}>
+              <button onClick={() => setExpandedDivisions(c => ({ ...c, [divName]: !c[divName] }))}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: '12px 14px', textAlign: 'left' }}>
+                <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{isExpanded ? '▾' : '▸'}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{divName}</span>
+                <span style={{ fontSize: 11, color: 'var(--txm)' }}>{roles.length} role{roles.length !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{divisionSlots} slots</span>
+                <span style={{ fontSize: 11, color: divisionRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)' }}>{divisionRemaining} to be filled</span>
+              </button>
+
+              {isExpanded && (
+                <div style={{ borderTop: '0.5px solid var(--bd)', padding: '4px 14px 14px' }}>
+                  {Object.entries(divisionGroups[divName]).map(([roleId, role]) => {
+                    const totalPositions = role.locations.reduce((sum, rl) => sum + Number(rl.no_of_positions || 0), 0);
+                    const totalClosed = role.locations.reduce((sum, rl) => sum + locationProgress(rl).closed, 0);
+                    const totalRemaining = Math.max(0, totalPositions - totalClosed);
+                    const roleIsExpanded = expandedRoles[roleId];
+
                     return (
-                      <div key={rl.role_location_id} className="location-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, minWidth: 120 }}>{rl.location}</span>
-                        <ProgressBar fillPct={fillPct} closePct={closePct} />
-                        <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 7px', borderRadius: 999 }}>{rl.no_of_positions}</span>
-                        <span style={{ fontSize: 11, color: 'var(--tx2)', background: 'var(--bg1)', padding: '2px 7px', borderRadius: 999 }}>{rl.status}</span>
-                        {daysToClose !== null && (
-                          <span style={{ fontSize: 11, color: 'var(--suc-tx)', background: 'var(--suc-bg)', padding: '2px 7px', borderRadius: 999 }}>{daysToClose}d</span>
+                      <div key={roleId} className="role-row" style={{ padding: '12px 0', borderBottom: '0.5px solid var(--bd)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <button onClick={() => setExpandedRoles(c => ({ ...c, [roleId]: !c[roleId] }))}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 12, padding: 0 }}>
+                            {roleIsExpanded ? '▾' : '▸'}
+                          </button>
+                          <div style={{ flex: 1, minWidth: 180 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{role.title}</div>
+                            <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{role.locations.length} location{role.locations.length !== 1 ? 's' : ''} · {totalPositions} slots</div>
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} to be filled</span>
+                          <span style={{ fontSize: 11, color: totalRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)', background: totalRemaining ? 'var(--wrn-bg)' : 'var(--suc-bg)', padding: '3px 8px', borderRadius: 999 }}>
+                            {totalRemaining ? 'Open' : 'Closed'}
+                          </span>
+                          <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
+                            <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
+                            <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
+                          </span>
+                        </div>
+
+                        {roleIsExpanded && (
+                          <div className="role-locations" style={{ marginTop: 10, marginLeft: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {role.locations.map(rl => {
+                              const { closed, left } = locationProgress(rl);
+                              const status = left === 0 ? 'Closed' : rl.derived_status;
+                              const ageDays = rl.date_request_received
+                                ? Math.max(0, Math.floor((Date.now() - new Date(rl.date_request_received).getTime()) / 86400000))
+                                : null;
+                              const startDate = rl.planned_start_date
+                                ? new Date(rl.planned_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : null;
+
+                              return (
+                                <div key={rl.role_location_id} className="location-card" style={{ background: 'var(--bg1)', border: '0.5px solid var(--bd)', borderRadius: 9, padding: '11px 12px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                    <div style={{ minWidth: 0 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 600 }}>{rl.location}</div>
+                                      <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 3 }}>
+                                        {rl.no_of_positions} slots · {closed} closed · {left} to be filled
+                                      </div>
+                                    </div>
+                                    <span style={{
+                                      flexShrink: 0, fontSize: 11, padding: '3px 8px', borderRadius: 999,
+                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--acc-bg)',
+                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--acc-tx)',
+                                      whiteSpace: 'nowrap'
+                                    }}>{status}</span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 11, color: 'var(--txm)' }}>
+                                    {startDate && <span>Start Date · {startDate}</span>}
+                                    {ageDays !== null && ageDays >= 30 && status !== 'Closed' && <span>· {ageDays} days open</span>}
+                                  </div>
+
+                                  <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8, opacity: 0, transition: 'opacity 0.1s' }}>
+                                    <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
+                                    <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
-                        <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
-                          <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
-                          <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
-                        </span>
+
+                        {addingLocationFor === roleId && (
+                          <QuickAddLocationForm roleId={roleId} onDone={() => { setAddingLocationFor(null); onChanged(); }} onCancel={() => setAddingLocationFor(null)} />
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                )}
-                {addingLocationFor === roleId && (
-                  <QuickAddLocationForm roleId={roleId} onDone={() => { setAddingLocationFor(null); onChanged(); }} onCancel={() => setAddingLocationFor(null)} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        );
-      })}
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} onSaved={() => { setEditingRole(null); onChanged(); }} />}
       {editingLocation && <EditLocationModal rl={editingLocation} onClose={() => setEditingLocation(null)} onSaved={() => { setEditingLocation(null); onChanged(); }} />}
@@ -574,7 +771,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       {showRolesUpload && (
         <BulkUploadModal
           title="Bulk upload roles and locations"
-          helpText="Upload roles and their locations from a spreadsheet. Anything that doesn't already exist gets created — this is the structural upload, not for candidates."
+          helpText="Use the analyst template to upload roles and, where available, candidates in one go. Only the essential setup fields are required; update recruitment-stage details in the tracker after upload."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowRolesUpload(false)}
@@ -590,6 +787,7 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
+  const [plannedStartDate, setPlannedStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -597,7 +795,14 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     if (!location.trim() || !noOfPositions) { setError('Location and No. of Positions are required.'); return; }
     setSaving(true); setError('');
     try {
-      await createRoleLocation({ roleId, location: location.trim(), noOfPositions: Number(noOfPositions), status: 'Open', dateRequestReceived });
+      await createRoleLocation({
+        roleId,
+        location: location.trim(),
+        noOfPositions: Number(noOfPositions),
+        status: 'Open',
+        plannedStartDate: plannedStartDate || null,
+        dateRequestReceived,
+      });
       onDone();
     } catch (err) {
       setError(err.message);
@@ -609,6 +814,10 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
     <div style={{ marginLeft: 20, marginTop: 8, padding: 10, background: 'var(--bg1)', borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
       <input placeholder="Location" value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: 140 })} />
       <input type="number" min="1" placeholder="Positions" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: 90 })} />
+      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        Start Date
+        <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: 130 })} />
+      </label>
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
         Requested
         <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: 130 })} />
@@ -645,7 +854,7 @@ function EditRoleModal({ role, onClose, onSaved }) {
       <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Role type</label>
       <select value={roleType} onChange={e => setRoleType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Sales</option><option>Support</option><option>Affiliate</option>
+        <option>Sales</option><option>Support</option>
       </select>
       <label style={labelStyle()}>Suggested grade</label>
       <input value={suggestedGrade} onChange={e => setSuggestedGrade(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
@@ -690,12 +899,14 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <input value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>No. of positions</label>
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-      <label style={labelStyle()}>Status</label>
-      <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
+      <label style={labelStyle()}>Status override</label>
+      <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+        <option>Open</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
       </select>
-      <label style={labelStyle()}>Planned start date</label>
-      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the Start Date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
+      <label style={labelStyle()}>Start Date</label>
+      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date location closed</label>
@@ -756,7 +967,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder="e.g. Sales Associate" style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Role type</label>
       <select value={roleType} onChange={e => setRoleType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Sales</option><option>Support</option><option>Affiliate</option>
+        <option>Sales</option><option>Support</option>
       </select>
       <label style={labelStyle()}>Suggested grade (optional)</label>
       <input value={suggestedGrade} onChange={e => setSuggestedGrade(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
@@ -770,12 +981,9 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
         <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
       </select>
-      {status === 'Yet to Start' && (
-        <>
-          <label style={labelStyle()}>Planned start date</label>
-          <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-        </>
-      )}
+      <label style={labelStyle()}>Start Date</label>
+      <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
@@ -791,7 +999,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
 // =================================================================
 // Candidates — the only place candidates are added, edited, or have status changed
 // =================================================================
-function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, onChanged }) {
+function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, canDeleteCandidates, onChanged }) {
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [locationFilter, setLocationFilter] = useState(initialLocationFilter);
   const [search, setSearch] = useState('');
@@ -801,6 +1009,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   const [showAddCandidate, setShowAddCandidate] = useState(false);
   const [showCandidateUpload, setShowCandidateUpload] = useState(false);
   const [profileCandidate, setProfileCandidate] = useState(null); // { candidate, rl }
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { setStatusFilter(initialStatusFilter); }, [initialStatusFilter]);
   useEffect(() => { setLocationFilter(initialLocationFilter); }, [initialLocationFilter]);
@@ -822,10 +1031,10 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   function exportCandidates() {
     const rows = flat.map(c => ({
       Name: c.candidate_name, Division: c.division, Role: c.roleTitle, Location: c.location,
-      Status: c.status, Source: c.source || '', Phone: c.contact_phone || '',
+      'Employment Type': c.employment_type || '', Status: c.status, Source: c.source || '', Phone: c.contact_phone || '',
       'Time to Onboard (days)': computeTimeToOnboard(c) ?? '',
     }));
-    downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
+    downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Employment Type', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
   }
 
   const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
@@ -865,6 +1074,27 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     }
   }
 
+  async function deleteSelectedCandidates() {
+    if (!canDeleteCandidates || selected.size === 0) return;
+    const count = selected.size;
+    const confirmed = window.confirm(
+      `Delete ${count} selected candidate${count === 1 ? '' : 's'} permanently? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteCandidates([...selected]);
+      setSelected(new Set());
+      onChanged();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const activeFilterLabel = statusFilter === '__stalled__' ? 'Stalled'
     : statusFilter === '__dropped__' ? 'Dropped/Rejected'
     : locationFilter ? `Location: ${flat[0]?.location || ''}`
@@ -893,19 +1123,38 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button onClick={applyBulk} style={primaryBtnStyle()}>Apply</button>
+          {canDeleteCandidates && (
+            <button onClick={deleteSelectedCandidates} disabled={deleting} style={dangerBtnStyle({ color: 'var(--dgr-tx)', border: '1px solid var(--dgr-tx)', borderRadius: 8, padding: '6px 10px' })}>
+              {deleting ? 'Deleting…' : 'Delete selected'}
+            </button>
+          )}
         </div>
       )}
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 13, marginBottom: 8 }}>{error}</div>}
 
-      <div style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div className="recruitment-table-wrap" style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg1)' }}>
-              <th style={{ padding: '8px 10px' }}></th>
+              <th style={{ padding: '8px 10px', width: 36 }}>
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible candidates"
+                  checked={flat.length > 0 && flat.every(c => selected.has(c.candidate_id))}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      setSelected(new Set(flat.map(c => c.candidate_id)));
+                    } else {
+                      setSelected(new Set());
+                    }
+                  }}
+                />
+              </th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Name</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Division</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Role</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Location</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Employment Type</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Status</th>
             </tr>
           </thead>
@@ -921,8 +1170,8 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                       setSelected(next);
                     }} />
                   </td>
-                  <td style={{ padding: '8px 10px' }}>
-                    <button onClick={() => setProfileCandidate({ candidate: c, rl: c.rl })} style={{ background: 'none', border: 'none', color: 'var(--acc-tx)', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>
+                  <td style={{ padding: '8px 10px', textAlign: 'left' }}>
+                    <button onClick={() => setProfileCandidate({ candidate: c, rl: c.rl })} style={{ background: 'none', border: 'none', color: 'var(--acc-tx)', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', textAlign: 'left' }}>
                       {c.candidate_name}
                     </button>
                     {isStalled && <span style={{ marginLeft: 6, color: 'var(--dgr-tx)' }}>⚠</span>}
@@ -930,6 +1179,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.division}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.roleTitle}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.location}</td>
+                  <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.employment_type || '—'}</td>
                   <td style={{ padding: '8px 10px' }}>
                     <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl, c.status)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -949,7 +1199,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showCandidateUpload && (
         <BulkUploadModal
           title="Bulk upload candidates"
-          helpText="Upload candidates from a spreadsheet. Each row must match a Division, Role, and Location that already exists — this upload never creates new roles or locations. Add those on the Roles tab first."
+          helpText="Upload candidates against existing roles/locations using the same streamlined template. Employment Type is required for mixed roles such as Relationship Officer."
           executor={executeCandidateUpload}
           mode="candidates"
           onClose={() => setShowCandidateUpload(false)}
@@ -961,6 +1211,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           candidate={profileCandidate.candidate}
           currentRl={profileCandidate.rl}
           allRows={rowsWithCandidates}
+          canDelete={canDeleteCandidates}
           onClose={() => setProfileCandidate(null)}
           onSaved={() => { setProfileCandidate(null); onChanged(); }}
         />
@@ -990,6 +1241,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
   const [roleId, setRoleId] = useState('');
   const [roleLocationId, setRoleLocationId] = useState(presetRoleLocationId || '');
   const [candidateName, setCandidateName] = useState('');
+  const [employmentType, setEmploymentType] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [source, setSource] = useState('');
   const [status, setStatus] = useState('Sourcing');
@@ -1030,6 +1282,9 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
 
   async function submit() {
     if (!roleLocationId || !candidateName.trim()) { setError('Role/Location and Candidate Name are required.'); return; }
+    const selectedRl = rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
+    const typeState = employmentTypeState(employmentType);
+    if (!employmentType) { setError('Employment Type is required.'); return; }
     if (!confirmedDespiteDuplicate) {
       const dup = await checkForDuplicate();
       if (dup.found) {
@@ -1039,7 +1294,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
     }
     setSaving(true); setError('');
     try {
-      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), contactPhone, source, status });
+      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), employmentType: employmentType, contactPhone, source, status });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -1075,6 +1330,29 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       )}
       <label style={labelStyle()}>Candidate name</label>
       <input value={candidateName} onChange={e => setCandidateName(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      {(() => {
+        const role = presetRl || rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
+        const typeState = employmentTypeState(employmentType);
+        return (
+          <>
+            <label style={labelStyle()}>Employment Type</label>
+            {typeState.locked ? (
+              <>
+                <input value={typeState.value} disabled style={inputStyle({ width: '100%', marginBottom: 4, opacity: 0.75 })} />
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}></div>
+              </>
+            ) : (
+              <>
+                <select value={employmentType} onChange={e => setEmploymentType(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+                  <option value="">Select employment type…</option>
+                  {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Select the engagement type for this candidate.</div>
+              </>
+            )}
+          </>
+        );
+      })()}
       <label style={labelStyle()}>Contact phone</label>
       <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Source</label>
@@ -1430,9 +1708,10 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
   );
 }
 
-function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved }) {
+function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClose, onSaved }) {
   const [form, setForm] = useState({
     candidate_name: candidate.candidate_name || '',
+    employment_type: candidate.employment_type || '',
     contact_phone: candidate.contact_phone || '',
     source: candidate.source || '',
     status: candidate.status || 'Sourcing',
@@ -1455,6 +1734,7 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
   const [moveTargetId, setMoveTargetId] = useState('');
   const [moveReason, setMoveReason] = useState('');
   const [moving, setMoving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })); }
 
@@ -1470,6 +1750,24 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
     } catch (err) {
       setError(err.message);
       setSaving(false);
+    }
+  }
+
+  async function deleteThisCandidate() {
+    if (!canDelete || deleting) return;
+    const confirmed = window.confirm(
+      `Delete ${candidate.candidate_name} permanently? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteCandidates([candidate.candidate_id]);
+      onSaved();
+    } catch (err) {
+      setError(err.message || String(err));
+      setDeleting(false);
     }
   }
 
@@ -1508,6 +1806,28 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
       <label style={labelStyle()}>Name</label>
       <input value={form.candidate_name} onChange={e => set('candidate_name', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
+      {(() => {
+        const typeState = employmentTypeState(form.employment_type);
+        return (
+          <>
+            <label style={labelStyle()}>Employment Type</label>
+            {typeState.locked ? (
+              <>
+                <input value={typeState.value} disabled style={inputStyle({ width: '100%', marginBottom: 4, opacity: 0.75 })} />
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}></div>
+              </>
+            ) : (
+              <>
+                <select value={form.employment_type} onChange={e => set('employment_type', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
+                  <option value="">Select employment type…</option>
+                  {EMPLOYMENT_TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Select the engagement type for this candidate.</div>
+              </>
+            )}
+          </>
+        );
+      })()}
       <label style={labelStyle()}>Contact phone</label>
       <input value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
@@ -1546,7 +1866,12 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, onClose, onSaved
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 16 }}>
         <button onClick={onClose} style={btnStyle()}>Cancel</button>
-        <button onClick={save} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={save} disabled={saving || deleting} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Save'}</button>
+        {canDelete && (
+          <button onClick={deleteThisCandidate} disabled={saving || deleting} style={dangerBtnStyle({ color: 'var(--dgr-tx)', border: '1px solid var(--dgr-tx)', borderRadius: 8, padding: '6px 10px' })}>
+            {deleting ? 'Deleting…' : 'Delete candidate'}
+          </button>
+        )}
       </div>
 
       <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 12 }}>

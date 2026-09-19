@@ -48,14 +48,13 @@ function parseCsv(text) {
   return { data, meta: { fields: headers } };
 }
 
+// Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const REQUIRED_HEADERS = [
-  'Division', 'Role Title', 'Role Type', 'Suggested Grade',
-  'Location', 'No of Positions', 'Role Location Status', 'Planned Start Date', 'Date Request Received', 'Date Location Closed',
-  'Candidate Name', 'Contact Phone', 'Source', 'Candidate Status', 'Medical Report Received',
-  'Date Sourced', 'Date Interview', 'Date Sent for Onboarding Approval', 'Date Documentation Started',
-  'Date Offer Extended', 'Date Offer Accepted', 'Expected Resumption Date', 'Actual Resumption Date',
-  'Date Closed', 'Status Reason', 'Status Stage at Exit',
+  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions',
+  'Role Location Status', 'Candidate Name', 'Employment Type', 'Contact Phone',
 ];
+
+const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 
 function parseDate(val) {
   if (!val || String(val).trim() === '') return null;
@@ -88,30 +87,21 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
     }
 
-    // Location-level rules — only apply to the Roles upload path, since only
-    // that one creates/updates role_locations. Time to Close depends on both
-    // of these, so a blank one here silently breaks that metric forever.
-    if (mode === 'roles') {
-      if (!row['Date Request Received']?.trim()) {
-        rowErrors.push(`Row ${rowNum}: Date Request Received is blank — required so Time to Close can be calculated.`);
-      }
-      if (row['Role Location Status']?.trim() === 'Closed' && !row['Date Location Closed']?.trim()) {
-        rowErrors.push(`Row ${rowNum}: Role Location Status is Closed but Date Location Closed is blank.`);
-      }
+    if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
     }
 
-    // Candidate-level rules — apply to both paths, since both write candidates.
-    // Only enforced once the candidate has actually reached the stage where
-    // Time to Onboard's two dates should exist.
+    // Employment Type is represented in the template and is required when a candidate is being uploaded.
+    if (row['Role Type']?.trim() && !['Sales', 'Support'].includes(row['Role Type'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Role Type must be Sales or Support.`);
+    }
+
     if (row['Candidate Name']?.trim()) {
-      const status = row['Candidate Status']?.trim();
-      if (status === 'Awaiting Resumption' || status === 'Closed') {
-        if (!row['Date Sent for Onboarding Approval']?.trim()) {
-          rowErrors.push(`Row ${rowNum}: Candidate Status is "${status}" but Date Sent for Onboarding Approval is blank — required for Time to Onboard.`);
-        }
-        if (!row['Date Offer Accepted']?.trim()) {
-          rowErrors.push(`Row ${rowNum}: Candidate Status is "${status}" but Date Offer Accepted is blank — required for Time to Onboard.`);
-        }
+      const employmentType = row['Employment Type']?.trim();
+      if (!employmentType) {
+        rowErrors.push(`Row ${rowNum}: Employment Type is required when Candidate Name is provided.`);
+      } else if (!VALID_EMPLOYMENT_TYPES.includes(employmentType)) {
+        rowErrors.push(`Row ${rowNum}: Employment Type must be Full-Time, Contract, Affiliate, or Intern.`);
       }
     }
 
@@ -239,10 +229,10 @@ export async function executeUpload(parsedRows, onProgress) {
               role_id: roleId,
               location: r['Location'].trim(),
               no_of_positions: Number(r['No of Positions']),
-              status: r['Role Location Status']?.trim() || 'Yet to Start',
-              planned_start_date: parseDate(r['Planned Start Date']),
-              date_request_received: parseDate(r['Date Request Received']),
-              date_location_closed: parseDate(r['Date Location Closed']),
+              status: r['Role Location Status']?.trim() || 'Open',
+              planned_start_date: null,
+              date_request_received: new Date().toISOString().slice(0, 10),
+              date_location_closed: null,
               created_by: user?.id,
             }).select('role_location_id').single();
           if (error) throw error;
@@ -257,20 +247,21 @@ export async function executeUpload(parsedRows, onProgress) {
           role_location_id: roleLocationId,
           candidate_name: r['Candidate Name'].trim(),
           contact_phone: r['Contact Phone']?.trim() || null,
-          source: r['Source']?.trim() || null,
-          status: r['Candidate Status']?.trim() || 'Sourcing',
-          medical_report_received: parseBool(r['Medical Report Received']),
-          date_sourced: parseDate(r['Date Sourced']),
-          date_interview: parseDate(r['Date Interview']),
-          date_sent_for_onboarding_approval: parseDate(r['Date Sent for Onboarding Approval']),
-          date_documentation_started: parseDate(r['Date Documentation Started']),
-          date_offer_extended: parseDate(r['Date Offer Extended']),
-          date_offer_accepted: parseDate(r['Date Offer Accepted']),
-          expected_resumption_date: parseDate(r['Expected Resumption Date']),
-          actual_resumption_date: parseDate(r['Actual Resumption Date']),
-          date_closed: parseDate(r['Date Closed']),
-          status_reason: r['Status Reason']?.trim() || null,
-          status_stage_at_exit: r['Status Stage at Exit']?.trim() || null,
+          source: null,
+          status: 'Sourcing',
+          employment_type: r['Employment Type']?.trim() || null,
+          medical_report_received: false,
+          date_sourced: null,
+          date_interview: null,
+          date_sent_for_onboarding_approval: null,
+          date_documentation_started: null,
+          date_offer_extended: null,
+          date_offer_accepted: null,
+          expected_resumption_date: null,
+          actual_resumption_date: null,
+          date_closed: null,
+          status_reason: null,
+          status_stage_at_exit: null,
           created_by: user?.id,
           updated_by: user?.id,
         });

@@ -8,8 +8,8 @@ import ImportDialog from './ImportDialog'
 import { OWNER_FUNCTIONS, DIVISIONS, STATUSES, CO_COLORS } from './constants'
 import RecruitmentModule from './RecruitmentModule'
 
-const LIGHT = { '--bg0': '#F3F6FA', '--bg1': '#EEF2F7', '--bg2': '#FFFFFF', '--tx1': '#1A2733', '--tx2': '#52606D', '--txm': '#8A94A0', '--bd': '#E2E8F0', '--bds': '#CBD5E0', '--acc-bg': '#E6F1FB', '--acc-tx': '#0C447C', '--acc-fill': '#0F7FC4', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EAEDF0', '--neu-tx': '#52606D', '--neu-fill': '#B4B2A9', '--navy': '#1B2A3C' }
-const DARK = { '--bg0': '#0F1720', '--bg1': '#16202B', '--bg2': '#1C2733', '--tx1': '#F0F4F8', '--tx2': '#B7C2CC', '--txm': '#7C8794', '--bd': '#2A3541', '--bds': '#3A4652', '--acc-bg': '#123152', '--acc-tx': '#7FB8EE', '--acc-fill': '#3B93DA', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#232D38', '--neu-tx': '#B7C2CC', '--neu-fill': '#5F5E5A', '--navy': '#101A26' }
+const LIGHT = { '--bg0': '#F4F6F8', '--bg1': '#FFFFFF', '--bg2': '#FFFFFF', '--tx1': '#172033', '--tx2': '#4B5B6B', '--txm': '#8492A0', '--bd': '#E1E7EC', '--bds': '#CBD7E0', '--acc-bg': '#E5F3FB', '--acc-tx': '#006FB9', '--acc-fill': '#0077BD', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EEF2F5', '--neu-tx': '#52606D', '--neu-fill': '#AAB8C4', '--navy': '#0E2A43' }
+const DARK = { '--bg0': '#091722', '--bg1': '#0F2233', '--bg2': '#142C40', '--tx1': '#F4F8FC', '--tx2': '#C2D2DF', '--txm': '#8296A8', '--bd': '#274357', '--bds': '#39576B', '--acc-bg': '#0A3655', '--acc-tx': '#72C4F2', '--acc-fill': '#1594D0', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#1A3347', '--neu-tx': '#C2D2DF', '--neu-fill': '#637A8C', '--navy': '#061B2B' }
 
 function localISODate(date) {
   const d = date || new Date()
@@ -212,13 +212,75 @@ function Dashboard({ session, theme, setTheme }) {
   if (loading || !profile) return <div style={{ minHeight: '100vh', background: 'var(--bg0)' }} />
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+    <div data-app-shell style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+      <style>{`
+        @media (max-width: 1100px) {
+          [data-app-main] { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+        @media (max-width: 1100px) {
+          [data-app-shell] { flex-direction: column !important; }
+          [data-app-sidebar] {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            height: 64px !important;
+            box-sizing: border-box !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            padding: 6px 8px !important;
+            gap: 6px !important;
+            border-right: none !important;
+            border-top: 1px solid var(--bd) !important;
+            z-index: 100 !important;
+          }
+          [data-sidebar-brand], [data-sidebar-section] { display: none !important; }
+          [data-app-sidebar] [data-nav] {
+            flex: 1 !important;
+            justify-content: center !important;
+            border-left: none !important;
+            border-top: 3px solid transparent !important;
+            border-radius: 7px !important;
+            padding: 8px 10px !important;
+          }
+          [data-app-sidebar] [data-nav][data-active="true"] {
+            border-top-color: var(--acc-fill) !important;
+          }
+          [data-app-sidebar] [data-nav] span:last-child { white-space: nowrap; }
+          [data-app-main] {
+            max-width: none !important;
+            padding: 16px 12px 88px !important;
+          }
+          [data-recruitment-kpis] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 600px) {
+          [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
+          [data-recruitment-header] { align-items: flex-start !important; }
+          [data-recruitment-actions] { width: 100% !important; }
+          [data-recruitment-actions] > * { flex: 1 !important; }
+        }
+      `}</style>
       <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
+        <main data-app-main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 50, background: 'var(--acc-fill)', display: 'inline-block' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--acc-tx)' }}>People Management</span>
+            </div>
+            <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables</h1>
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
+          </div>
+        </div>
         {view !== 'summary' && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
@@ -295,7 +357,7 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {appMode === 'recruitment' && <RecruitmentModule tab={recruitmentTab} setTab={setRecruitmentTab} />}
-        </div>
+        </main>
       </div>
 
       {editing && (
@@ -386,55 +448,63 @@ function Dashboard({ session, theme, setTheme }) {
 
 function Header({ profile, userId, theme, setTheme }) {
   return (
-    <header style={{ background: 'var(--navy)', color: '#fff' }}>
-      <div style={{ margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
-        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+    <header style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderBottom: '1px solid var(--bd)', position: 'sticky', top: 0, zIndex: 30 }}>
+      <div style={{ minHeight: 58, padding: '0 28px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--tx2)', padding: '7px 10px', border: '1px solid var(--bd)', borderRadius: 7, background: 'var(--bg2)' }}>
+          {profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}
+        </span>
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', color: 'var(--tx2)', borderRadius: 7, padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}>
           {theme === 'light' ? 'Dark mode' : 'Light mode'}
         </button>
         <NotificationBell userId={userId} />
-        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
+        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'var(--tx2)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
     </header>
   )
 }
 
 function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
-  const width = collapsed ? 56 : 220
+  const width = collapsed ? 64 : 236
   const sectionButtonStyle = (active) => ({
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-    border: 'none', background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx1)',
-    padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+    border: 'none', borderLeft: active ? '3px solid var(--acc-fill)' : '3px solid transparent',
+    background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx2)',
+    padding: '11px 14px', fontSize: 13, fontWeight: active ? 600 : 500, cursor: 'pointer', borderRadius: '0 7px 7px 0',
   })
 
   return (
-    <div style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg1)', borderRight: '0.5px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '12px 8px', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '4px 6px 14px' }}>
-        {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>People Management</span>}
+    <aside data-app-sidebar style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
+      <div data-sidebar-brand style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
+        {!collapsed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+            <img src="/credit-direct-logo.png" alt="Credit Direct" style={{ width: 122, height: 'auto', display: 'block' }} />
+          </div>
+        )}
         <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 16, padding: 4 }}>
+          style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', cursor: 'pointer', color: 'var(--tx2)', fontSize: 15, padding: '5px 7px', borderRadius: 7 }}>
           {collapsed ? '»' : '«'}
         </button>
       </div>
 
-      <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
-        <span>📋</span>{!collapsed && <span>Deliverables</span>}
+      <div data-sidebar-section style={{ fontSize: 9, color: 'var(--txm)', padding: '0 10px 6px', letterSpacing: 1.1, textTransform: 'uppercase' }}>People</div>
+      <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables Tracker</span>}
       </button>
 
-      <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
-        <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
+      <button data-nav data-active={appMode === 'recruitment'} onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment Tracker</span>}
       </button>
-    </div>
+    </aside>
   )
 }
 
 function Nav({ view, setView, setSelected }) {
   const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => { setView(id); setSelected({}) }}
-          style={{ border: 'none', background: view === id ? 'var(--acc-bg)' : 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          style={{ border: 'none', borderBottom: view === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: view === id ? 600 : 500, padding: '9px 12px 10px', borderRadius: 0, cursor: 'pointer' }}>
           {label}
         </button>
       ))}
@@ -493,7 +563,7 @@ function FilterBar({ filters, setFilters, profiles, isAdmin }) {
   )
 }
 
-function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '7px 10px', fontSize: 13, ...extra } }
+function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra } }
 
 function StatusBadge({ status, overdue }) {
   const role = overdue ? 'dgr' : status === 'Completed' ? 'suc' : status === 'In Progress' ? 'wrn' : 'neu'
@@ -554,8 +624,8 @@ function BoardView({ items, isAdmin, onOpen, onStatus, onDelete, onAdd, ownerNam
   )
 }
 
-function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
-function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', ...extra } }
+function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
+function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontWeight: 600, ...extra } }
 
 function buildTree(items) {
   const tree = {}
@@ -818,12 +888,18 @@ function metricSet(items, totalLabel) {
 }
 function MetricGrid({ items, totalLabel }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}>
       {metricSet(items, totalLabel).map(([icon, label, val, role]) => (
-        <div key={label} style={{ background: `var(--${role === 'flat' ? 'bg1' : role + '-bg'})`, borderRadius: 12, padding: '10px 8px' }}>
-          <i className={`ti ${icon}`} style={{ fontSize: 16, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)` }} aria-hidden="true" />
-          <p style={{ fontSize: 11, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)`, margin: '6px 0 2px' }}>{label}</p>
-          <p style={{ fontSize: 16, fontWeight: 500, margin: 0, color: role === 'flat' ? 'var(--tx1)' : `var(--${role}-tx)` }}>{val}</p>
+        <div key={label} style={{
+          background: 'var(--bg2)',
+          border: '1px solid var(--bd)',
+          borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : role === 'acc' ? '3px solid var(--acc-fill)' : '3px solid var(--bds)',
+          borderRadius: 8, padding: '13px 14px', minHeight: 72,
+          boxSizing: 'border-box', boxShadow: '0 1px 2px rgba(15,42,67,0.04)'
+        }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 15, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
+          <p style={{ fontSize: 11, color: 'var(--tx2)', margin: '7px 0 3px' }}>{label}</p>
+          <p style={{ fontSize: 19, fontWeight: 650, margin: 0, color: 'var(--tx1)', letterSpacing: '-0.2px' }}>{val}</p>
         </div>
       ))}
     </div>

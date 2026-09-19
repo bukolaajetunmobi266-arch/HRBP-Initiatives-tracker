@@ -12,6 +12,24 @@ function friendlyError(error) {
   return error;
 }
 
+export async function deleteCandidates(candidateIds) {
+  const ids = [...new Set(candidateIds || [])].filter(Boolean);
+  if (!ids.length) return [];
+
+  const { data, error } = await supabase
+    .from('candidates')
+    .delete()
+    .in('candidate_id', ids)
+    .select('candidate_id');
+
+  if (error) throw friendlyError(error);
+  return data || [];
+}
+
+export async function deleteCandidate(candidateId) {
+  return deleteCandidates([candidateId]);
+}
+
 export async function updateCandidateStatus(candidateId, newStatus, extraFields = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   const payload = { status: newStatus, updated_by: user?.id, ...extraFields };
@@ -148,13 +166,14 @@ export async function updateRoleLocation({ roleLocationId, location, noOfPositio
 }
 
 // Add a new candidate against a role_location
-export async function addCandidate({ roleLocationId, candidateName, contactPhone, source, status = 'Sourcing' }) {
+export async function addCandidate({ roleLocationId, candidateName, employmentType, contactPhone, source, status = 'Sourcing' }) {
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('candidates')
     .insert({
       role_location_id: roleLocationId,
       candidate_name: candidateName,
+      employment_type: employmentType || null,
       contact_phone: contactPhone || null,
       source: source || null,
       status,

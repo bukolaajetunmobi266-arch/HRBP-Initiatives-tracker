@@ -70,7 +70,7 @@ export async function fetchRolesByDivision(divisionId) {
 // Fetch roles + role_locations + candidate counts, with optional filters
 // ---------------------------------------------------------------
 export async function fetchRoleLocationsWithCandidates(filters = {}) {
-  // filters: { divisionId, roleId, location, year }
+  // filters: { divisionId, roleId, location, year, employmentType, stage }
   // Division/Role/Location are applied client-side below, not as server
   // query filters — filtering through a nested embedded resource
   // (roles.division_id) proved unreliable, and divisionId in particular
@@ -95,6 +95,11 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.divisionId && rl.roles.division_id !== filters.divisionId) return false;
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.location && rl.location !== filters.location) return false;
+    if (filters.year) {
+      const start = `${filters.year}-01-01`;
+      const end = `${Number(filters.year) + 1}-01-01`;
+      if (!rl.date_request_received || rl.date_request_received < start || rl.date_request_received >= end) return false;
+    }
     return true;
   });
 
@@ -107,19 +112,38 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .in('role_location_id', rlIds)
     .is('deleted_at', null);
 
-  if (filters.year) {
-    candQuery = candQuery
-      .gte('created_at', `${filters.year}-01-01`)
-      .lt('created_at', `${Number(filters.year) + 1}-01-01`);
+  if (filters.employmentType) {
+    candQuery = candQuery.eq('employment_type', filters.employmentType);
+  }
+  if (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage)) {
+    candQuery = candQuery.eq('status', filters.stage);
   }
 
   const { data: candidates, error: candErr } = await candQuery;
   if (candErr) throw candErr;
 
-  return roleLocations.map(rl => ({
-    ...rl,
-    candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
-  }));
+  const result = roleLocations.map(rl => {
+    const row = {
+      ...rl,
+      candidates: candidates.filter(c => c.role_location_id === rl.role_location_id),
+    };
+    return { ...row, derived_status: deriveRoleLocationStatus(row) };
+  });
+
+  // Candidate-level filters affect the candidate population and therefore the
+  // Overview, Roles and Candidates views. Role-location filters such as
+  // Sourcing / Yet to Start are evaluated from the derived role status.
+  const candidateScoped = Boolean(
+    filters.employmentType ||
+    (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage))
+  );
+  let scoped = candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
+
+  if (filters.stage && ROLE_LOCATION_STATUS_FILTERS.includes(filters.stage)) {
+    scoped = scoped.filter(rl => rl.derived_status === filters.stage);
+  }
+
+  return scoped;
 }
 
 // ---------------------------------------------------------------
@@ -136,6 +160,38 @@ const FUNNEL_STAGES = [
 // Closure Rate, and the funnel percentage base — see design notes.
 const CANDIDATE_FUNNEL_STAGES = FUNNEL_STAGES.filter(s => s !== 'Yet to Start');
 
+const CANDIDATE_STATUS_FILTERS = [...CANDIDATE_FUNNEL_STAGES, 'Dropped', 'Rejected'];
+const ROLE_LOCATION_STATUS_FILTERS = ['Yet to Start', 'Sourcing', 'On Hold', 'Cancelled'];
+
+function deriveRoleLocationStatus(rl) {
+  // On Hold and Cancelled are deliberate manual overrides.
+  if (rl.status === 'On Hold' || rl.status === 'Cancelled') return rl.status;
+
+  const positions = Number(rl.no_of_positions || 0);
+  const closed = rl.candidates.filter(c => c.status === 'Closed').length;
+  if (positions > 0 && closed >= positions) return 'Closed';
+
+  // A future planned start date means recruitment has not started yet.
+  if (rl.planned_start_date) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const planned = new Date(rl.planned_start_date);
+    planned.setHours(0, 0, 0, 0);
+    if (planned > today) return 'Yet to Start';
+  }
+
+  const activeCandidates = rl.candidates.filter(c => !['Dropped', 'Rejected', 'Closed'].includes(c.status));
+  if (activeCandidates.length === 0) return 'Sourcing';
+
+  // The role/location status reflects the most advanced active candidate stage.
+  const stageOrder = CANDIDATE_FUNNEL_STAGES;
+  return activeCandidates.reduce((current, candidate) => {
+    const currentIndex = stageOrder.indexOf(current);
+    const candidateIndex = stageOrder.indexOf(candidate.status);
+    return candidateIndex > currentIndex ? candidate.status : current;
+  }, 'Sourcing');
+}
+
 export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let totalSlots = 0;
   let securedCount = 0;
@@ -150,7 +206,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
     uniqueRoleIds.add(rl.roles.role_id);
 
-    if (rl.status === 'Yet to Start') {
+    if (rl.derived_status === 'Yet to Start') {
       // Not yet active — excluded from slot totals, Fill Rate, Closure Rate, and the funnel.
       yetToStartSlots += rl.no_of_positions;
       continue;
@@ -159,8 +215,10 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     totalSlots += rl.no_of_positions;
     divisionAgg[divName].slots += rl.no_of_positions;
 
+    if (rl.derived_status === 'Sourcing') funnelCounts.Sourcing++;
+
     for (const c of rl.candidates) {
-      if (funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
+      if (c.status !== 'Sourcing' && funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
       if (SECURED_STATUSES.includes(c.status)) {
         securedCount++;
         divisionAgg[divName].secured++;
