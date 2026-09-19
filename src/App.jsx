@@ -238,6 +238,7 @@ function Dashboard({ session, theme, setTheme }) {
             z-index: 100 !important;
           }
           [data-sidebar-brand], [data-sidebar-section] { display: none !important; }
+          [data-mobile-tracker-nav] { display: block !important; }
           [data-app-sidebar] [data-nav] {
             flex: 1 !important;
             justify-content: center !important;
@@ -268,6 +269,18 @@ function Dashboard({ session, theme, setTheme }) {
       <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
+        <div data-mobile-tracker-nav style={{ display: 'none', padding: '8px 12px', background: 'var(--bg2)', borderBottom: '1px solid var(--bd)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <button
+              onClick={() => setAppMode('deliverables')}
+              style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'deliverables' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'deliverables' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'deliverables' ? 650 : 500, cursor: 'pointer' }}
+            >📋 Deliverables Tracker</button>
+            <button
+              onClick={() => setAppMode('recruitment')}
+              style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'recruitment' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'recruitment' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'recruitment' ? 650 : 500, cursor: 'pointer' }}
+            >🧑‍💼 Recruitment Tracker</button>
+          </div>
+        </div>
         <main data-app-main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
