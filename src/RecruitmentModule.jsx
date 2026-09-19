@@ -157,20 +157,16 @@ export default function RecruitmentModule({ tab, setTab }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, marginBottom: 18 }}>
+      <div data-recruitment-header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, marginBottom: 18 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 50, background: 'var(--acc-fill)', display: 'inline-block' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--acc-tx)' }}>People Management</span>
-          </div>
-          <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Recruitment</h1>
+          <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Recruitment Tracker</h1>
           <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Track requisitions, candidate movement and hiring progress.</p>
         </div>
-        <RecruitmentNotificationBell
+        <div data-recruitment-actions><RecruitmentNotificationBell
           notifications={notifications}
           myUserId={scope.id}
           onRead={async (id) => { await markNotificationRead(id, scope.id); const list = await fetchMyNotifications(); setNotifications(list); }}
-        />
+        /></div>
       </div>
 
       <TabNav tab={tab} setTab={setTab} />
@@ -339,7 +335,7 @@ function FilterBar({ divisions, roles, locations, filters, setFilters, showDivis
             {activeCount > 0 && <button onClick={clearAll} style={dangerBtnStyle({ fontSize: 11 })}>Clear all</button>}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+          <div data-recruitment-filter-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             {showDivisionFilter && (
               <label>
                 <span style={labelStyle()}>Division</span>
@@ -504,7 +500,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Open positions" value={metrics.totalSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
@@ -795,7 +791,7 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
       <input placeholder="Location" value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: 140 })} />
       <input type="number" min="1" placeholder="Positions" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: 90 })} />
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        Planned start
+        Start Date
         <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: 130 })} />
       </label>
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -883,8 +879,8 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
         <option>Open</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
       </select>
-      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the planned start date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
-      <label style={labelStyle()}>Planned start date</label>
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the Start Date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
+      <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
@@ -961,7 +957,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
         <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
       </select>
-      <label style={labelStyle()}>Planned start date</label>
+      <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
       <label style={labelStyle()}>Date request received</label>
@@ -1112,8 +1108,8 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       )}
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 13, marginBottom: 8 }}>{error}</div>}
 
-      <div style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div className="recruitment-table-wrap" style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg1)' }}>
               <th style={{ padding: '8px 10px', width: 36 }}>
@@ -1150,8 +1146,8 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                       setSelected(next);
                     }} />
                   </td>
-                  <td style={{ padding: '8px 10px' }}>
-                    <button onClick={() => setProfileCandidate({ candidate: c, rl: c.rl })} style={{ background: 'none', border: 'none', color: 'var(--acc-tx)', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline' }}>
+                  <td style={{ padding: '8px 10px', textAlign: 'left' }}>
+                    <button onClick={() => setProfileCandidate({ candidate: c, rl: c.rl })} style={{ background: 'none', border: 'none', color: 'var(--acc-tx)', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', textAlign: 'left' }}>
                       {c.candidate_name}
                     </button>
                     {isStalled && <span style={{ marginLeft: 6, color: 'var(--dgr-tx)' }}>⚠</span>}
