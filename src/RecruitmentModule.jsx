@@ -631,7 +631,11 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   return (
     <div>
       <style>{`
-        .role-row:hover .row-actions, .location-row:hover .row-actions { opacity: 1 !important; }
+        .role-row:hover .row-actions, .location-card:hover .row-actions { opacity: 1 !important; }
+        @media (max-width: 900px) {
+          .role-row .row-actions, .location-card .row-actions { opacity: 1 !important; }
+          .role-locations { margin-left: 0 !important; }
+        }
       `}</style>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -672,7 +676,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                 <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{divName}</span>
                 <span style={{ fontSize: 11, color: 'var(--txm)' }}>{roles.length} role{roles.length !== 1 ? 's' : ''}</span>
                 <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{divisionSlots} slots</span>
-                <span style={{ fontSize: 11, color: divisionRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)' }}>{divisionRemaining} left</span>
+                <span style={{ fontSize: 11, color: divisionRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)' }}>{divisionRemaining} to be filled</span>
               </button>
 
               {isExpanded && (
@@ -694,7 +698,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{role.title}</div>
                             <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{role.locations.length} location{role.locations.length !== 1 ? 's' : ''} · {totalPositions} slots</div>
                           </div>
-                          <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} left</span>
+                          <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} to be filled</span>
                           <span style={{ fontSize: 11, color: totalRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)', background: totalRemaining ? 'var(--wrn-bg)' : 'var(--suc-bg)', padding: '3px 8px', borderRadius: 999 }}>
                             {totalRemaining ? 'Open' : 'Closed'}
                           </span>
@@ -705,23 +709,43 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                         </div>
 
                         {roleIsExpanded && (
-                          <div style={{ marginTop: 10, marginLeft: 28, border: '0.5px solid var(--bd)', borderRadius: 9, overflow: 'hidden' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1.4fr) 70px 70px 90px minmax(90px, 0.8fr) auto', gap: 8, alignItems: 'center', padding: '8px 10px', background: 'var(--bg1)', color: 'var(--txm)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                              <span>Location</span><span>Slots</span><span>Closed</span><span>Left</span><span>Status</span><span></span>
-                            </div>
+                          <div className="role-locations" style={{ marginTop: 10, marginLeft: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {role.locations.map(rl => {
-                              const { closed, left, pct } = locationProgress(rl);
+                              const { closed, left } = locationProgress(rl);
+                              const status = left === 0 ? 'Closed' : rl.derived_status;
+                              const ageDays = rl.date_request_received
+                                ? Math.max(0, Math.floor((Date.now() - new Date(rl.date_request_received).getTime()) / 86400000))
+                                : null;
+                              const startDate = rl.planned_start_date
+                                ? new Date(rl.planned_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : null;
+
                               return (
-                                <div key={rl.role_location_id} className="location-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1.4fr) 70px 70px 90px minmax(90px, 0.8fr) auto', gap: 8, alignItems: 'center', padding: '9px 10px', borderTop: '0.5px solid var(--bd)', fontSize: 12 }}>
-                                  <span style={{ fontWeight: 500 }}>{rl.location}</span>
-                                  <span>{rl.no_of_positions}</span>
-                                  <span>{closed}</span>
-                                  <span style={{ color: left ? 'var(--wrn-tx)' : 'var(--suc-tx)', fontWeight: 500 }}>{left}</span>
-                                  <span><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: rl.derived_status === 'Closed' || left === 0 ? 'var(--suc-tx)' : 'var(--tx2)' }}><span style={{ width: 6, height: 6, borderRadius: 999, background: rl.derived_status === 'Closed' || left === 0 ? 'var(--suc-fill)' : 'var(--txm)' }} />{left === 0 ? 'Closed' : rl.derived_status}</span></span>
-                                  <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s', justifyContent: 'flex-end' }}>
+                                <div key={rl.role_location_id} className="location-card" style={{ background: 'var(--bg1)', border: '0.5px solid var(--bd)', borderRadius: 9, padding: '11px 12px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                    <div style={{ minWidth: 0 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 600 }}>{rl.location}</div>
+                                      <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 3 }}>
+                                        {rl.no_of_positions} slots · {closed} closed · {left} to be filled
+                                      </div>
+                                    </div>
+                                    <span style={{
+                                      flexShrink: 0, fontSize: 11, padding: '3px 8px', borderRadius: 999,
+                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--acc-bg)',
+                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--acc-tx)',
+                                      whiteSpace: 'nowrap'
+                                    }}>{status}</span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 11, color: 'var(--txm)' }}>
+                                    {startDate && <span>Start Date · {startDate}</span>}
+                                    {ageDays !== null && ageDays >= 30 && status !== 'Closed' && <span>· {ageDays} days open</span>}
+                                  </div>
+
+                                  <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8, opacity: 0, transition: 'opacity 0.1s' }}>
                                     <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
                                     <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
-                                  </span>
+                                  </div>
                                 </div>
                               );
                             })}
