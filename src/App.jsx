@@ -997,8 +997,10 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
   }
   const NodeName = ({ node, label }) => {
     const editing = editingNode === node.id
+    const [draft, setDraft] = useState(node.name)
+    useEffect(() => { if (editing) setDraft(node.name) }, [editing, node.name])
     return editing ? (
-      <input autoFocus value={node.name} onChange={(e) => setStrategyNodes => {}} onBlur={async (e) => { await onRenameNode(node, e.target.value); setEditingNode(null) }} onKeyDown={async (e) => { if (e.key === 'Enter') { await onRenameNode(node, e.currentTarget.value); setEditingNode(null) } if (e.key === 'Escape') setEditingNode(null) }} style={inputStyle({ border: '1px solid var(--acc-fill)', padding: '3px 6px', fontSize: 12, flex: 1 })} />
+      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={async (e) => { await onRenameNode(node, e.target.value); setEditingNode(null) }} onKeyDown={async (e) => { if (e.key === 'Enter') { await onRenameNode(node, e.currentTarget.value); setEditingNode(null) } if (e.key === 'Escape') setEditingNode(null) }} style={inputStyle({ border: '1px solid var(--acc-fill)', padding: '3px 6px', fontSize: 12, flex: 1 })} />
     ) : (
       <span onClick={() => setEditingNode(node.id)} title="Click to edit" style={{ cursor: 'text' }}><strong>{label}</strong> {node.name}</span>
     )
@@ -1018,6 +1020,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
 
   return <div>
     {toolbar}
+    {newNode?.type === 'corporate' && !newNode.parentId && <InlineNodeInput placeholder="Type Corporate Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
     {selCount > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginBottom: 10, background: 'var(--acc-bg)', border: '1px solid var(--bd)', borderRadius: 7 }}><span style={{ fontSize: 12, color: 'var(--acc-tx)' }}>{selCount} selected</span><select defaultValue="" onChange={(e) => e.target.value && onBulkStatus(e.target.value)} style={inputStyle({ width: 'auto', padding: '6px 8px' })}><option value="">Change status…</option>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select>{isAdmin && <button onClick={onBulkDelete} style={btnStyle({ padding: '6px 9px', fontSize: 11, color: 'var(--dgr-tx)' })}>Delete</button>}<button onClick={() => setSelected({})} style={btnStyle({ padding: '6px 9px', fontSize: 11, marginLeft: 'auto' })}>Clear</button></div>}
     <div style={{ border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg2)' }}>
       {corporations.map((co, ci) => {
@@ -1061,7 +1064,6 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
             </div>
           })}
           {newNode?.type === 'pm' && newNode.parentId === co.id && <InlineNodeInput placeholder="Type PM Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
-          {newNode?.type === 'corporate' && !newNode.parentId && <InlineNodeInput placeholder="Type Corporate Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
         </div>
       })}
     </div>
