@@ -196,6 +196,16 @@ function Dashboard({ session, theme, setTheme }) {
     setEditing(null); loadDeliverables()
   }
 
+  const updateDeliverableField = async (id, field, value) => {
+    const allowed = { title: 'title', next_steps: 'next_steps' }
+    const column = allowed[field]
+    if (!column) return false
+    const { error } = await supabase.from('deliverables').update({ [column]: value }).eq('id', id)
+    if (error) { alert(error.message); return false }
+    await loadDeliverables()
+    return true
+  }
+
   const quickAddDeliverable = async ({ title, corporateObjective, pmObjective, keyResult, ownerId, dueDate, corporateObjectiveId, pmObjectiveId, keyResultId }) => {
     const fallbackOwner = profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || userId
     const selectedOwner = isAdmin ? (ownerId || fallbackOwner) : userId
@@ -646,7 +656,7 @@ function Dashboard({ session, theme, setTheme }) {
           filters={filters} profiles={profiles}
           onCancel={() => setShowExport(false)}
           onExport={(useFiltered, includeActions) => {
-            const rows = (useFiltered ? getFiltered() : visibleDeliverables).map((d) => ({ ...d, latestComment: lastComment(d)?.text }))
+            const rows = (useFiltered ? getFiltered() : visibleDeliverables).map((d) => ({ ...d, latestComment: d.next_steps || '' }))
             exportToExcel({ deliverables: rows, keyActions: isAdmin ? keyActions : keyActions.filter((a) => isPersonInAction(a, userId)), profiles, includeActions })
             setShowExport(false)
           }}
@@ -1586,8 +1596,6 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
     title: '', corporateObjective: '', pmObjective: '', keyResult: '', division: Object.values(OWNER_FUNCTIONS)[0][0], ownerId: isAdmin ? profiles[0]?.id : userId,
     status: 'Not Started', dueDate: todayISO(), revisedDueDate: '', revisionReason: '', nextSteps: '',
   })
-  const [comments, setComments] = useState([])
-  const [commentText, setCommentText] = useState('')
   const [subs, setSubs] = useState([])
   const [subTitle, setSubTitle] = useState('')
   const [subOwner, setSubOwner] = useState(isAdmin ? profiles[0]?.id : userId)
@@ -1600,21 +1608,12 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
   useEffect(() => { modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [])
   useEffect(() => {
     if (!isNew) {
-      supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
       supabase.from('sub_deliverables').select('*').eq('deliverable_id', item.id).then(({ data }) => setSubs(data || []))
     }
     // eslint-disable-next-line
   }, [])
 
   const ownerFunctions = OWNER_FUNCTIONS[profiles.find((p) => p.id === form.ownerId)?.full_name] || DIVISIONS
-
-  const postComment = async () => {
-    if (!commentText.trim()) return
-    await supabase.from('comments').insert({ deliverable_id: item.id, author_id: userId, text: commentText.trim() })
-    setCommentText('')
-    const { data } = await supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at')
-    setComments(data || [])
-  }
 
   const addSub = async () => {
     if (!subTitle.trim()) return
@@ -1673,7 +1672,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
             <Field label="Revised due date"><input type="date" value={form.revisedDueDate} onChange={(e) => setForm((f) => ({ ...f, revisedDueDate: e.target.value }))} style={inputStyle({ width: '100%' })} /></Field>
           </div>
           <Field label="Revision reason"><input value={form.revisionReason} onChange={(e) => setForm((f) => ({ ...f, revisionReason: e.target.value }))} style={inputStyle({ width: '100%' })} placeholder="Why is the date shifting?" /></Field>
-          <Field label="Next steps"><textarea rows={2} value={form.nextSteps} onChange={(e) => setForm((f) => ({ ...f, nextSteps: e.target.value }))} style={inputStyle({ width: '100%', resize: 'vertical', fontFamily: 'inherit' })} /></Field>
+          <Field label="Updates & Next Steps"><textarea rows={3} value={form.nextSteps} onChange={(e) => setForm((f) => ({ ...f, nextSteps: e.target.value }))} placeholder="Capture the latest update, context, action, or next step…" style={inputStyle({ width: '100%', resize: 'vertical', fontFamily: 'inherit' })} /></Field>
 
           <div>
             <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Sub-deliverables</p>
@@ -1697,22 +1696,6 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
 
           {!isNew && (
             <>
-              <div>
-                <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Comment</p>
-                <div style={{ maxHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {comments.length === 0 && <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No comments yet.</p>}
-                  {comments.map((c) => (
-                    <div key={c.id} style={{ fontSize: 12 }}>
-                      <span style={{ fontWeight: 500 }}>{c.author?.full_name}</span> <span style={{ color: 'var(--txm)' }}>· {new Date(c.created_at).toLocaleDateString()}</span>
-                      <div>{c.text}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment…" style={inputStyle({ flex: 1 })} />
-                  <button onClick={postComment} style={btnStyle()}>Post</button>
-                </div>
-              </div>
               <div>
                 <button onClick={async () => {
                   const next = !showHistory
