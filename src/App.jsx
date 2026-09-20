@@ -264,10 +264,12 @@ function Dashboard({ session, theme, setTheme }) {
           .deliverables-table-wrap { width: 100%; }
           .summary-dashboard-grid { grid-template-columns: 1fr !important; }
           .summary-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .summary-action-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
           .summary-section-heading { align-items: flex-start !important; }
         }
         @media (max-width: 600px) {
           .summary-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .summary-action-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
           [data-recruitment-header] { align-items: flex-start !important; }
@@ -1013,7 +1015,7 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Current status and immediate follow-up</p>
-          <MetricGrid items={actionItems} totalLabel="Total action items" />
+          <div className="summary-action-metrics"><MetricGrid items={actionItems} totalLabel="Total action items" /></div>
 
           {dueThisWeek.length > 0 && (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
