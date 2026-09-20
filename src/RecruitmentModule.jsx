@@ -73,7 +73,18 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
   const [divisions, setDivisions] = useState([]);
-  const [filters, setFilters] = useState({ divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' });
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrbp_recruitment_filters');
+      return saved ? { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '', ...JSON.parse(saved) } : { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+    } catch {
+      return { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+    }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_recruitment_filters', JSON.stringify(filters)); } catch {}
+  }, [filters]);
   const [rowsWithCandidates, setRowsWithCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
