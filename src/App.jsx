@@ -1630,7 +1630,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
   useEffect(() => { modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [])
   useEffect(() => {
     if (!isNew) {
-      supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
+      supabase.from('comments').select('*').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
       supabase.from('sub_deliverables').select('*').eq('deliverable_id', item.id).then(({ data }) => setSubs(data || []))
     }
     // eslint-disable-next-line
@@ -1643,7 +1643,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
     const { error } = await supabase.from('comments').insert({ deliverable_id: item.id, author_id: userId, text: commentText.trim() })
     if (error) { alert(error.message); return }
     setCommentText('')
-    const { data } = await supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at')
+    const { data } = await supabase.from('comments').select('*').eq('deliverable_id', item.id).order('created_at')
     setComments(data || [])
     reloadDeliverables?.()
   }
@@ -1736,7 +1736,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
                   {comments.map((comment) => (
                     <div key={comment.id} style={{ fontSize: 12, paddingBottom: 7, borderBottom: '1px solid var(--bd)' }}>
                       <div style={{ marginBottom: 2 }}>
-                        <span style={{ fontWeight: 600 }}>{comment.author?.full_name || 'User'}</span>
+                        <span style={{ fontWeight: 600 }}>{profiles.find((p) => p.id === comment.author_id)?.full_name || 'User'}</span>
                         <span style={{ color: 'var(--txm)' }}> · {new Date(comment.created_at).toLocaleDateString()}</span>
                       </div>
                       <div style={{ color: 'var(--tx2)' }}>{comment.text}</div>
