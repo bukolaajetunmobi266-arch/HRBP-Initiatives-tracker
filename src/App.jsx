@@ -467,8 +467,8 @@ function Dashboard({ session, theme, setTheme }) {
                 const { error } = await supabase
                   .from('action_item_statuses')
                   .upsert(
-                    { action_id: actionId, user_id: pid, status: 'Not Started' },
-                    { onConflict: 'action_id,user_id' }
+                    { action_id: actionId, user_id: pid },
+                    { onConflict: 'action_id,user_id', ignoreDuplicates: true }
                   )
                 if (error) {
                   alert(`The action item was saved, but the HRBP assignment could not be saved: ${error.message}`)
@@ -978,6 +978,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                             const completed = krItems.filter((d) => d.status === 'Completed').length
                             const pct = krItems.length ? Math.round((completed / krItems.length) * 100) : 0
                             const showingNote = totalKr.length !== krItems.length ? ` (showing ${krItems.length} of ${totalKr.length})` : ''
+                            const krMultiOwner = new Set(krItems.map((d) => d.owner_id)).size > 1
                             return (
                               <div key={kr} style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg2)', marginBottom: 8 }}>
                                 <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1002,7 +1003,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                                         <th onClick={() => setSort((s) => ({ key: 'title', dir: s.key === 'title' && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
                                           Deliverable{sort.key === 'title' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
                                         </th>
-                                        <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Owner</th>
+                                        {krMultiOwner && <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Owner</th>}
                                         {[['status', 'Status'], ['due_date', 'Due']].map(([key, label]) => (
                                           <th key={key} onClick={() => setSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
                                             {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -1023,7 +1024,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                                             <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>
                                               {d.title}<RevisionFlag item={d} />
                                             </td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx1)', fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>
+                                            {krMultiOwner && <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx1)', fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>}
                                             <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td>
                                             <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', whiteSpace: 'nowrap', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td>
                                             <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{lc?.text || '—'}</td>
