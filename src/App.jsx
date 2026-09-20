@@ -81,6 +81,7 @@ function Dashboard({ session, theme, setTheme }) {
   const [actionStatuses, setActionStatuses] = useState([])
   const [view, setView] = useState('summary')
   const [filters, setFilters] = useState({ search: '', divisions: [], owner: 'all', status: 'all', overdueOnly: false })
+  const [actionFilter, setActionFilter] = useState({ status: 'all', overdueOnly: false })
   const [collapsed, setCollapsed] = useState({})
   const [selected, setSelected] = useState({})
   const [sort, setSort] = useState({ key: 'due_date', dir: 'asc' })
@@ -266,6 +267,7 @@ function Dashboard({ session, theme, setTheme }) {
           .summary-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
           .summary-action-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
           .summary-section-heading { align-items: flex-start !important; }
+          .summary-metrics > div, .summary-action-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
         }
         @media (max-width: 600px) {
           .summary-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -300,40 +302,87 @@ function Dashboard({ session, theme, setTheme }) {
             <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables Tracker</h1>
             <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
           </div>
+          <button onClick={() => setShowPpt(isAdmin ? 'cpo' : 'personal')} style={btnStyle({ background: 'var(--acc-fill)', color: '#fff', borderColor: 'var(--acc-fill)', fontWeight: 600 })}>
+            {isAdmin ? 'Generate PPT' : 'Generate My Update Pack'}
+          </button>
         </div>
-        {view !== 'summary' && (
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
-            <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
-          </div>
-        )}
+
         <Nav view={view} setView={setView} setSelected={setSelected} />
 
-        {(view === 'board' || view === 'deliverables' || view === 'calendar') && (
+        {(view === 'summary' || view === 'board' || view === 'deliverables' || view === 'calendar') && (
           <FilterBar filters={filters} setFilters={setFilters} profiles={profiles} isAdmin={isAdmin} />
         )}
 
-        {view === 'summary' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-              <button onClick={() => setShowPpt(isAdmin ? 'cpo' : 'personal')} style={{ fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>
-                {isAdmin ? 'Generate PPT Deck' : 'Generate my update pack (PPT)'}
-              </button>
-            </div>
-            <SummaryView
-              deliverables={visibleDeliverables} profiles={profiles} expandedActions={expandedActions} isAdmin={isAdmin}
-              dueThisWeek={visibleDeliverables.filter((d) => d.status !== 'Completed' && d.due_date && d.due_date >= currentWeekStart() && d.due_date <= currentWeekEnd())}
-              sharedWaiting={keyActions.filter((a) => a.shared && isPersonInAction(a, userId) && myActionStatus(a) !== 'Completed')}
-              actionHrbpRows={isAdmin ? profiles.filter((p) => p.role !== 'admin').map((p) => ({
-                name: p.full_name,
-                items: keyActions.filter((a) => isPersonInAction(a, p.id)).map((a) => {
-                  if (!a.shared) return { status: a.status, due_date: a.due_date }
-                  const row = actionStatuses.find((s) => s.action_id === a.id && s.user_id === p.id)
-                  return { status: row ? row.status : 'Not Started', due_date: a.due_date }
-                }),
-              })).filter((r) => r.items.length > 0) : []}
+        {view !== 'summary' && view !== 'actions' && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>Deliverables</p>
+            <MetricGrid
+              items={kpiSource}
+              totalLabel="Total deliverables"
+              onCardClick={(key) => {
+                setFilters({
+                  search: '',
+                  divisions: [],
+                  owner: 'all',
+                  status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                  overdueOnly: key === 'overdue',
+                })
+                setView('deliverables')
+                setSelected({})
+              }}
             />
-          </>
+          </div>
+        )}
+
+        {view === 'actions' && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>Action Items</p>
+            <ActionFilterBar filter={actionFilter} setFilter={setActionFilter} />
+            <MetricGrid
+              items={actionItemsForMetrics}
+              totalLabel="Total action items"
+              onCardClick={(key) => {
+                setActionFilter({
+                  status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                  overdueOnly: key === 'overdue',
+                })
+              }}
+            />
+          </div>
+        )}
+
+        {view === 'summary' && (
+          <SummaryView
+            deliverables={getFiltered()} profiles={profiles} expandedActions={expandedActions} isAdmin={isAdmin}
+            dueThisWeek={getFiltered().filter((d) => d.status !== 'Completed' && d.due_date && d.due_date >= currentWeekStart() && d.due_date <= currentWeekEnd())}
+            sharedWaiting={keyActions.filter((a) => a.shared && isPersonInAction(a, userId) && myActionStatus(a) !== 'Completed')}
+            actionHrbpRows={isAdmin ? profiles.filter((p) => p.role !== 'admin').map((p) => ({
+              name: p.full_name,
+              items: keyActions.filter((a) => isPersonInAction(a, p.id)).map((a) => {
+                if (!a.shared) return { status: a.status, due_date: a.due_date }
+                const row = actionStatuses.find((s) => s.action_id === a.id && s.user_id === p.id)
+                return { status: row ? row.status : 'Not Started', due_date: a.due_date }
+              }),
+            })).filter((r) => r.items.length > 0) : []}
+            onDeliverableMetricClick={(key) => {
+              setFilters({
+                search: '',
+                divisions: [],
+                owner: 'all',
+                status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                overdueOnly: key === 'overdue',
+              })
+              setView('deliverables')
+              setSelected({})
+            }}
+            onActionMetricClick={(key) => {
+              setActionFilter({
+                status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                overdueOnly: key === 'overdue',
+              })
+              setView('actions')
+            }}
+          />
         )}
 
         {view === 'board' && (
@@ -360,6 +409,7 @@ function Dashboard({ session, theme, setTheme }) {
         {view === 'movement' && <ActivityView deliverables={visibleDeliverables} ownerName={ownerName} onOpen={(id) => setEditing({ id })} />}
         {view === 'actions' && (
           <ActionsView keyActions={keyActions} actionStatuses={actionStatuses} profiles={profiles} isAdmin={isAdmin} ownerName={ownerName} myId={userId}
+            actionFilter={actionFilter}
             onOpen={(id) => setEditingAction({ id })} onAdd={() => setEditingAction({ id: null })}
             onDelete={async (id) => { await supabase.from('key_actions').delete().eq('id', id); loadKeyActions() }}
             onMyStatusChange={async (actionId, status) => {
@@ -543,7 +593,7 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
 }
 
 function Nav({ view, setView, setSelected }) {
-  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
+  const tabs = [['summary', 'Summary Dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action Items']]
   return (
     <div className="deliverables-nav" style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
       {tabs.map(([id, label]) => (
@@ -585,24 +635,174 @@ function DivisionMultiSelect({ selected, onChange }) {
 }
 
 function FilterBar({ filters, setFilters, profiles, isAdmin }) {
-  const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }))
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(filters)
+
+  useEffect(() => { if (open) setDraft(filters) }, [open, filters])
+
+  const activeCount =
+    (filters.search ? 1 : 0) +
+    (filters.divisions.length ? 1 : 0) +
+    (filters.owner !== 'all' ? 1 : 0) +
+    (filters.status !== 'all' ? 1 : 0) +
+    (filters.overdueOnly ? 1 : 0)
+
+  const update = (key, value) => setDraft((f) => ({ ...f, [key]: value }))
+  const clearAll = () => {
+    const empty = { search: '', divisions: [], owner: 'all', status: 'all', overdueOnly: false }
+    setDraft(empty)
+    setFilters(empty)
+    setOpen(false)
+  }
+  const apply = () => { setFilters(draft); setOpen(false) }
+  const removeFilter = (key) => {
+    if (key === 'divisions') setFilters((f) => ({ ...f, divisions: [] }))
+    else if (key === 'overdueOnly') setFilters((f) => ({ ...f, overdueOnly: false }))
+    else setFilters((f) => ({ ...f, [key]: key === 'owner' || key === 'status' ? 'all' : '' }))
+  }
+
+  const ownerLabel = profiles.find((p) => p.id === filters.owner)?.full_name
+  const chips = [
+    filters.search ? ['search', `Search: ${filters.search}`] : null,
+    filters.divisions.length ? ['divisions', filters.divisions.length === 1 ? filters.divisions[0] : `${filters.divisions.length} divisions`] : null,
+    filters.owner !== 'all' ? ['owner', ownerLabel || 'Owner'] : null,
+    filters.status !== 'all' ? ['status', filters.status] : null,
+    filters.overdueOnly ? ['overdueOnly', 'Overdue'] : null,
+  ].filter(Boolean)
+
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-      <input placeholder="Search deliverables…" value={filters.search} onChange={(e) => set('search', e.target.value)} style={inputStyle({ flex: 1, minWidth: 160 })} />
-      <DivisionMultiSelect selected={filters.divisions} onChange={(v) => set('divisions', v)} />
-      {isAdmin && (
-        <select value={filters.owner} onChange={(e) => set('owner', e.target.value)} style={inputStyle({ minWidth: 130 })}>
-          <option value="all">All owners</option>
-          {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
+    <div style={{ marginBottom: 18, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={btnStyle({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)',
+            color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)',
+            borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)',
+          })}
+          aria-expanded={open}
+        >
+          <span style={{ fontSize: 14 }}>☷</span>
+          <span>Filters</span>
+          {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
+          <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        </button>
+
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {chips.map(([key, label]) => (
+              <button key={key} onClick={() => removeFilter(key)} title="Remove filter"
+                style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}>
+                {label} ×
+              </button>
+            ))}
+            <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 'min(640px, calc(100vw - 40px))', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Filter deliverables</div>
+              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Apply filters across the deliverables views.</div>
+            </div>
+            {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+          </div>
+
+          <div data-recruitment-filter-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Search</span>
+              <input placeholder="Search deliverables…" value={draft.search} onChange={(e) => update('search', e.target.value)} style={inputStyle({ width: '100%' })} />
+            </label>
+
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
+              <select value={draft.status} onChange={(e) => update('status', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="all">All statuses</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+
+            {isAdmin && (
+              <label>
+                <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Owner</span>
+                <select value={draft.owner} onChange={(e) => update('owner', e.target.value)} style={inputStyle({ width: '100%' })}>
+                  <option value="all">All owners</option>
+                  {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                </select>
+              </label>
+            )}
+
+            <div>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Division</span>
+              <DivisionMultiSelect selected={draft.divisions} onChange={(v) => update('divisions', v)} />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)', paddingTop: 22 }}>
+              <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => update('overdueOnly', e.target.checked)} />
+              Overdue only
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={apply} style={primaryBtnStyle()}>Apply filters</button>
+          </div>
+        </div>
       )}
-      <select value={filters.status} onChange={(e) => set('status', e.target.value)} style={inputStyle({ minWidth: 120 })}>
-        <option value="all">All statuses</option>
-        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
-      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <input type="checkbox" checked={filters.overdueOnly} onChange={(e) => set('overdueOnly', e.target.checked)} /> Overdue only
-      </label>
+    </div>
+  )
+}
+
+function ActionFilterBar({ filter, setFilter }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(filter)
+  useEffect(() => { if (open) setDraft(filter) }, [open, filter])
+  const activeCount = (filter.status !== 'all' ? 1 : 0) + (filter.overdueOnly ? 1 : 0)
+  const clearAll = () => {
+    const empty = { status: 'all', overdueOnly: false }
+    setDraft(empty); setFilter(empty); setOpen(false)
+  }
+  const chips = [
+    filter.status !== 'all' ? ['status', filter.status] : null,
+    filter.overdueOnly ? ['overdueOnly', 'Overdue'] : null,
+  ].filter(Boolean)
+  return (
+    <div style={{ marginBottom: 12, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => setOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 7, background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)', color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)', borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)' })}>
+          <span style={{ fontSize: 14 }}>☷</span><span>Filters</span>
+          {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
+          <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        </button>
+        {chips.map(([key, label]) => <button key={key} onClick={() => key === 'status' ? setFilter(f => ({ ...f, status: 'all' })) : setFilter(f => ({ ...f, overdueOnly: false }))} style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}>{label} ×</button>)}
+        {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 320, maxWidth: 'calc(100vw - 40px)', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Filter action items</div>
+          <label>
+            <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
+            <select value={draft.status} onChange={(e) => setDraft((f) => ({ ...f, status: e.target.value }))} style={inputStyle({ width: '100%' })}>
+              <option value="all">All statuses</option>
+              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)', marginTop: 12 }}>
+            <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => setDraft((f) => ({ ...f, overdueOnly: e.target.checked }))} />
+            Overdue only
+          </label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={() => { setFilter(draft); setOpen(false) }} style={primaryBtnStyle()}>Apply filters</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -925,23 +1125,25 @@ function metricSet(items, totalLabel) {
   const total = items.length
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0)
   return [
-    ['ti-circle-check', 'Completed', `${completed} (${pct(completed)}%)`, 'suc'],
-    ['ti-loader-2', 'In progress', `${inProgress} (${pct(inProgress)}%)`, 'wrn'],
-    ['ti-hourglass-empty', 'Yet to start', `${notStarted} (${pct(notStarted)}%)`, 'neu'],
-    ['ti-alert-triangle', 'Overdue', `${overdue} (${pct(overdue)}%)`, 'dgr'],
-    ['ti-list-details', totalLabel, String(total), 'flat'],
+    ['ti-circle-check', 'Completed', `${completed} (${pct(completed)}%)`, 'suc', 'completed'],
+    ['ti-loader-2', 'In progress', `${inProgress} (${pct(inProgress)}%)`, 'wrn', 'inProgress'],
+    ['ti-hourglass-empty', 'Yet to start', `${notStarted} (${pct(notStarted)}%)`, 'neu', 'notStarted'],
+    ['ti-alert-triangle', 'Overdue', `${overdue} (${pct(overdue)}%)`, 'dgr', 'overdue'],
+    ['ti-list-details', totalLabel, String(total), 'flat', 'total'],
   ]
 }
-function MetricGrid({ items, totalLabel }) {
+function MetricGrid({ items, totalLabel, onCardClick }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}>
-      {metricSet(items, totalLabel).map(([icon, label, val, role]) => (
-        <div key={label} style={{
+      {metricSet(items, totalLabel).map(([icon, label, val, role, key]) => (
+        <div key={label} onClick={() => onCardClick?.(key)} style={{
           background: 'var(--bg2)',
           border: '1px solid var(--bd)',
           borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : role === 'acc' ? '3px solid var(--acc-fill)' : '3px solid var(--bds)',
           borderRadius: 8, padding: '13px 14px', minHeight: 72,
-          boxSizing: 'border-box', boxShadow: '0 1px 2px rgba(15,42,67,0.04)'
+          boxSizing: 'border-box', boxShadow: '0 1px 2px rgba(15,42,67,0.04)',
+          cursor: onCardClick ? 'pointer' : 'default',
+          transition: 'transform 0.12s, box-shadow 0.12s',
         }}>
           <i className={`ti ${icon}`} style={{ fontSize: 15, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
           <p style={{ fontSize: 11, color: 'var(--tx2)', margin: '7px 0 3px' }}>{label}</p>
@@ -1009,7 +1211,7 @@ function HrbpBarLegend() {
   )
 }
 
-function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThisWeek, sharedWaiting, actionHrbpRows }) {
+function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThisWeek, sharedWaiting, actionHrbpRows, onDeliverableMetricClick, onActionMetricClick }) {
   const deliverableHrbpRows = profiles.filter((p) => p.role !== 'admin').map((p) => ({
     name: p.full_name, items: deliverables.filter((d) => d.owner_id === p.id),
   })).filter((r) => r.items.length > 0)
@@ -1019,12 +1221,12 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
     <div>
       <div className="summary-section-heading" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
         <div>
-          <p style={{ fontSize: 14, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Delivery overview</p>
+          <p style={{ fontSize: 14, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Overview</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '3px 0 0' }}>{isAdmin ? 'Organisation-wide delivery progress' : 'Your current delivery progress'}</p>
         </div>
       </div>
       <div className="summary-metrics">
-        <MetricGrid items={deliverables} totalLabel="Total deliverables" />
+        <MetricGrid items={deliverables} totalLabel="Total deliverables" onCardClick={onDeliverableMetricClick} />
       </div>
 
       <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)', gap: 14, marginTop: 14 }}>
@@ -1040,7 +1242,7 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Current status and immediate follow-up</p>
-          <div className="summary-action-metrics"><MetricGrid items={actionItems} totalLabel="Total action items" /></div>
+          <div className="summary-action-metrics"><MetricGrid items={actionItems} totalLabel="Total action items" onCardClick={onActionMetricClick} /></div>
 
           {dueThisWeek.length > 0 && (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
@@ -1079,11 +1281,18 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
     </div>
   )
 }
-function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName, myId, onOpen, onAdd, onDelete, onMyStatusChange, onAdminStatusChange, onExport, onImport }) {
+function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName, myId, actionFilter, onOpen, onAdd, onDelete, onMyStatusChange, onAdminStatusChange, onExport, onImport }) {
   const [collapsed, setCollapsed] = useState({})
-  const visible = isAdmin ? keyActions : keyActions.filter((a) =>
+  const visible = (isAdmin ? keyActions : keyActions.filter((a) =>
     a.shared ? actionStatuses.some((s) => s.action_id === a.id && s.user_id === myId) : a.owner_id === myId
-  )
+  )).filter((a) => {
+    const status = a.shared
+      ? (actionStatuses.find((s) => s.action_id === a.id && s.user_id === myId)?.status || 'Not Started')
+      : a.status
+    if (actionFilter.status !== 'all' && status !== actionFilter.status) return false
+    if (actionFilter.overdueOnly && !(a.due_date && status !== 'Completed' && a.due_date < todayISO())) return false
+    return true
+  })
   if (!visible.length) return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
