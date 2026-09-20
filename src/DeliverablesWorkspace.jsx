@@ -74,7 +74,8 @@ function AddNodeRow({ placeholder, onCommit, onCancel }) {
   )
 }
 
-function InlineDeliverableField({ value, onSave, placeholder = '—', multiline = false, style = {} }) {
+function InlineDeliverableField({ value, onSave, placeholder = '—', multiline = false, style = {}, editable = true }) {
+  if (!editable) return <span style={{ display:'block', minHeight:18, ...style }}>{value || placeholder}</span>
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value || '')
   useEffect(() => { if (!editing) setDraft(value || '') }, [value, editing])
@@ -293,7 +294,7 @@ export default function DeliverablesWorkspace({
               <div className="dw-context">{pmsFor(co.id).length} PM objective{pmsFor(co.id).length === 1 ? '' : 's'}</div>
               <ActionMenu open={menu === co.id} onToggle={() => setMenu(menu === co.id ? null : co.id)}>
                 <button style={menuItem} onClick={() => beginNode('pm', co.id)}>+ PM Objective</button>
-                <button style={menuItem} onClick={() => { setEditingNode(co.id); setMenu(null) }}>Rename</button>
+                {isAdmin && <button style={menuItem} onClick={() => { setEditingNode(co.id); setMenu(null) }}>Rename</button>}
               </ActionMenu>
             </div>
 
@@ -318,7 +319,7 @@ export default function DeliverablesWorkspace({
                         <div className="dw-context">{krsFor(pm.id).length} Key Result{krsFor(pm.id).length === 1 ? '' : 's'}</div>
                         <ActionMenu open={menu === pm.id} onToggle={() => setMenu(menu === pm.id ? null : pm.id)}>
                           <button style={menuItem} onClick={() => beginNode('key_result', pm.id)}>+ Key Result</button>
-                          <button style={menuItem} onClick={() => { setEditingNode(pm.id); setMenu(null) }}>Rename</button>
+                          {isAdmin && <button style={menuItem} onClick={() => { setEditingNode(pm.id); setMenu(null) }}>Rename</button>}
                         </ActionMenu>
                       </div>
 
@@ -346,7 +347,7 @@ export default function DeliverablesWorkspace({
                                   <span className="dw-context">{complete}/{krItems.length} complete</span>
                                   <ActionMenu open={menu === kr.id} onToggle={() => setMenu(menu === kr.id ? null : kr.id)}>
                                     <button style={menuItem} onClick={() => { onDuplicateKeyResult({ node:kr }); setMenu(null) }}>Duplicate Key Result</button>
-                                    <button style={menuItem} onClick={() => { setEditingNode(kr.id); setMenu(null) }}>Rename</button>
+                                    {isAdmin && <button style={menuItem} onClick={() => { setEditingNode(kr.id); setMenu(null) }}>Rename</button>}
                                   </ActionMenu>
                                 </div>
 
@@ -369,7 +370,7 @@ export default function DeliverablesWorkspace({
                                                   <td><span className="dw-grip" draggable onDragStart={(e) => startDrag(e, { type:'deliverable', id:item.id })} onDragEnd={() => { setDragging(null); setDropTarget(null) }} title="Move deliverable">⠿</span></td>
                                                   <td><input type="checkbox" checked={!!selected[item.id]} onChange={(e) => setSelected((current) => ({ ...current, [item.id]: e.target.checked }))} /></td>
                                                   <td style={{ fontWeight:600, color:'var(--tx1)' }}>
-                                                    <InlineDeliverableField value={item.title} onSave={(value) => onInlineUpdate(item.id, 'title', value)} />
+                                                    <InlineDeliverableField value={item.title} editable={isAdmin} onSave={(value) => onInlineUpdate(item.id, 'title', value)} />
                                                     {item.revised_due_date && <span title="Revised due date" style={{ marginLeft:6, color:'var(--wrn-tx)', fontSize:10 }}>●</span>}
                                                   </td>
                                                   <td style={{ color:'var(--tx2)' }}>
@@ -384,7 +385,13 @@ export default function DeliverablesWorkspace({
                                                     <span onClick={() => onOpen(item.id)} title="Click to edit" style={{cursor:'pointer'}}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</span>
                                                   </td>
                                                   <td style={{ color:'var(--tx2)', maxWidth:240 }}>
-                                                    <InlineDeliverableField value={latestComment(item) || item.next_steps} placeholder="—" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
+                                                    {latestComment(item) ? (
+                                                      <span onClick={() => onOpen(item.id)} title="Click to view comments" style={{ display:'block', minHeight:18, cursor:'pointer', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                                        {latestComment(item)}
+                                                      </span>
+                                                    ) : (
+                                                      <InlineDeliverableField value={item.next_steps} placeholder="—" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
+                                                    )}
                                                   </td>
                                                   <td>
                                                     <ActionMenu open={menu === item.id} onToggle={() => setMenu(menu === item.id ? null : item.id)}>
