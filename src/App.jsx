@@ -1052,6 +1052,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
   const [quickDue, setQuickDue] = useState(todayISO())
   const [dragging, setDragging] = useState(null)
   const [dropTarget, setDropTarget] = useState(null)
+  const [toast, setToast] = useState(null)
   const toggle = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }))
   const selCount = Object.values(selected).filter(Boolean).length
   const visible = items
@@ -1074,14 +1075,22 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
     e.preventDefault(); e.stopPropagation()
     const node = strategyNodes.find((n) => n.id === dragging.id)
     setDropTarget(null); setDragging(null)
-    if (node) await onMoveKeyResult({ node, targetPmId: pm.id })
+    if (node) {
+      const previousPmId = node.parent_id
+      const ok = await onMoveKeyResult({ node, targetPmId: pm.id })
+      if (ok) setToast({ message: 'Key Result moved', undo: async () => { await onMoveKeyResult({ node: { ...node, parent_id: pm.id }, targetPmId: previousPmId }) } })
+    }
   }
   const dropOnKr = async (e, kr) => {
     if (dragging?.type !== 'deliverable') return
     e.preventDefault(); e.stopPropagation()
     const item = visible.find((d) => d.id === dragging.id) || allItems.find((d) => d.id === dragging.id)
     setDropTarget(null); setDragging(null)
-    if (item) await onMoveDeliverable({ item, targetKeyResultId: kr.id })
+    if (item) {
+      const previousKrId = item.key_result_id
+      const ok = await onMoveDeliverable({ item, targetKeyResultId: kr.id })
+      if (ok) setToast({ message: 'Deliverable moved', undo: async () => { await onMoveDeliverable({ item: { ...item, key_result_id: kr.id }, targetKeyResultId: previousKrId }) } })
+    }
   }
   const beginAdd = (co, pm, kr) => {
     setAddingTo({ co, pm, kr }); setQuickTitle(''); setQuickOwner(isAdmin ? (profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || '') : ''); setQuickDue(todayISO())
@@ -1092,6 +1101,12 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
     const ok = await onQuickAdd({ title: quickTitle.trim(), corporateObjective: addingTo.co.name, pmObjective: addingTo.pm.name, keyResult: addingTo.kr.name, ownerId: quickOwner, dueDate: quickDue, corporateObjectiveId: addingTo.co.id, pmObjectiveId: addingTo.pm.id, keyResultId: addingTo.kr.id })
     if (ok) { setAddingTo(null); setQuickTitle('') }
   }
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 7000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
   const startNew = (type, parentId) => { setNewNode({ type, parentId }); setEditingNode(null) }
   const commitNew = async () => {
     if (!newNode?.name?.trim()) return
@@ -1147,8 +1162,9 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                 const krKey = 'kr::' + kr.id, krCollapsed = collapsed[krKey], krItems = byNode(kr.id), complete = krItems.filter((d) => d.status === 'Completed').length, pct = krItems.length ? Math.round(complete / krItems.length * 100) : 0
                 const adding = addingTo?.kr?.id === kr.id
                 return <div key={kr.id} style={{ borderTop: '1px solid var(--bd)' }}>
-                  <div draggable onDragStart={(e) => startDrag(e, { type: 'key_result', id: kr.id })} onDragEnd={endDrag} onDragOver={(e) => allowDrop(e, 'deliverable', kr.id)} onDragLeave={() => dropTarget === 'deliverable:' + kr.id && setDropTarget(null)} onDrop={(e) => dropOnKr(e, kr)} style={{ padding: '7px 14px 7px 54px', display: 'flex', alignItems: 'center', gap: 8, background: dropTarget === 'deliverable:' + kr.id ? 'var(--acc-bg)' : 'var(--bg1)', outline: dropTarget === 'deliverable:' + kr.id ? '2px dashed var(--acc-fill)' : 'none', outlineOffset: -2, cursor: dragging?.type === 'key_result' ? 'grabbing' : 'grab' }}>
+                  <div onDragOver={(e) => allowDrop(e, 'deliverable', kr.id)} onDragLeave={() => dropTarget === 'deliverable:' + kr.id && setDropTarget(null)} onDrop={(e) => dropOnKr(e, kr)} style={{ padding: '7px 14px 7px 54px', display: 'flex', alignItems: 'center', gap: 8, background: dropTarget === 'deliverable:' + kr.id ? 'var(--acc-bg)' : 'var(--bg1)', outline: dropTarget === 'deliverable:' + kr.id ? '2px dashed var(--acc-fill)' : 'none', outlineOffset: -2 }}>
                     <button onClick={() => toggle(krKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)' }}>{krCollapsed ? '▸' : '▾'}</button>
+                    <span draggable onDragStart={(e) => { e.stopPropagation(); startDrag(e, { type: 'key_result', id: kr.id }) }} onDragEnd={endDrag} title="Drag Key Result to another PM Objective" style={{ color: 'var(--txm)', cursor: dragging?.type === 'key_result' ? 'grabbing' : 'grab', fontSize: 13, userSelect: 'none' }}>⠿</span>
                     <div style={{ flex: 1, fontSize: 12 }}><NodeName node={kr} label="Key Result:" /></div>
                     <span style={{ fontSize: 10, color: 'var(--txm)' }}>{complete}/{krItems.length}</span>
                     <span style={{ width: 42, height: 5, borderRadius: 999, background: 'var(--bd)', overflow: 'hidden' }}><span style={{ display: 'block', width: pct + '%', height: '100%', background: pct === 100 ? 'var(--suc-fill)' : 'var(--acc-fill)' }} /></span>
@@ -1158,7 +1174,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                   {!krCollapsed && <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead><tr><th style={{ width: 30 }}></th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Deliverable</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>HRBP</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Status</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Due</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Next step</th><th style={{ width: 34 }}></th></tr></thead>
-                      <tbody>{krItems.map((d) => <tr key={d.id} draggable onDragStart={(e) => { e.stopPropagation(); startDrag(e, { type: 'deliverable', id: d.id }) }} onDragEnd={endDrag} style={{ borderTop: '1px solid var(--bd)', cursor: 'grab' }}><td style={{ padding: '7px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', fontWeight: 550, cursor: 'pointer' }}>{d.title}<RevisionFlag item={d} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td><td style={{ width: 34, padding: '7px 6px' }}><button onClick={() => onDuplicateDeliverable({ item: d })} title="Duplicate deliverable" style={btnStyle({ padding: '3px 6px', fontSize: 10 })}>⧉</button></td></tr>)}
+                      <tbody>{krItems.map((d) => <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}><td style={{ padding: '7px 6px', width: 30 }}><span draggable onDragStart={(e) => { e.stopPropagation(); startDrag(e, { type: 'deliverable', id: d.id }) }} onDragEnd={endDrag} title="Drag deliverable to another Key Result" style={{ color: 'var(--txm)', cursor: dragging?.type === 'deliverable' ? 'grabbing' : 'grab', fontSize: 13, userSelect: 'none' }}>⠿</span></td><td style={{ padding: '7px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', fontWeight: 550, cursor: 'pointer' }}>{d.title}<RevisionFlag item={d} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td><td style={{ padding: '7px 10px' }} onClick={(e) => e.stopPropagation()}><select value={d.status} onChange={(e) => onStatus?.(d.id, e.target.value)} style={{ border: 'none', background: 'transparent', color: 'inherit', fontSize: 11, padding: '2px 4px', cursor: 'pointer' }} aria-label={'Change status for ' + d.title}><option>Not Started</option><option>In Progress</option><option>Completed</option></select></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td><td style={{ width: 34, padding: '7px 6px' }}><button onClick={() => onDuplicateDeliverable({ item: d })} title="Duplicate deliverable" style={btnStyle({ padding: '3px 6px', fontSize: 10 })}>⧉</button></td></tr>)}
                       {adding && <tr style={{ background: 'var(--acc-bg)' }}><td></td><td style={{ padding: 5 }}><input data-inline-deliverable-input autoFocus value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') setAddingTo(null) }} placeholder="Type a deliverable…" style={inputStyle({ width: '100%', padding: '7px 9px' })} /></td><td style={{ padding: 5 }}><select value={quickOwner} disabled={!isAdmin} onChange={(e) => setQuickOwner(e.target.value)} style={inputStyle({ width: '100%' })}>{profiles.filter((p) => p.role !== 'admin').map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></td><td style={{ padding: 5 }}>Not Started</td><td style={{ padding: 5 }}><input type="date" value={quickDue} onChange={(e) => setQuickDue(e.target.value)} style={inputStyle({ width: '100%' })} /></td><td style={{ padding: 5 }}><button onClick={submitAdd} style={primaryBtnStyle({ padding: '6px 9px', fontSize: 11 })}>Add</button></td></tr>}
                     </tbody></table>
                     {!adding && <button onClick={() => beginAdd(co, pm, kr)} style={{ width: '100%', padding: '7px 12px', border: 0, borderTop: '1px dashed var(--bd)', background: 'transparent', color: 'var(--acc-tx)', textAlign: 'left', fontSize: 11, cursor: 'pointer' }}>+ Add deliverable</button>}
@@ -1172,6 +1188,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
         </div>
       })}
     </div>
+    {toast && <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 80, display: 'flex', alignItems: 'center', gap: 12, background: 'var(--navy)', color: '#fff', padding: '10px 12px 10px 14px', borderRadius: 9, boxShadow: '0 10px 28px rgba(0,0,0,0.2)', fontSize: 12 }}><span>{toast.message}</span><button onClick={async () => { const undo = toast.undo; setToast(null); await undo() }} style={{ border: '1px solid rgba(255,255,255,0.35)', background: 'transparent', color: '#fff', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>Undo</button><button onClick={() => setToast(null)} aria-label="Dismiss" style={{ border: 0, background: 'transparent', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', fontSize: 14 }}>×</button></div>}
     </div>
   )
 }
