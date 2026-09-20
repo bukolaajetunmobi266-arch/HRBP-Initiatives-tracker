@@ -176,11 +176,19 @@ function Dashboard({ session, theme, setTheme }) {
       revised_due_date: form.revisedDueDate || null, revision_reason: form.revisionReason, next_steps: form.nextSteps,
     }
     if (isNew) {
-      const { error } = await supabase.from('deliverables').insert(payload)
+      const { data: inserted, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
       if (error) { alert(error.message); return }
+      if (!inserted || inserted.owner_id !== form.ownerId) {
+        alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.')
+        return
+      }
     } else {
-      const { error } = await supabase.from('deliverables').update(payload).eq('id', form.id)
+      const { data: updated, error } = await supabase.from('deliverables').update(payload).eq('id', form.id).select('id, owner_id').single()
       if (error) { alert(error.message); return }
+      if (!updated || updated.owner_id !== form.ownerId) {
+        alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.')
+        return
+      }
     }
     setEditing(null); loadDeliverables()
   }
@@ -467,8 +475,8 @@ function Dashboard({ session, theme, setTheme }) {
                 const { error } = await supabase
                   .from('action_item_statuses')
                   .upsert(
-                    { action_id: actionId, user_id: pid },
-                    { onConflict: 'action_id,user_id', ignoreDuplicates: true }
+                    { action_id: actionId, user_id: pid, status: 'Not Started' },
+                    { onConflict: 'action_id,user_id' }
                   )
                 if (error) {
                   alert(`The action item was saved, but the HRBP assignment could not be saved: ${error.message}`)
