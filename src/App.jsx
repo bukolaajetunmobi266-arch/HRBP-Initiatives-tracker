@@ -120,12 +120,24 @@ function Dashboard({ session, theme, setTheme }) {
   }, [recruitmentTab])
 
   useEffect(() => {
-    loadProfile(); loadProfiles(); loadDeliverables(); loadStrategyNodes(); loadKeyActions(); loadActionStatuses()
+    loadProfile()
+    // eslint-disable-next-line
+  }, [])
+
+  useEffect(() => {
+    if (!profile) return
+    const recruitmentOnly = profile.recruitment_role === 'analyst'
+    if (recruitmentOnly) {
+      setAppMode('recruitment')
+      setLoading(false)
+      return
+    }
+    loadProfiles(); loadDeliverables(); loadStrategyNodes(); loadKeyActions(); loadActionStatuses()
     const ch = supabase.channel('deliverables-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, loadDeliverables).subscribe()
     const ch2 = supabase.channel('action-status-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'action_item_statuses' }, loadActionStatuses).subscribe()
     return () => { supabase.removeChannel(ch); supabase.removeChannel(ch2) }
     // eslint-disable-next-line
-  }, [])
+  }, [profile?.id, profile?.recruitment_role])
 
   const loadProfile = async () => { const { data } = await supabase.from('profiles').select('*').eq('id', userId).single(); setProfile(data) }
   const loadProfiles = async () => { const { data } = await supabase.from('profiles').select('*').order('full_name'); setProfiles(data || []) }
@@ -138,6 +150,7 @@ function Dashboard({ session, theme, setTheme }) {
   const loadActionStatuses = async () => { const { data } = await supabase.from('action_item_statuses').select('*'); setActionStatuses(data || []) }
 
   const isAdmin = profile?.role === 'admin'
+  const recruitmentOnly = profile?.recruitment_role === 'analyst'
   const ownerName = (id) => profiles.find((p) => p.id === id)?.full_name || 'Unassigned'
   const lastComment = (d) => (d.comments?.length ? d.comments[d.comments.length - 1] : null)
 
@@ -444,15 +457,15 @@ function Dashboard({ session, theme, setTheme }) {
           [data-recruitment-actions] > * { flex: 1 !important; }
         }
       `}</style>
-      <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+      <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} recruitmentOnly={recruitmentOnly} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
         <div data-mobile-tracker-nav style={{ display: 'none', padding: '8px 12px', background: 'var(--bg2)', borderBottom: '1px solid var(--bd)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            <button
+            {!recruitmentOnly && <button
               onClick={() => setAppMode('deliverables')}
               style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'deliverables' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'deliverables' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'deliverables' ? 650 : 500, cursor: 'pointer' }}
-            >📋 Deliverables Tracker</button>
+            >📋 Deliverables Tracker</button>}
             <button
               onClick={() => setAppMode('recruitment')}
               style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'recruitment' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'recruitment' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'recruitment' ? 650 : 500, cursor: 'pointer' }}
@@ -724,7 +737,7 @@ function Header({ profile, userId, theme, setTheme }) {
   )
 }
 
-function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
+function Sidebar({ appMode, setAppMode, collapsed, setCollapsed, recruitmentOnly }) {
   const width = collapsed ? 64 : 236
   const sectionButtonStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
@@ -747,9 +760,9 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
+      {!recruitmentOnly && <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
         <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables Tracker</span>}
-      </button>
+      </button>}
 
       <button data-nav data-active={appMode === 'recruitment'} onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
         <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment Tracker</span>}
