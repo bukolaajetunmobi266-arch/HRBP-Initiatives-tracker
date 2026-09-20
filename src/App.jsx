@@ -303,9 +303,6 @@ function Dashboard({ session, theme, setTheme }) {
             <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables Tracker</h1>
             <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
           </div>
-          <button onClick={() => setShowPpt(isAdmin ? 'cpo' : 'personal')} style={btnStyle({ background: 'var(--acc-fill)', color: '#fff', borderColor: 'var(--acc-fill)', fontWeight: 600 })}>
-            {isAdmin ? 'Generate PPT' : 'Generate My Update Pack'}
-          </button>
         </div>
 
         <Nav view={view} setView={setView} setSelected={setSelected} />
@@ -355,8 +352,6 @@ function Dashboard({ session, theme, setTheme }) {
         {view === 'summary' && (
           <SummaryView
             deliverables={getFiltered()} profiles={profiles} expandedActions={expandedActions} isAdmin={isAdmin}
-            dueThisWeek={getFiltered().filter((d) => d.status !== 'Completed' && d.due_date && d.due_date >= currentWeekStart() && d.due_date <= currentWeekEnd())}
-            sharedWaiting={keyActions.filter((a) => a.shared && isPersonInAction(a, userId) && myActionStatus(a) !== 'Completed')}
             actionHrbpRows={isAdmin ? profiles.filter((p) => p.role !== 'admin').map((p) => ({
               name: p.full_name,
               items: keyActions.filter((a) => isPersonInAction(a, p.id)).map((a) => {
@@ -403,6 +398,7 @@ function Dashboard({ session, theme, setTheme }) {
             onBulkStatus={bulkStatus} onBulkDelete={bulkDelete}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
+            onGeneratePpt={() => setShowPpt(isAdmin ? 'cpo' : 'personal')}
           />
         )}
 
@@ -672,7 +668,7 @@ function FilterBar({ filters, setFilters, profiles, isAdmin }) {
   ].filter(Boolean)
 
   return (
-    <div style={{ marginBottom: 18, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ marginBottom: 16, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button
           onClick={() => setOpen((o) => !o)}
@@ -686,7 +682,7 @@ function FilterBar({ filters, setFilters, profiles, isAdmin }) {
           })}
           aria-expanded={open}
         >
-          <span style={{ fontSize: 14 }}>☷</span>
+          <i className="ti ti-filter" style={{ fontSize: 14 }} aria-hidden="true" />
           <span>Filters</span>
           {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
           <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
@@ -884,7 +880,8 @@ function buildTree(items) {
   return tree
 }
 
-function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport }) {
+function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt }) {
+  const [moreOpen, setMoreOpen] = useState(false)
   const toggle = (k) => setCollapsed((c) => ({ ...c, [k]: !c[k] }))
   const jump = () => {}
   const selCount = Object.values(selected).filter(Boolean).length
@@ -893,6 +890,18 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
         <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 6 })} aria-expanded={moreOpen}>
+            <span>⋮</span><span>More</span>
+          </button>
+          {moreOpen && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 5px)', right: 0, zIndex: 40, minWidth: 190, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 9, padding: 5, boxShadow: '0 10px 24px rgba(0,0,0,0.12)' }}>
+              <button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--tx1)', borderRadius: 6, padding: '9px 10px', fontSize: 12, cursor: 'pointer' }}>
+                Generate PPT
+              </button>
+            </div>
+          )}
+        </div>
         <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
         <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
       </div>
@@ -1212,55 +1221,34 @@ function HrbpBarLegend() {
   )
 }
 
-function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThisWeek, sharedWaiting, actionHrbpRows, onDeliverableMetricClick, onActionMetricClick }) {
+function SummaryView({ deliverables, profiles, expandedActions, isAdmin, actionHrbpRows, onDeliverableMetricClick, onActionMetricClick }) {
   const deliverableHrbpRows = profiles.filter((p) => p.role !== 'admin').map((p) => ({
     name: p.full_name,
     items: deliverables.filter((d) => d.owner_id === p.id),
   })).filter((r) => r.items.length > 0)
 
   const actionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
-  const actionMetrics = metricSet(actionItems, 'Total action items')
-
-  const actionCard = ([icon, label, val, role, key]) => (
-    <div
-      key={label}
-      onClick={() => onActionMetricClick?.(key)}
-      style={{
-        background: 'var(--bg2)',
-        border: '1px solid var(--bd)',
-        borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)',
-        borderRadius: 8,
-        padding: '10px 11px',
-        minHeight: 62,
-        boxSizing: 'border-box',
-        cursor: onActionMetricClick ? 'pointer' : 'default',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 13, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
-        <span style={{ fontSize: 10.5, color: 'var(--tx2)' }}>{label}</span>
-      </div>
-      <p style={{ fontSize: 17, fontWeight: 650, margin: '6px 0 0', color: 'var(--tx1)' }}>{val}</p>
-    </div>
-  )
 
   return (
     <div>
-      <div className="summary-section-heading" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div>
-          <p style={{ fontSize: 14, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Overview</p>
-          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '3px 0 0' }}>{isAdmin ? 'Organisation-wide delivery progress' : 'Your current delivery progress'}</p>
-        </div>
+      <div className="summary-section-heading" style={{ marginBottom: 8 }}>
+        <p style={{ fontSize: 15, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Deliverables Overview</p>
       </div>
-
       <div className="summary-metrics">
         <MetricGrid items={deliverables} totalLabel="Total deliverables" onCardClick={onDeliverableMetricClick} />
       </div>
 
-      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginTop: 14 }}>
+      <div className="summary-section-heading" style={{ marginTop: 20, marginBottom: 8 }}>
+        <p style={{ fontSize: 15, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Action Items Overview</p>
+      </div>
+      <div className="summary-action-metrics">
+        <MetricGrid items={actionItems} totalLabel="Total action items" onCardClick={onActionMetricClick} />
+      </div>
+
+      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginTop: 18 }}>
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Completion by HRBP</p>
-          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Delivery status across assigned deliverables</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Deliverables Completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress across assigned deliverables</p>
           <HrbpBarLegend />
           {deliverableHrbpRows.length ? deliverableHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />) : (
             <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No assigned deliverables yet.</p>
@@ -1268,48 +1256,14 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
         </div>
 
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action Items' : 'My Action Items'}</p>
-          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Current status and immediate follow-up</p>
-
-          <div className="summary-action-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-            {actionMetrics.slice(0, 4).map(actionCard)}
-            <div style={{ gridColumn: '1 / -1' }}>{actionCard(actionMetrics[4])}</div>
-          </div>
-
-          {dueThisWeek.length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--bd)' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 7px' }}>Due this week</p>
-              {dueThisWeek.slice(0, 5).map((d) => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: '0.5px solid var(--bd)', fontSize: 11 }}>
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
-                  <span style={{ flexShrink: 0, color: 'var(--tx2)' }}>{fmtDate(d.due_date)}</span>
-                </div>
-              ))}
-              {dueThisWeek.length > 5 && <p style={{ fontSize: 10, color: 'var(--txm)', margin: '7px 0 0' }}>+ {dueThisWeek.length - 5} more</p>}
-            </div>
-          )}
-
-          {!isAdmin && sharedWaiting.length > 0 && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid var(--bd)' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 7px' }}>Waiting on you</p>
-              {sharedWaiting.slice(0, 3).map((a) => (
-                <div key={a.id} style={{ background: 'var(--acc-bg)', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
-                  <p style={{ fontSize: 11, color: 'var(--acc-tx)', margin: 0 }}>{a.title}</p>
-                </div>
-              ))}
-            </div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Action Items Completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress across assigned action items</p>
+          <HrbpBarLegend />
+          {isAdmin && actionHrbpRows.length ? actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />) : (
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>{isAdmin ? 'No assigned action items yet.' : 'Action item progress is available to HRBPs through the Action Items tab.'}</p>
           )}
         </div>
       </div>
-
-      {isAdmin && actionHrbpRows.length > 0 && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 14 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Action item completion by HRBP</p>
-          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress against assigned action items</p>
-          <HrbpBarLegend />
-          {actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
-        </div>
-      )}
     </div>
   )
 }
