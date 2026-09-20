@@ -93,7 +93,7 @@ export default function DeliverablesWorkspace({
   items, isAdmin, collapsed, setCollapsed, selected, setSelected, ownerName, profiles,
   strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable,
   onMoveKeyResult, onMoveDeliverable, onOpen, onQuickAdd, onQuickStatus, onDelete, onBulkStatus, onBulkDelete,
-  onExport, onImport, onGeneratePpt, userId,
+  onExport, onImport, onGeneratePpt, onInlineUpdate, userId,
 }) {
   const [menu, setMenu] = useState(null)
   const [addingNode, setAddingNode] = useState(null)
