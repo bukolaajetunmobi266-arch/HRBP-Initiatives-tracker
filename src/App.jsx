@@ -1214,9 +1214,9 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                         </div>
                   )}
                 </div>
-              {newNode?.type === 'key_result' && newNode.parentId === pm.id && <InlineNodeInput placeholder="Type Key Result…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
             </div>
           })}
+          {newNode?.type === 'key_result' && newNode.parentId === pm.id && <InlineNodeInput placeholder="Type Key Result…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
           {newNode?.type === 'pm' && newNode.parentId === co.id && <InlineNodeInput placeholder="Type PM Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
         </div>
       })}
