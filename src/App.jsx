@@ -411,16 +411,41 @@ function Dashboard({ session, theme, setTheme }) {
               if (error) { alert(error.message); return }
             }
             if (form.shared) {
-              await Promise.all(form.sharedOwnerIds.map((pid) =>
-                supabase.from('action_item_statuses').upsert({ action_id: actionId, user_id: pid }, { onConflict: 'action_id,user_id', ignoreDuplicates: true })
-              ))
+              if (!form.sharedOwnerIds.length) {
+                alert('Please select at least one HRBP to assign this action item to.')
+                return
+              }
+
+              for (const pid of form.sharedOwnerIds) {
+                const { error } = await supabase
+                  .from('action_item_statuses')
+                  .upsert(
+                    { action_id: actionId, user_id: pid, status: 'Not Started' },
+                    { onConflict: 'action_id,user_id' }
+                  )
+                if (error) {
+                  alert(`The action item was saved, but the HRBP assignment could not be saved: ${error.message}`)
+                  return
+                }
+              }
+
               const previouslyAssigned = actionStatuses.filter((s) => s.action_id === actionId).map((s) => s.user_id)
               const removed = previouslyAssigned.filter((pid) => !form.sharedOwnerIds.includes(pid))
               if (removed.length) {
-                await supabase.from('action_item_statuses').delete().eq('action_id', actionId).in('user_id', removed)
+                const { error } = await supabase
+                  .from('action_item_statuses')
+                  .delete()
+                  .eq('action_id', actionId)
+                  .in('user_id', removed)
+                if (error) {
+                  alert(`The action item was saved, but removing a previous HRBP assignment failed: ${error.message}`)
+                  return
+                }
               }
             }
-            setEditingAction(null); loadKeyActions(); loadActionStatuses()
+            setEditingAction(null)
+            await loadKeyActions()
+            await loadActionStatuses()
           }}
         />
       )}
@@ -1371,6 +1396,9 @@ function ActionModal({ action, profiles, isAdmin, myId, existingStatuses, onClos
                     <input type="checkbox" disabled={!isAdmin} checked={form.sharedOwnerIds.includes(p.id)} onChange={() => toggleOwner(p.id)} /> {p.full_name}
                   </label>
                 ))}
+                {isAdmin && <span style={{ fontSize: 10, color: 'var(--txm)', marginTop: 2 }}>
+                  {form.sharedOwnerIds.length ? `${form.sharedOwnerIds.length} HRBP${form.sharedOwnerIds.length === 1 ? '' : 's'} selected` : 'Select the HRBPs responsible for this action item.'}
+                </span>}
               </div>
             </Field>
           ) : (
