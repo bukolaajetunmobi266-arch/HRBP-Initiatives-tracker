@@ -35,7 +35,7 @@ function Badge({ status }) {
   return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{status}</span>;
 }
 
-const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected', 'On Hold', 'Cancelled'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
 const EMPLOYMENT_TYPE_OPTIONS = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 function employmentTypeState(value) {
@@ -137,6 +137,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const stalled = computeStalledOnboarding(rowsWithCandidates);
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
+  const requestYears = [...new Set(rowsWithCandidates.map(rl => rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null).filter(Boolean))].sort((a, b) => b - a);
   const canManageDivisions = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
   const canDeleteCandidates = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
 
@@ -173,6 +174,7 @@ export default function RecruitmentModule({ tab, setTab }) {
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
         filters={filters} setFilters={setFilters}
+        years={requestYears}
         showDivisionFilter={canManageDivisions || ['hrbp', 'analyst'].includes(scope.recruitment_role)}
       />
 
@@ -230,7 +232,7 @@ function TabNav({ tab, setTab }) {
   );
 }
 
-function FilterBar({ divisions, roles, locations, filters, setFilters, showDivisionFilter }) {
+function FilterBar({ divisions, roles, locations, years, filters, setFilters, showDivisionFilter }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(filters);
 
@@ -363,7 +365,7 @@ function FilterBar({ divisions, roles, locations, filters, setFilters, showDivis
               <span style={labelStyle()}>Year</span>
               <select value={draft.year} onChange={e => update('year', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All years</option>
-                {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </label>
             <label>
