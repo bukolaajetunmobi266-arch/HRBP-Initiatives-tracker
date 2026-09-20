@@ -1286,8 +1286,15 @@ function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName,
   const visible = (isAdmin ? keyActions : keyActions.filter((a) =>
     a.shared ? actionStatuses.some((s) => s.action_id === a.id && s.user_id === myId) : a.owner_id === myId
   )).filter((a) => {
+    const rows = a.shared ? actionStatuses.filter((s) => s.action_id === a.id) : []
     const status = a.shared
-      ? (actionStatuses.find((s) => s.action_id === a.id && s.user_id === myId)?.status || 'Not Started')
+      ? (isAdmin
+        ? (rows.length && rows.every((r) => r.status === 'Completed')
+          ? 'Completed'
+          : rows.some((r) => r.status === 'In Progress' || r.status === 'Completed')
+            ? 'In Progress'
+            : 'Not Started')
+        : (rows.find((s) => s.user_id === myId)?.status || 'Not Started'))
       : a.status
     if (actionFilter.status !== 'all' && status !== actionFilter.status) return false
     if (actionFilter.overdueOnly && !(a.due_date && status !== 'Completed' && a.due_date < todayISO())) return false
