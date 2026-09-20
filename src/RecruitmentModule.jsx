@@ -8,7 +8,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   getCurrentUserScope, fetchDivisions, fetchRoleLocationsWithCandidates,
   computeDashboardMetrics, computeStalledOnboarding, computeTimeToClose, computeTimeToOnboard,
-  fetchMyNotifications,
+  fetchMyNotifications, fetchRecruitmentYears,
 } from './recruitmentData';
 import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUpload } from './recruitmentUpload';
 import {
@@ -73,6 +73,7 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
   const [divisions, setDivisions] = useState([]);
+  const [requestYears, setRequestYears] = useState([]);
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('hrbp_recruitment_filters');
@@ -100,8 +101,9 @@ export default function RecruitmentModule({ tab, setTab }) {
       try {
         const s = await getCurrentUserScope();
         setScope(s);
-        const divs = await fetchDivisions();
+        const [divs, years] = await Promise.all([fetchDivisions(), fetchRecruitmentYears()]);
         setDivisions(divs);
+        setRequestYears(years);
       } catch (err) {
         console.error('Recruitment module failed to load:', err);
         setLoadError(err.message || String(err));
@@ -148,7 +150,6 @@ export default function RecruitmentModule({ tab, setTab }) {
   const stalled = computeStalledOnboarding(rowsWithCandidates);
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
-  const requestYears = [...new Set(rowsWithCandidates.map(rl => rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null).filter(Boolean))].sort((a, b) => b - a);
   const canManageDivisions = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
   const canDeleteCandidates = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
 
