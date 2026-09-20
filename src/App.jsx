@@ -958,175 +958,153 @@ function buildTree(items) {
   return tree
 }
 
-function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt }) {
+function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onQuickAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt }) {
   const [moreOpen, setMoreOpen] = useState(false)
-  const toggle = (k) => setCollapsed((c) => ({ ...c, [k]: !c[k] }))
-  const jump = () => {}
+  const [addingTo, setAddingTo] = useState(null)
+  const [quickTitle, setQuickTitle] = useState('')
+  const [quickOwner, setQuickOwner] = useState('')
+  const [quickDue, setQuickDue] = useState(todayISO())
+  const toggle = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }))
   const selCount = Object.values(selected).filter(Boolean).length
-  if (!items.length) return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
-        <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 6 })} aria-expanded={moreOpen}>
-            <span>⋮</span><span>More</span>
-          </button>
-          {moreOpen && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 5px)', right: 0, zIndex: 40, minWidth: 190, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 9, padding: 5, boxShadow: '0 10px 24px rgba(0,0,0,0.12)' }}>
-              <button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--tx1)', borderRadius: 6, padding: '9px 10px', fontSize: 12, cursor: 'pointer' }}>
-                Generate PPT
-              </button>
-            </div>
-          )}
-        </div>
-        <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
-        <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
-      </div>
-      <EmptyState msg="No deliverables match your filters." />
-    </div>
-  )
-
   const totalTree = buildTree(allItems)
   const visTree = buildTree(items)
 
+  const beginAdd = (co, pm, kr) => {
+    setAddingTo({ co, pm, kr })
+    setQuickTitle('')
+    setQuickOwner(isAdmin ? (profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || '') : '')
+    setQuickDue(todayISO())
+    setTimeout(() => document.querySelector('[data-inline-deliverable-input]')?.focus(), 0)
+  }
+  const cancelAdd = () => { setAddingTo(null); setQuickTitle('') }
+  const submitAdd = async () => {
+    if (!quickTitle.trim() || !addingTo) return
+    await onQuickAdd({ title: quickTitle.trim(), corporateObjective: addingTo.co, pmObjective: addingTo.pm, keyResult: addingTo.kr, ownerId: quickOwner, dueDate: quickDue })
+    cancelAdd()
+  }
+
+  const toolbar = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div style={{ fontSize: 12, color: 'var(--tx2)' }}>
+        <strong style={{ color: 'var(--tx1)' }}>{items.length}</strong> deliverables
+      </div>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        <button onClick={onNewObjective} style={primaryBtnStyle({ padding: '7px 11px', fontSize: 12 })}>+ New objective</button>
+        <button onClick={onImport} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>Import</button>
+        <button onClick={onExport} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>Export</button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>•••</button>
+          {moreOpen && <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 40, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,.12)' }}>
+            <button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', border: 0, background: 'transparent', padding: '8px 10px', textAlign: 'left', cursor: 'pointer', color: 'var(--tx1)', fontSize: 12 }}>Generate PPT</button>
+          </div>}
+        </div>
+      </div>
+    </div>
+  )
+
+  if (!items.length) return <div>{toolbar}<EmptyState msg="No deliverables match your filters." /></div>
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
-        <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 6 })} aria-expanded={moreOpen}>
-            <span>⋮</span><span>More</span>
-          </button>
-          {moreOpen && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 5px)', right: 0, zIndex: 40, minWidth: 190, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 9, padding: 5, boxShadow: '0 10px 24px rgba(0,0,0,0.12)' }}>
-              <button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--tx1)', borderRadius: 6, padding: '9px 10px', fontSize: 12, cursor: 'pointer' }}>
-                Generate PPT
-              </button>
-            </div>
-          )}
-        </div>
-        <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
-        <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
-      </div>
-      {selCount > 0 && (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--acc-bg)', padding: '8px 12px', borderRadius: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--acc-tx)', fontSize: 13 }}>{selCount} selected</span>
-          <select onChange={(e) => { if (e.target.value) onBulkStatus(e.target.value) }} style={inputStyle({ width: 'auto' })} defaultValue="">
-            <option value="">Change status to…</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          {isAdmin && <button onClick={onBulkDelete} style={{ ...btnStyle(), color: 'var(--dgr-tx)', marginLeft: 'auto' }}>Delete selected</button>}
-          <button onClick={() => setSelected({})} style={btnStyle()}>Clear</button>
-        </div>
-      )}
-      {Object.keys(visTree).map((co, i) => {
-        const color = CO_COLORS[i % CO_COLORS.length]
-        const coKey = 'co::' + co
-        const coCollapsed = collapsed[coKey]
-        let coCount = 0
-        Object.values(visTree[co]).forEach((pmObj) => Object.values(pmObj).forEach((arr) => { coCount += arr.length }))
-        return (
-          <div key={co} style={{ borderLeft: `4px solid ${color}`, background: 'var(--bg1)', marginBottom: 10 }}>
-            <button onClick={() => toggle(coKey)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 12px', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span>{coCollapsed ? '▸' : '▾'}</span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{co}</span>
-              <span style={{ fontSize: 11, color: 'var(--txm)' }}>{coCount} items</span>
-            </button>
-            {!coCollapsed && (
-              <div style={{ padding: '0 12px 10px 24px' }}>
-                {Object.keys(visTree[co]).map((pm) => {
-                  const pmKey = 'pm::' + co + '|' + pm
-                  const pmCollapsed = collapsed[pmKey]
-                  return (
-                    <div key={pm} style={{ marginBottom: 8 }}>
-                      <button onClick={() => toggle(pmKey)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '6px 0', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span>{pmCollapsed ? '▸' : '▾'}</span>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{pm}</span>
-                      </button>
-                      {!pmCollapsed && (
-                        <div style={{ paddingLeft: 20 }}>
-                          {Object.keys(visTree[co][pm]).map((kr) => {
-                            const krItemsRaw = visTree[co][pm][kr]
-                            const krItems = sortItems(krItemsRaw)
-                            const totalKr = totalTree[co]?.[pm]?.[kr] || krItems
-                            const krKey = 'kr::' + co + '|' + pm + '|' + kr
-                            const krCollapsed = collapsed[krKey]
-                            const completed = krItems.filter((d) => d.status === 'Completed').length
-                            const pct = krItems.length ? Math.round((completed / krItems.length) * 100) : 0
-                            const showingNote = totalKr.length !== krItems.length ? ` (showing ${krItems.length} of ${totalKr.length})` : ''
-                            const krMultiOwner = new Set(krItems.map((d) => d.owner_id)).size > 1
-                            return (
-                              <div key={kr} style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg2)', marginBottom: 8 }}>
-                                <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                  <button onClick={() => toggle(krKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center', flex: 1, textAlign: 'left' }}>
-                                    <span>{krCollapsed ? '▸' : '▾'}</span>
-                                    <span style={{ fontSize: 12 }}>{kr}{showingNote}</span>
-                                  </button>
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <OwnerDisplay items={krItems} ownerName={ownerName} onJump={jump} size={12} />
-                                    <span style={{ width: 50, height: 5, background: 'var(--bg1)', borderRadius: 999, overflow: 'hidden' }}>
-                                      <span style={{ display: 'block', height: '100%', width: pct + '%', background: pct >= 65 ? 'var(--suc-fill)' : pct >= 35 ? 'var(--wrn-fill)' : 'var(--dgr-fill)' }} />
-                                    </span>
-                                    <span style={{ fontSize: 11, color: 'var(--txm)' }}>{completed}/{krItems.length}</span>
-                                  </span>
-                                </div>
-                                {!krCollapsed && (
-                                  <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
-                                  <table style={{ width: '100%', minWidth: 760, fontSize: 12, borderCollapse: 'collapse' }}>
-                                    <thead>
-                                      <tr style={{ background: 'var(--bg1)' }}>
-                                        <th style={{ width: 26 }}></th>
-                                        <th onClick={() => setSort((s) => ({ key: 'title', dir: s.key === 'title' && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                          Deliverable{sort.key === 'title' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
-                                        </th>
-                                        {krMultiOwner && <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Owner</th>}
-                                        {[['status', 'Status'], ['due_date', 'Due']].map(([key, label]) => (
-                                          <th key={key} onClick={() => setSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                            {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
-                                          </th>
-                                        ))}
-                                        <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Comment</th>
-                                        <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Next steps</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {krItems.map((d) => {
-                                        const lc = d.comments?.length ? d.comments[d.comments.length - 1] : null
-                                        return (
-                                          <tr key={d.id} style={{ borderTop: '0.5px solid var(--bd)' }}>
-                                            <td style={{ padding: '6px 12px' }}>
-                                              <input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((s) => ({ ...s, [d.id]: e.target.checked }))} />
-                                            </td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>
-                                              {d.title}<RevisionFlag item={d} />
-                                            </td>
-                                            {krMultiOwner && <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx1)', fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>}
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', whiteSpace: 'nowrap', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{lc?.text || '—'}</td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+      {toolbar}
+      {selCount > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginBottom: 10, background: 'var(--acc-bg)', border: '1px solid var(--bd)', borderRadius: 7 }}>
+        <span style={{ fontSize: 12, color: 'var(--acc-tx)' }}>{selCount} selected</span>
+        <select defaultValue="" onChange={(e) => e.target.value && onBulkStatus(e.target.value)} style={inputStyle({ width: 'auto', padding: '6px 8px' })}>
+          <option value="">Change status…</option>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {isAdmin && <button onClick={onBulkDelete} style={btnStyle({ padding: '6px 9px', fontSize: 11, color: 'var(--dgr-tx)' })}>Delete</button>}
+        <button onClick={() => setSelected({})} style={btnStyle({ padding: '6px 9px', fontSize: 11, marginLeft: 'auto' })}>Clear</button>
+      </div>}
+
+      <div style={{ border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg2)' }}>
+        {Object.keys(visTree).map((co, coIndex) => {
+          const coKey = 'co::' + co
+          const coCollapsed = collapsed[coKey]
+          const coItems = Object.values(visTree[co]).flatMap((pm) => Object.values(pm).flat())
+          const color = CO_COLORS[coIndex % CO_COLORS.length]
+          return (
+            <div key={co} style={{ borderTop: coIndex ? '1px solid var(--bd)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', background: 'var(--bg1)', borderLeft: '4px solid ' + color }}>
+                <button onClick={() => toggle(coKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)', padding: 0 }}>{coCollapsed ? '▸' : '▾'}</button>
+                <button onClick={() => toggle(coKey)} style={{ flex: 1, textAlign: 'left', border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 650, color: 'var(--tx1)', padding: 0 }}>{co}</button>
+                <span style={{ fontSize: 11, color: 'var(--txm)' }}>{coItems.length} deliverables</span>
               </div>
-            )}
-          </div>
-        )
-      })}
+
+              {!coCollapsed && Object.keys(visTree[co]).map((pm) => {
+                const pmKey = 'pm::' + co + '|' + pm
+                const pmCollapsed = collapsed[pmKey]
+                const pmItems = Object.values(visTree[co][pm]).flat()
+                return (
+                  <div key={pm} style={{ borderTop: '1px solid var(--bd)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px 8px 30px', background: 'var(--bg2)' }}>
+                      <button onClick={() => toggle(pmKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)', padding: 0 }}>{pmCollapsed ? '▸' : '▾'}</button>
+                      <button onClick={() => toggle(pmKey)} style={{ flex: 1, textAlign: 'left', border: 0, background: 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 650, color: 'var(--tx2)', padding: 0 }}>{pm}</button>
+                      <span style={{ fontSize: 10, color: 'var(--txm)' }}>{pmItems.length}</span>
+                    </div>
+
+                    {!pmCollapsed && Object.keys(visTree[co][pm]).map((kr) => {
+                      const krKey = 'kr::' + co + '|' + pm + '|' + kr
+                      const krCollapsed = collapsed[krKey]
+                      const krItems = sortItems(visTree[co][pm][kr])
+                      const totalKr = totalTree[co]?.[pm]?.[kr] || krItems
+                      const complete = krItems.filter((d) => d.status === 'Completed').length
+                      const pct = krItems.length ? Math.round((complete / krItems.length) * 100) : 0
+                      const adding = addingTo?.co === co && addingTo?.pm === pm && addingTo?.kr === kr
+                      return (
+                        <div key={kr} style={{ borderTop: '1px solid var(--bd)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px 8px 48px', background: 'var(--bg1)' }}>
+                            <button onClick={() => toggle(krKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)', padding: 0 }}>{krCollapsed ? '▸' : '▾'}</button>
+                            <button onClick={() => toggle(krKey)} style={{ flex: 1, minWidth: 0, textAlign: 'left', border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--tx1)', fontSize: 12, fontWeight: 600, padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kr}</button>
+                            <span style={{ fontSize: 10, color: 'var(--txm)', whiteSpace: 'nowrap' }}>{complete}/{krItems.length}</span>
+                            <span style={{ width: 42, height: 5, borderRadius: 999, background: 'var(--bd)', overflow: 'hidden' }}><span style={{ display: 'block', width: pct + '%', height: '100%', background: pct === 100 ? 'var(--suc-fill)' : 'var(--acc-fill)' }} /></span>
+                            <button onClick={() => beginAdd(co, pm, kr)} style={btnStyle({ padding: '4px 8px', fontSize: 10, borderRadius: 5 })}>+ Add</button>
+                          </div>
+
+                          {!krCollapsed && <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
+                              <thead>
+                                <tr style={{ background: 'var(--bg2)' }}>
+                                  <th style={{ width: 30 }}></th>
+                                  <th style={{ textAlign: 'left', padding: '7px 10px', fontWeight: 500, color: 'var(--txm)' }}>Deliverable</th>
+                                  <th style={{ textAlign: 'left', padding: '7px 10px', fontWeight: 500, color: 'var(--txm)' }}>HRBP</th>
+                                  <th style={{ textAlign: 'left', padding: '7px 10px', fontWeight: 500, color: 'var(--txm)' }}>Status</th>
+                                  <th style={{ textAlign: 'left', padding: '7px 10px', fontWeight: 500, color: 'var(--txm)' }}>Due</th>
+                                  <th style={{ textAlign: 'left', padding: '7px 10px', fontWeight: 500, color: 'var(--txm)' }}>Next step</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {krItems.map((d) => (
+                                  <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
+                                    <td style={{ padding: '7px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td>
+                                    <td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', fontWeight: 550, cursor: 'pointer', color: 'var(--tx1)' }}>{d.title}<RevisionFlag item={d} /></td>
+                                    <td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', whiteSpace: 'nowrap', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>
+                                    <td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td>
+                                    <td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', whiteSpace: 'nowrap', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td>
+                                    <td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td>
+                                  </tr>
+                                ))}
+                                {adding && <tr style={{ borderTop: '1px solid var(--bd)', background: 'var(--acc-bg)' }}>
+                                  <td></td>
+                                  <td style={{ padding: '5px 10px' }}><input data-inline-deliverable-input autoFocus value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') cancelAdd() }} placeholder="Type a deliverable…" style={inputStyle({ width: '100%', boxSizing: 'border-box', background: 'var(--bg2)', padding: '7px 9px' })} /></td>
+                                  <td style={{ padding: '5px 10px' }}><select value={quickOwner} disabled={!isAdmin} onChange={(e) => setQuickOwner(e.target.value)} style={inputStyle({ width: '100%', boxSizing: 'border-box', padding: '7px 8px' })}>{profiles.filter((p) => p.role !== 'admin').map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></td>
+                                  <td style={{ padding: '5px 10px', color: 'var(--txm)' }}>Not Started</td>
+                                  <td style={{ padding: '5px 10px' }}><input type="date" value={quickDue} onChange={(e) => setQuickDue(e.target.value)} style={inputStyle({ width: '100%', boxSizing: 'border-box', padding: '7px 8px' })} /></td>
+                                  <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}><button onClick={submitAdd} style={primaryBtnStyle({ padding: '6px 9px', fontSize: 11 })}>Add</button><button onClick={cancelAdd} style={btnStyle({ padding: '6px 9px', fontSize: 11, marginLeft: 4 })}>Cancel</button></td>
+                                </tr>}
+                              </tbody>
+                            </table>
+                            {!adding && <button onClick={() => beginAdd(co, pm, kr)} style={{ width: '100%', padding: '7px 12px', border: 0, borderTop: '1px dashed var(--bd)', background: 'transparent', color: 'var(--acc-tx)', textAlign: 'left', fontSize: 11, cursor: 'pointer' }}>+ Add deliverable</button>}
+                          </div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
