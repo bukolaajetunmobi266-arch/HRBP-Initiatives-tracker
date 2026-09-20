@@ -768,40 +768,82 @@ function ActionFilterBar({ filter, setFilter }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(filter)
   useEffect(() => { if (open) setDraft(filter) }, [open, filter])
+
   const activeCount = (filter.status !== 'all' ? 1 : 0) + (filter.overdueOnly ? 1 : 0)
   const clearAll = () => {
     const empty = { status: 'all', overdueOnly: false }
-    setDraft(empty); setFilter(empty); setOpen(false)
+    setDraft(empty)
+    setFilter(empty)
+    setOpen(false)
   }
   const chips = [
     filter.status !== 'all' ? ['status', filter.status] : null,
     filter.overdueOnly ? ['overdueOnly', 'Overdue'] : null,
   ].filter(Boolean)
+
   return (
-    <div style={{ marginBottom: 12, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ marginBottom: 16, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={() => setOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 7, background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)', color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)', borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)' })}>
-          <span style={{ fontSize: 14 }}>☷</span><span>Filters</span>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={btnStyle({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)',
+            color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)',
+            borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)',
+          })}
+          aria-expanded={open}
+        >
+          <i className="ti ti-filter" style={{ fontSize: 14 }} aria-hidden="true" />
+          <span>Filters</span>
           {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
           <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
         </button>
-        {chips.map(([key, label]) => <button key={key} onClick={() => key === 'status' ? setFilter(f => ({ ...f, status: 'all' })) : setFilter(f => ({ ...f, overdueOnly: false }))} style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}>{label} ×</button>)}
-        {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {chips.map(([key, label]) => (
+              <button key={key} onClick={() => key === 'status'
+                ? setFilter((f) => ({ ...f, status: 'all' }))
+                : setFilter((f) => ({ ...f, overdueOnly: false }))}
+                title="Remove filter"
+                style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}
+              >
+                {label} ×
+              </button>
+            ))}
+            <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>
+          </div>
+        )}
       </div>
+
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 320, maxWidth: 'calc(100vw - 40px)', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Filter action items</div>
-          <label>
-            <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
-            <select value={draft.status} onChange={(e) => setDraft((f) => ({ ...f, status: e.target.value }))} style={inputStyle({ width: '100%' })}>
-              <option value="all">All statuses</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)', marginTop: 12 }}>
-            <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => setDraft((f) => ({ ...f, overdueOnly: e.target.checked }))} />
-            Overdue only
-          </label>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 'min(420px, calc(100vw - 40px))', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Filter action items</div>
+              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Apply filters across the action items view.</div>
+            </div>
+            {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
+              <select value={draft.status} onChange={(e) => setDraft((f) => ({ ...f, status: e.target.value }))} style={inputStyle({ width: '100%' })}>
+                <option value="all">All statuses</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)' }}>
+              <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => setDraft((f) => ({ ...f, overdueOnly: e.target.checked }))} />
+              Overdue only
+            </label>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
             <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
             <button onClick={() => { setFilter(draft); setOpen(false) }} style={primaryBtnStyle()}>Apply filters</button>
@@ -811,7 +853,6 @@ function ActionFilterBar({ filter, setFilter }) {
     </div>
   )
 }
-
 function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra } }
 
 function StatusBadge({ status, overdue }) {
