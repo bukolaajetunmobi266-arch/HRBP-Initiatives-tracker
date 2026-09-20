@@ -75,10 +75,10 @@ function AddNodeRow({ placeholder, onCommit, onCancel }) {
 }
 
 function InlineDeliverableField({ value, onSave, placeholder = '—', multiline = false, style = {}, editable = true }) {
-  if (!editable) return <span style={{ display:'block', minHeight:18, ...style }}>{value || placeholder}</span>
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value || '')
   useEffect(() => { if (!editing) setDraft(value || '') }, [value, editing])
+  if (!editable) return <span style={{ display:'block', minHeight:18, ...style }}>{value || placeholder}</span>
   const commit = () => {
     const next = draft.trim()
     setEditing(false)
