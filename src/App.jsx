@@ -1598,6 +1598,8 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
     title: '', corporateObjective: '', pmObjective: '', keyResult: '', division: Object.values(OWNER_FUNCTIONS)[0][0], ownerId: isAdmin ? profiles[0]?.id : userId,
     status: 'Not Started', dueDate: todayISO(), revisedDueDate: '', revisionReason: '', nextSteps: '',
   })
+  const [comments, setComments] = useState([])
+  const [commentText, setCommentText] = useState('')
   const [subs, setSubs] = useState([])
   const [subTitle, setSubTitle] = useState('')
   const [subOwner, setSubOwner] = useState(isAdmin ? profiles[0]?.id : userId)
@@ -1610,12 +1612,23 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
   useEffect(() => { modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [])
   useEffect(() => {
     if (!isNew) {
+      supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
       supabase.from('sub_deliverables').select('*').eq('deliverable_id', item.id).then(({ data }) => setSubs(data || []))
     }
     // eslint-disable-next-line
   }, [])
 
   const ownerFunctions = OWNER_FUNCTIONS[profiles.find((p) => p.id === form.ownerId)?.full_name] || DIVISIONS
+
+  const postComment = async () => {
+    if (!commentText.trim() || isNew) return
+    const { error } = await supabase.from('comments').insert({ deliverable_id: item.id, author_id: userId, text: commentText.trim() })
+    if (error) { alert(error.message); return }
+    setCommentText('')
+    const { data } = await supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at')
+    setComments(data || [])
+    reloadDeliverables?.()
+  }
 
   const addSub = async () => {
     if (!subTitle.trim()) return
@@ -1698,6 +1711,25 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
 
           {!isNew && (
             <>
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Comments</p>
+                <div style={{ maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {comments.length === 0 && <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No comments yet.</p>}
+                  {comments.map((comment) => (
+                    <div key={comment.id} style={{ fontSize: 12, paddingBottom: 7, borderBottom: '1px solid var(--bd)' }}>
+                      <div style={{ marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600 }}>{comment.author?.full_name || 'User'}</span>
+                        <span style={{ color: 'var(--txm)' }}> · {new Date(comment.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ color: 'var(--tx2)' }}>{comment.text}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') postComment() }} placeholder="Add a comment…" style={inputStyle({ flex: 1 })} />
+                  <button onClick={postComment} style={btnStyle()}>Post</button>
+                </div>
+              </div>
               <div>
                 <button onClick={async () => {
                   const next = !showHistory
