@@ -363,11 +363,11 @@ export default function DeliverablesWorkspace({
                                                   <td><span className="dw-grip" draggable onDragStart={(e) => startDrag(e, { type:'deliverable', id:item.id })} onDragEnd={() => { setDragging(null); setDropTarget(null) }} title="Move deliverable">⠿</span></td>
                                                   <td><input type="checkbox" checked={!!selected[item.id]} onChange={(e) => setSelected((current) => ({ ...current, [item.id]: e.target.checked }))} /></td>
                                                   <td style={{ fontWeight:600, color:'var(--tx1)' }}>
-                                                    <InlineDeliverableField value={item.title} onSave={(value) => onOpen(item.id, { field:'title', value })} />
+                                                    <InlineDeliverableField value={item.title} onSave={(value) => onInlineUpdate(item.id, 'title', value)} />
                                                     {item.revised_due_date && <span title="Revised due date" style={{ marginLeft:6, color:'var(--wrn-tx)', fontSize:10 }}>●</span>}
                                                   </td>
                                                   <td style={{ color:'var(--tx2)' }}>
-                                                    <InlineDeliverableField value={ownerName(item.owner_id)} onSave={() => onOpen(item.id)} />
+                                                    <span onClick={() => onOpen(item.id)} title="Click to edit owner" style={{cursor:'pointer'}}>{ownerName(item.owner_id)}</span>
                                                   </td>
                                                   <td onClick={(e) => e.stopPropagation()}>
                                                     <select value={item.status} onChange={(e) => onQuickStatus(item.id, e.target.value)} style={{ border:'1px solid transparent', borderRadius:5, padding:'4px 6px', background:'transparent', color:'inherit', fontSize:11, cursor:'pointer' }}>
@@ -378,7 +378,7 @@ export default function DeliverablesWorkspace({
                                                     <span onClick={() => onOpen(item.id)} title="Click to edit" style={{cursor:'pointer'}}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</span>
                                                   </td>
                                                   <td style={{ color:'var(--tx2)', maxWidth:240 }}>
-                                                    <InlineDeliverableField value={item.next_steps} placeholder="Add update or next step…" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onOpen(item.id, { field:'next_steps', value })} />
+                                                    <InlineDeliverableField value={item.next_steps} placeholder="Add update or next step…" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
                                                   </td>
                                                   <td>
                                                     <ActionMenu open={menu === item.id} onToggle={() => setMenu(menu === item.id ? null : item.id)}>
