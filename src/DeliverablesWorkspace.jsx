@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { STATUSES, CO_COLORS } from './constants'
+import { STATUSES } from './constants'
 
 const isoToday = () => {
   const d = new Date()
@@ -68,11 +68,32 @@ function AddNodeRow({ placeholder, onCommit, onCancel }) {
   )
 }
 
+function InlineDeliverableField({ value, onSave, placeholder = '—', multiline = false, style = {} }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value || '')
+  useEffect(() => { if (!editing) setDraft(value || '') }, [value, editing])
+  const commit = () => {
+    const next = draft.trim()
+    setEditing(false)
+    if (next !== (value || '')) onSave(next)
+  }
+  if (!editing) {
+    return <span onClick={() => setEditing(true)} title="Click to edit" style={{ cursor:'text', display:'block', minHeight:18, ...style }}>{value || placeholder}</span>
+  }
+  const props = {
+    autoFocus: true, value: draft, onChange: (e) => setDraft(e.target.value),
+    onBlur: commit,
+    onKeyDown: (e) => { if (e.key === 'Enter' && !multiline) { e.preventDefault(); commit() } if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) } },
+    style: { width:'100%', border:'1px solid var(--acc-fill)', borderRadius:5, padding:'5px 7px', background:'var(--bg2)', color:'var(--tx1)', fontSize:11, outline:'none', ...style }
+  }
+  return multiline ? <textarea {...props} rows={2} onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) } }} /> : <input {...props} />
+}
+
 export default function DeliverablesWorkspace({
   items, isAdmin, collapsed, setCollapsed, selected, setSelected, ownerName, profiles,
   strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable,
   onMoveKeyResult, onMoveDeliverable, onOpen, onQuickAdd, onQuickStatus, onDelete, onBulkStatus, onBulkDelete,
-  onExport, onImport, onGeneratePpt,
+  onExport, onImport, onGeneratePpt, userId,
 }) {
   const [menu, setMenu] = useState(null)
   const [addingNode, setAddingNode] = useState(null)
@@ -118,7 +139,7 @@ export default function DeliverablesWorkspace({
     setMenu(null)
     setAddingTo({ co, pm, kr })
     setQuickTitle('')
-    setQuickOwner(isAdmin ? (profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || '') : '')
+    setQuickOwner(isAdmin ? (profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || '') : (userId || ''))
     setQuickDue(isoToday())
   }
 
@@ -318,7 +339,6 @@ export default function DeliverablesWorkspace({
                                   </div>
                                   <span className="dw-context">{complete}/{krItems.length} complete</span>
                                   <ActionMenu open={menu === kr.id} onToggle={() => setMenu(menu === kr.id ? null : kr.id)}>
-                                    <button style={menuItem} onClick={() => beginDeliverable(co,pm,kr)}>+ Add deliverable</button>
                                     <button style={menuItem} onClick={() => { onDuplicateKeyResult({ node:kr }); setMenu(null) }}>Duplicate Key Result</button>
                                     <button style={menuItem} onClick={() => { setEditingNode(kr.id); setMenu(null) }}>Rename</button>
                                   </ActionMenu>
@@ -334,7 +354,7 @@ export default function DeliverablesWorkspace({
                                     ) : (
                                       <div className="dw-table-wrap">
                                         <table className="dw-table">
-                                          <thead><tr><th style={{width:28}}></th><th style={{width:28}}></th><th>Deliverable</th><th>HRBP</th><th>Status</th><th>Due</th><th>Next step</th><th style={{width:38}}></th></tr></thead>
+                                          <thead><tr><th style={{width:28}}></th><th style={{width:28}}></th><th>Deliverable</th><th>HRBP</th><th>Status</th><th>Due</th><th>Updates &amp; Next Steps</th><th style={{width:38}}></th></tr></thead>
                                           <tbody>
                                             {krItems.map((item) => {
                                               const overdue = isOverdue(item)
@@ -342,18 +362,24 @@ export default function DeliverablesWorkspace({
                                                 <tr key={item.id} className="data-row">
                                                   <td><span className="dw-grip" draggable onDragStart={(e) => startDrag(e, { type:'deliverable', id:item.id })} onDragEnd={() => { setDragging(null); setDropTarget(null) }} title="Move deliverable">⠿</span></td>
                                                   <td><input type="checkbox" checked={!!selected[item.id]} onChange={(e) => setSelected((current) => ({ ...current, [item.id]: e.target.checked }))} /></td>
-                                                  <td onClick={() => onOpen(item.id)} style={{ fontWeight:600, cursor:'pointer', color:'var(--tx1)' }}>
-                                                    {item.title}
+                                                  <td style={{ fontWeight:600, color:'var(--tx1)' }}>
+                                                    <InlineDeliverableField value={item.title} onSave={(value) => onOpen(item.id, { field:'title', value })} />
                                                     {item.revised_due_date && <span title="Revised due date" style={{ marginLeft:6, color:'var(--wrn-tx)', fontSize:10 }}>●</span>}
                                                   </td>
-                                                  <td onClick={() => onOpen(item.id)} style={{ color:'var(--tx2)', cursor:'pointer' }}>{ownerName(item.owner_id)}</td>
+                                                  <td style={{ color:'var(--tx2)' }}>
+                                                    <InlineDeliverableField value={ownerName(item.owner_id)} onSave={() => onOpen(item.id)} />
+                                                  </td>
                                                   <td onClick={(e) => e.stopPropagation()}>
                                                     <select value={item.status} onChange={(e) => onQuickStatus(item.id, e.target.value)} style={{ border:'1px solid transparent', borderRadius:5, padding:'4px 6px', background:'transparent', color:'inherit', fontSize:11, cursor:'pointer' }}>
                                                       {STATUSES.map((status) => <option key={status}>{status}</option>)}
                                                     </select>
                                                   </td>
-                                                  <td onClick={() => onOpen(item.id)} style={{ color:overdue ? 'var(--dgr-tx)' : 'var(--tx2)', cursor:'pointer', whiteSpace:'nowrap' }}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</td>
-                                                  <td onClick={() => onOpen(item.id)} style={{ color:'var(--tx2)', maxWidth:240, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor:'pointer' }}>{item.next_steps || '—'}</td>
+                                                  <td style={{ color:overdue ? 'var(--dgr-tx)' : 'var(--tx2)', whiteSpace:'nowrap' }}>
+                                                    <span onClick={() => onOpen(item.id)} title="Click to edit" style={{cursor:'pointer'}}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</span>
+                                                  </td>
+                                                  <td style={{ color:'var(--tx2)', maxWidth:240 }}>
+                                                    <InlineDeliverableField value={item.next_steps} placeholder="Add update or next step…" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onOpen(item.id, { field:'next_steps', value })} />
+                                                  </td>
                                                   <td>
                                                     <ActionMenu open={menu === item.id} onToggle={() => setMenu(menu === item.id ? null : item.id)}>
                                                       <button style={menuItem} onClick={() => { onDuplicateDeliverable({ item }); setMenu(null) }}>Duplicate</button>
@@ -387,7 +413,6 @@ export default function DeliverablesWorkspace({
                         </>
                       )}
 
-                      {addingNode?.type === 'key_result' && addingNode.parentId === pm.id && null}
                     </div>
                   )
                 })}
