@@ -206,6 +206,52 @@ function Dashboard({ session, theme, setTheme }) {
     if (!inserted || inserted.owner_id !== selectedOwner) { alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.'); return false }
     await loadDeliverables(); return true
   }
+  const duplicateDeliverable = async ({ item, targetKeyResultId }) => {
+    const kr = strategyNodes.find((n) => n.id === targetKeyResultId && n.node_type === 'key_result')
+    if (!kr) return false
+    const pm = strategyNodes.find((n) => n.id === kr.parent_id && n.node_type === 'pm')
+    const co = pm ? strategyNodes.find((n) => n.id === pm.parent_id && n.node_type === 'corporate') : null
+    const payload = {
+      title: item.title, corporate_objective: co?.name || item.corporate_objective || '',
+      pm_objective: pm?.name || item.pm_objective || '', key_result: kr.name,
+      corporate_objective_id: co?.id || item.corporate_objective_id || null,
+      pm_objective_id: pm?.id || item.pm_objective_id || null, key_result_id: kr.id,
+      division: item.division, owner_id: item.owner_id, status: 'Not Started',
+      due_date: item.due_date || null, revised_due_date: null, revision_reason: '', next_steps: item.next_steps || '',
+    }
+    const { data, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
+    if (error) { alert(error.message); return false }
+    if (!data || data.owner_id !== item.owner_id) { alert('The deliverable was duplicated, but the HRBP assignment could not be confirmed.'); return false }
+    await loadDeliverables(); return true
+  }
+
+  const duplicateKeyResult = async ({ node, targetPmId, copyDeliverables }) => {
+    const targetPm = strategyNodes.find((n) => n.id === targetPmId && n.node_type === 'pm')
+    if (!targetPm) return false
+    const targetCo = strategyNodes.find((n) => n.id === targetPm.parent_id && n.node_type === 'corporate')
+    const siblings = strategyNodes.filter((n) => n.node_type === 'key_result' && n.parent_id === targetPm.id)
+    const { data: newKr, error } = await supabase.from('strategy_nodes').insert({
+      node_type: 'key_result', name: node.name, parent_id: targetPm.id, sort_order: siblings.length,
+    }).select('*').single()
+    if (error) { alert(error.message); return false }
+    const sourceItems = deliverables.filter((d) => d.key_result_id === node.id)
+    if (copyDeliverables && sourceItems.length) {
+      const copies = sourceItems.map((item) => ({
+        title: item.title, corporate_objective: targetCo?.name || item.corporate_objective || '',
+        pm_objective: targetPm.name, key_result: newKr.name,
+        corporate_objective_id: targetCo?.id || null, pm_objective_id: targetPm.id, key_result_id: newKr.id,
+        division: item.division, owner_id: item.owner_id, status: 'Not Started',
+        due_date: item.due_date || null, revised_due_date: null, revision_reason: '', next_steps: item.next_steps || '',
+      }))
+      const { error: copyError } = await supabase.from('deliverables').insert(copies)
+      if (copyError) {
+        await supabase.from('strategy_nodes').delete().eq('id', newKr.id)
+        alert(copyError.message); return false
+      }
+    }
+    setStrategyNodes((n) => [...n, newKr]); await loadDeliverables(); return true
+  }
+
   const createStrategyNode = async ({ nodeType, name, parentId }) => {
     const siblings = strategyNodes.filter((n) => n.node_type === nodeType && (n.parent_id || null) === (parentId || null))
     const { data, error } = await supabase.from('strategy_nodes').insert({ node_type: nodeType, name: name.trim(), parent_id: parentId || null, sort_order: siblings.length }).select('*').single()
@@ -435,6 +481,7 @@ function Dashboard({ session, theme, setTheme }) {
             sort={sort} setSort={setSort} sortItems={sortItems}
             ownerName={ownerName} profiles={profiles} strategyNodes={strategyNodes}
             onCreateNode={createStrategyNode} onRenameNode={renameStrategyNode}
+            onDuplicateKeyResult={duplicateKeyResult} onDuplicateDeliverable={duplicateDeliverable}
             onOpen={(id) => setEditing({ id })}
             onAdd={() => setEditing({ id: null })}
             onQuickAdd={quickAddDeliverable}
@@ -965,7 +1012,7 @@ function buildTree(items) {
   return tree
 }
 
-function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onQuickAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt, strategyNodes, onCreateNode, onRenameNode }) {
+function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onQuickAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt, strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [editingNode, setEditingNode] = useState(null)
   const [newNode, setNewNode] = useState(null)
@@ -973,6 +1020,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
   const [quickTitle, setQuickTitle] = useState('')
   const [quickOwner, setQuickOwner] = useState('')
   const [quickDue, setQuickDue] = useState(todayISO())
+  const [duplicateTarget, setDuplicateTarget] = useState(null)
   const toggle = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }))
   const selCount = Object.values(selected).filter(Boolean).length
   const visible = isAdmin ? allItems : items
@@ -1049,11 +1097,12 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                     <span style={{ fontSize: 10, color: 'var(--txm)' }}>{complete}/{krItems.length}</span>
                     <span style={{ width: 42, height: 5, borderRadius: 999, background: 'var(--bd)', overflow: 'hidden' }}><span style={{ display: 'block', width: pct + '%', height: '100%', background: pct === 100 ? 'var(--suc-fill)' : 'var(--acc-fill)' }} /></span>
                     <button onClick={() => beginAdd(co, pm, kr)} style={btnStyle({ padding: '4px 8px', fontSize: 10 })}>+ Deliverable</button>
+                    <button onClick={() => setDuplicateTarget({ type: 'key_result', node: kr })} title="Duplicate key result" style={btnStyle({ padding: '4px 7px', fontSize: 11 })}>•••</button>
                   </div>
                   {!krCollapsed && <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
-                      <thead><tr><th style={{ width: 30 }}></th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Deliverable</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>HRBP</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Status</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Due</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Next step</th></tr></thead>
-                      <tbody>{krItems.map((d) => <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}><td style={{ padding: '7px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', fontWeight: 550, cursor: 'pointer' }}>{d.title}<RevisionFlag item={d} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td></tr>)}
+                      <thead><tr><th style={{ width: 30 }}></th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Deliverable</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>HRBP</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Status</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Due</th><th style={{ textAlign: 'left', padding: '7px 10px', color: 'var(--txm)', fontWeight: 500 }}>Next step</th><th style={{ width: 34 }}></th></tr></thead>
+                      <tbody>{krItems.map((d) => <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}><td style={{ padding: '7px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', fontWeight: 550, cursor: 'pointer' }}>{d.title}<RevisionFlag item={d} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td><td onClick={() => onOpen(d.id)} style={{ padding: '7px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td><td style={{ width: 34, padding: '7px 6px' }}><button onClick={() => setDuplicateTarget({ type: 'deliverable', item: d, targetKeyResultId: kr.id })} title="Duplicate deliverable" style={btnStyle({ padding: '3px 6px', fontSize: 10 })}>•••</button></td></tr>)}
                       {adding && <tr style={{ background: 'var(--acc-bg)' }}><td></td><td style={{ padding: 5 }}><input data-inline-deliverable-input autoFocus value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') setAddingTo(null) }} placeholder="Type a deliverable…" style={inputStyle({ width: '100%', padding: '7px 9px' })} /></td><td style={{ padding: 5 }}><select value={quickOwner} disabled={!isAdmin} onChange={(e) => setQuickOwner(e.target.value)} style={inputStyle({ width: '100%' })}>{profiles.filter((p) => p.role !== 'admin').map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></td><td style={{ padding: 5 }}>Not Started</td><td style={{ padding: 5 }}><input type="date" value={quickDue} onChange={(e) => setQuickDue(e.target.value)} style={inputStyle({ width: '100%' })} /></td><td style={{ padding: 5 }}><button onClick={submitAdd} style={primaryBtnStyle({ padding: '6px 9px', fontSize: 11 })}>Add</button></td></tr>}
                     </tbody></table>
                     {!adding && <button onClick={() => beginAdd(co, pm, kr)} style={{ width: '100%', padding: '7px 12px', border: 0, borderTop: '1px dashed var(--bd)', background: 'transparent', color: 'var(--acc-tx)', textAlign: 'left', fontSize: 11, cursor: 'pointer' }}>+ Add deliverable</button>}
@@ -1067,10 +1116,82 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
         </div>
       })}
     </div>
+    {dufunction DuplicateDialog({ target, strategyNodes, onClose, onDuplicateKeyResult, onDuplicateDeliverable }) {
+  const pms = strategyNodes.filter((n) => n.node_type === 'pm')
+  const krs = strategyNodes.filter((n) => n.node_type === 'key_result')
+  const [targetPmId, setTargetPmId] = useState('')
+  const [targetKrId, setTargetKrId] = useState(target.targetKeyResultId || '')
+  const [copyDeliverables, setCopyDeliverables] = useState(true)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (target.type === 'key_result') {
+      const currentPm = strategyNodes.find((n) => n.id === target.node.parent_id)
+      const firstOther = pms.find((p) => p.id !== currentPm?.id)
+      setTargetPmId(firstOther?.id || '')
+    }
+  }, [target, strategyNodes])
+
+  const submit = async () => {
+    setBusy(true)
+    const ok = target.type === 'key_result'
+      ? await onDuplicateKeyResult({ node: target.node, targetPmId, copyDeliverables })
+      : await onDuplicateDeliverable({ item: target.item, targetKeyResultId: targetKrId })
+    setBusy(false)
+    if (ok) onClose()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 60 }}>
+      <div style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderRadius: 10, width: '100%', maxWidth: 420, padding: 18, boxShadow: '0 12px 36px rgba(0,0,0,0.16)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 650 }}>{target.type === 'key_result' ? 'Duplicate Key Result' : 'Duplicate Deliverable'}</div>
+            <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 3, maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{target.node?.name || target.item?.title}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 0, background: 'transparent', color: 'var(--txm)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+        {target.type === 'key_result' ? (
+          <>
+            <Field label="Duplicate under PM Objective">
+              <select value={targetPmId} onChange={(e) => setTargetPmId(e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">Select PM Objective…</option>
+                {pms.map((p) => {
+                  const co = strategyNodes.find((n) => n.id === p.parent_id)
+                  return <option key={p.id} value={p.id}>{co?.name ? co.name + ' · ' : ''}{p.name}</option>
+                })}
+              </select>
+            </Field>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 12, color: 'var(--tx2)' }}>
+              <input type="checkbox" checked={copyDeliverables} onChange={(e) => setCopyDeliverables(e.target.checked)} />
+              Copy associated deliverables
+            </label>
+            <p style={{ fontSize: 10, color: 'var(--txm)', margin: '7px 0 0' }}>Copied deliverables start as Not Started. Comments and history are not copied.</p>
+          </>
+        ) : (
+          <Field label="Duplicate under Key Result">
+            <select value={targetKrId} onChange={(e) => setTargetKrId(e.target.value)} style={inputStyle({ width: '100%' })}>
+              <option value="">Select Key Result…</option>
+              {krs.map((kr) => {
+                const pm = strategyNodes.find((n) => n.id === kr.parent_id)
+                const co = pm ? strategyNodes.find((n) => n.id === pm.parent_id) : null
+                return <option key={kr.id} value={kr.id}>{co?.name ? co.name + ' · ' : ''}{kr.name}</option>
+              })}
+            </select>
+          </Field>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+          <button onClick={onClose} disabled={busy} style={btnStyle()}>Cancel</button>
+          <button onClick={submit} disabled={busy || (target.type === 'key_result' ? !targetPmId : !targetKrId)} style={primaryBtnStyle({ opacity: busy ? 0.65 : 1 })}>{busy ? 'Duplicating…' : 'Duplicate'}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
-function InlineNodeInput({ placeholder, value, onChange, onCommit, onCancel }) {
+plicateTarget && <DuplicateDialog target={duplicateTarget} strategyNodes={strategyNodes} onClose={() => setDuplicateTarget(null)} onDuplicateKeyResult={onDuplicateKeyResult} onDuplicateDeliverable={onDuplicateDeliverable} />}
+  )
+}function InlineNodeInput({ placeholder, value, onChange, onCommit, onCancel }) {
   return <div style={{ padding: '8px 14px 10px 34px', background: 'var(--acc-bg)', borderTop: '1px dashed var(--bd)', display: 'flex', gap: 7 }}>
     <input autoFocus value={value} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel() }} placeholder={placeholder} style={inputStyle({ flex: 1, padding: '7px 9px' })} />
     <button onClick={onCommit} style={primaryBtnStyle({ padding: '6px 10px', fontSize: 11 })}>Add</button>
