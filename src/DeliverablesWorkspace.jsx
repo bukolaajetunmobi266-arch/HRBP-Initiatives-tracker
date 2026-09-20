@@ -12,6 +12,12 @@ const dateLabel = (value) => value
 
 const isOverdue = (item) => Boolean(item.due_date && item.status !== 'Completed' && item.due_date < isoToday())
 
+const latestComment = (item) => {
+  const comments = Array.isArray(item.comments) ? item.comments : []
+  if (!comments.length) return ''
+  return [...comments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.text || ''
+}
+
 function ActionMenu({ open, onToggle, children }) {
   return (
     <div style={{ position: 'relative' }}>
@@ -378,7 +384,7 @@ export default function DeliverablesWorkspace({
                                                     <span onClick={() => onOpen(item.id)} title="Click to edit" style={{cursor:'pointer'}}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</span>
                                                   </td>
                                                   <td style={{ color:'var(--tx2)', maxWidth:240 }}>
-                                                    <InlineDeliverableField value={item.next_steps} placeholder="—" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
+                                                    <InlineDeliverableField value={latestComment(item) || item.next_steps} placeholder="—" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
                                                   </td>
                                                   <td>
                                                     <ActionMenu open={menu === item.id} onToggle={() => setMenu(menu === item.id ? null : item.id)}>
