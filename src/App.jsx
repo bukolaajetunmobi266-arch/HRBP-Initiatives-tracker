@@ -262,8 +262,12 @@ function Dashboard({ session, theme, setTheme }) {
           .deliverables-nav::-webkit-scrollbar { display: none; }
           .deliverables-nav button { flex: 0 0 auto !important; white-space: nowrap !important; }
           .deliverables-table-wrap { width: 100%; }
+          .summary-dashboard-grid { grid-template-columns: 1fr !important; }
+          .summary-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .summary-section-heading { align-items: flex-start !important; }
         }
         @media (max-width: 600px) {
+          .summary-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
           [data-recruitment-header] { align-items: flex-start !important; }
@@ -983,62 +987,71 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
     name: p.full_name, items: deliverables.filter((d) => d.owner_id === p.id),
   })).filter((r) => r.items.length > 0)
   const myActionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
+  const actionItems = myActionItems
   return (
     <div>
-      <p style={{ fontSize: 13, fontWeight: 500, margin: '0 0 10px' }}>{isAdmin ? 'Deliverables' : 'My deliverables'}</p>
-      <MetricGrid items={deliverables} totalLabel="Total deliverables" />
-
-      {isAdmin && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 16, marginBottom: 4 }}>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 4px' }}>Completion by HRBP</p>
-          <HrbpBarLegend />
-          {deliverableHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
+      <div className="summary-section-heading" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Delivery overview</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '3px 0 0' }}>{isAdmin ? 'Organisation-wide delivery progress' : 'Your current delivery progress'}</p>
         </div>
-      )}
-
-      <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 20, marginTop: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 500, margin: '0 0 10px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
-        <MetricGrid items={myActionItems} totalLabel="Total action items" />
+      </div>
+      <div className="summary-metrics">
+        <MetricGrid items={deliverables} totalLabel="Total deliverables" />
       </div>
 
-      {isAdmin && actionHrbpRows.length > 0 && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 4px' }}>Completion by HRBP — Action items</p>
+      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)', gap: 14, marginTop: 14 }}>
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Delivery status across assigned deliverables</p>
           <HrbpBarLegend />
-          {actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
+          {deliverableHrbpRows.length ? deliverableHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />) : (
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No assigned deliverables yet.</p>
+          )}
         </div>
-      )}
 
-      {!isAdmin && (
-        <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 16, marginTop: 20 }}>
-          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)', margin: '0 0 8px' }}>Due this week</p>
-          {dueThisWeek.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--txm)' }}>Nothing due before the week resets Monday.</p>
-          ) : (
-            <div style={{ border: '0.5px solid var(--bd)', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-              {dueThisWeek.map((d, i) => (
-                <div key={d.id} style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', background: 'var(--bg2)', fontSize: 13, borderTop: i ? '0.5px solid var(--bd)' : 'none' }}>
-                  <span>{d.title}</span><span style={{ color: 'var(--tx2)', fontSize: 11 }}>{fmtDate(d.due_date)}</span>
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Current status and immediate follow-up</p>
+          <MetricGrid items={actionItems} totalLabel="Total action items" />
+
+          {dueThisWeek.length > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 8px' }}>Due this week</p>
+              {dueThisWeek.slice(0, 5).map((d) => (
+                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: '0.5px solid var(--bd)', fontSize: 11 }}>
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
+                  <span style={{ flexShrink: 0, color: 'var(--tx2)' }}>{fmtDate(d.due_date)}</span>
+                </div>
+              ))}
+              {dueThisWeek.length > 5 && <p style={{ fontSize: 10, color: 'var(--txm)', margin: '7px 0 0' }}>+ {dueThisWeek.length - 5} more</p>}
+            </div>
+          )}
+
+          {!isAdmin && sharedWaiting.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 8px' }}>Waiting on you</p>
+              {sharedWaiting.slice(0, 3).map((a) => (
+                <div key={a.id} style={{ background: 'var(--acc-bg)', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                  <p style={{ fontSize: 11, color: 'var(--acc-tx)', margin: 0 }}>{a.title}</p>
                 </div>
               ))}
             </div>
           )}
-          {sharedWaiting.length > 0 && (
-            <>
-              <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)', margin: '0 0 8px' }}>Shared action items still waiting on you</p>
-              {sharedWaiting.map((a) => (
-                <div key={a.id} style={{ background: 'var(--acc-bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
-                  <p style={{ fontSize: 13, color: 'var(--acc-tx)', margin: 0 }}>{a.title}</p>
-                </div>
-              ))}
-            </>
-          )}
+        </div>
+      </div>
+
+      {isAdmin && actionHrbpRows.length > 0 && (
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 14 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Action item completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress against assigned action items</p>
+          <HrbpBarLegend />
+          {actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
         </div>
       )}
     </div>
   )
 }
-
 function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName, myId, onOpen, onAdd, onDelete, onMyStatusChange, onAdminStatusChange, onExport, onImport }) {
   const [collapsed, setCollapsed] = useState({})
   const visible = isAdmin ? keyActions : keyActions.filter((a) =>
