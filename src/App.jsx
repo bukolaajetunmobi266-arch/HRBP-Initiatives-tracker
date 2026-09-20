@@ -1118,6 +1118,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
       })}
     </div>
     {duplicateTarget && <DuplicateDialog target={duplicateTarget} strategyNodes={strategyNodes} onClose={() => setDuplicateTarget(null)} onDuplicateKeyResult={onDuplicateKeyResult} onDuplicateDeliverable={onDuplicateDeliverable} />}
+    </div>
   )
 }
 
