@@ -1066,7 +1066,8 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
     </div>
   )
 
-  return <div>
+  return (
+    <div>
     {toolbar}
     {newNode?.type === 'corporate' && !newNode.parentId && <InlineNodeInput placeholder="Type Corporate Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
     {selCount > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginBottom: 10, background: 'var(--acc-bg)', border: '1px solid var(--bd)', borderRadius: 7 }}><span style={{ fontSize: 12, color: 'var(--acc-tx)' }}>{selCount} selected</span><select defaultValue="" onChange={(e) => e.target.value && onBulkStatus(e.target.value)} style={inputStyle({ width: 'auto', padding: '6px 8px' })}><option value="">Change status…</option>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select>{isAdmin && <button onClick={onBulkDelete} style={btnStyle({ padding: '6px 9px', fontSize: 11, color: 'var(--dgr-tx)' })}>Delete</button>}<button onClick={() => setSelected({})} style={btnStyle({ padding: '6px 9px', fontSize: 11, marginLeft: 'auto' })}>Clear</button></div>}
