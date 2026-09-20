@@ -272,6 +272,7 @@ function Dashboard({ session, theme, setTheme }) {
         @media (max-width: 600px) {
           .summary-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .summary-action-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .summary-action-grid { grid-template-columns: 1fr !important; }
           [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
           [data-recruitment-header] { align-items: flex-start !important; }
@@ -1213,23 +1214,50 @@ function HrbpBarLegend() {
 
 function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThisWeek, sharedWaiting, actionHrbpRows, onDeliverableMetricClick, onActionMetricClick }) {
   const deliverableHrbpRows = profiles.filter((p) => p.role !== 'admin').map((p) => ({
-    name: p.full_name, items: deliverables.filter((d) => d.owner_id === p.id),
+    name: p.full_name,
+    items: deliverables.filter((d) => d.owner_id === p.id),
   })).filter((r) => r.items.length > 0)
-  const myActionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
-  const actionItems = myActionItems
+
+  const actionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
+  const actionMetrics = metricSet(actionItems, 'Total action items')
+
+  const actionCard = ([icon, label, val, role, key]) => (
+    <div
+      key={label}
+      onClick={() => onActionMetricClick?.(key)}
+      style={{
+        background: 'var(--bg2)',
+        border: '1px solid var(--bd)',
+        borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : '3px solid var(--bds)',
+        borderRadius: 8,
+        padding: '10px 11px',
+        minHeight: 62,
+        boxSizing: 'border-box',
+        cursor: onActionMetricClick ? 'pointer' : 'default',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 13, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
+        <span style={{ fontSize: 10.5, color: 'var(--tx2)' }}>{label}</span>
+      </div>
+      <p style={{ fontSize: 17, fontWeight: 650, margin: '6px 0 0', color: 'var(--tx1)' }}>{val}</p>
+    </div>
+  )
+
   return (
     <div>
-      <div className="summary-section-heading" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+      <div className="summary-section-heading" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
         <div>
           <p style={{ fontSize: 14, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Overview</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '3px 0 0' }}>{isAdmin ? 'Organisation-wide delivery progress' : 'Your current delivery progress'}</p>
         </div>
       </div>
+
       <div className="summary-metrics">
         <MetricGrid items={deliverables} totalLabel="Total deliverables" onCardClick={onDeliverableMetricClick} />
       </div>
 
-      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.65fr)', gap: 14, marginTop: 14 }}>
+      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginTop: 14 }}>
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Completion by HRBP</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Delivery status across assigned deliverables</p>
@@ -1240,13 +1268,17 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
         </div>
 
         <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>{isAdmin ? 'Action Items' : 'My Action Items'}</p>
           <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Current status and immediate follow-up</p>
-          <div className="summary-action-metrics"><MetricGrid items={actionItems} totalLabel="Total action items" onCardClick={onActionMetricClick} /></div>
+
+          <div className="summary-action-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+            {actionMetrics.slice(0, 4).map(actionCard)}
+            <div style={{ gridColumn: '1 / -1' }}>{actionCard(actionMetrics[4])}</div>
+          </div>
 
           {dueThisWeek.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 8px' }}>Due this week</p>
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--bd)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 7px' }}>Due this week</p>
               {dueThisWeek.slice(0, 5).map((d) => (
                 <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: '0.5px solid var(--bd)', fontSize: 11 }}>
                   <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
@@ -1258,8 +1290,8 @@ function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThis
           )}
 
           {!isAdmin && sharedWaiting.length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '0.5px solid var(--bd)' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 8px' }}>Waiting on you</p>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid var(--bd)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx2)', margin: '0 0 7px' }}>Waiting on you</p>
               {sharedWaiting.slice(0, 3).map((a) => (
                 <div key={a.id} style={{ background: 'var(--acc-bg)', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
                   <p style={{ fontSize: 11, color: 'var(--acc-tx)', margin: 0 }}>{a.title}</p>
