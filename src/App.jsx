@@ -7,6 +7,7 @@ import { generateCpoReviewPack, generatePersonalReviewPack } from './exportPpt'
 import ImportDialog from './ImportDialog'
 import { OWNER_FUNCTIONS, DIVISIONS, STATUSES, CO_COLORS } from './constants'
 import RecruitmentModule from './RecruitmentModule'
+import DeliverablesWorkspace from './DeliverablesWorkspace'
 
 const LIGHT = { '--bg0': '#F4F6F8', '--bg1': '#FFFFFF', '--bg2': '#FFFFFF', '--tx1': '#172033', '--tx2': '#4B5B6B', '--txm': '#8492A0', '--bd': '#E1E7EC', '--bds': '#CBD7E0', '--acc-bg': '#E5F3FB', '--acc-tx': '#006FB9', '--acc-fill': '#0077BD', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EEF2F5', '--neu-tx': '#52606D', '--neu-fill': '#AAB8C4', '--navy': '#0E2A43' }
 const DARK = { '--bg0': '#091722', '--bg1': '#0F2233', '--bg2': '#142C40', '--tx1': '#F4F8FC', '--tx2': '#C2D2DF', '--txm': '#8296A8', '--bd': '#274357', '--bds': '#39576B', '--acc-bg': '#0A3655', '--acc-tx': '#72C4F2', '--acc-fill': '#1594D0', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#1A3347', '--neu-tx': '#C2D2DF', '--neu-fill': '#637A8C', '--navy': '#061B2B' }
@@ -521,18 +522,18 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {view === 'deliverables' && (
-          <DeliverablesView
-            items={getFiltered()} allItems={visibleDeliverables} isAdmin={isAdmin}
+          <DeliverablesWorkspace
+            items={getFiltered()} isAdmin={isAdmin}
             collapsed={collapsed} setCollapsed={setCollapsed}
             selected={selected} setSelected={setSelected}
-            sort={sort} setSort={setSort} sortItems={sortItems}
             ownerName={ownerName} profiles={profiles} strategyNodes={strategyNodes}
             onCreateNode={createStrategyNode} onRenameNode={renameStrategyNode}
-            onDuplicateKeyResult={duplicateKeyResult} onDuplicateDeliverable={duplicateDeliverable} onMoveKeyResult={moveKeyResult} onMoveDeliverable={moveDeliverable}
+            onDuplicateKeyResult={duplicateKeyResult} onDuplicateDeliverable={duplicateDeliverable}
+            onMoveKeyResult={moveKeyResult} onMoveDeliverable={moveDeliverable}
             onOpen={(id) => setEditing({ id })}
-            onAdd={() => setEditing({ id: null })}
             onQuickAdd={quickAddDeliverable}
-            onNewObjective={() => setEditing({ id: null, isNewObjective: true })}
+            onQuickStatus={changeStatus}
+            onDelete={(id) => setConfirmDelete(id)}
             onBulkStatus={bulkStatus} onBulkDelete={bulkDelete}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
