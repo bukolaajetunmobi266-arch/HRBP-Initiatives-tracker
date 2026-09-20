@@ -917,6 +917,18 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
         <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ display: 'inline-flex', alignItems: 'center', gap: 6 })} aria-expanded={moreOpen}>
+            <span>⋮</span><span>More</span>
+          </button>
+          {moreOpen && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 5px)', right: 0, zIndex: 40, minWidth: 190, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 9, padding: 5, boxShadow: '0 10px 24px rgba(0,0,0,0.12)' }}>
+              <button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--tx1)', borderRadius: 6, padding: '9px 10px', fontSize: 12, cursor: 'pointer' }}>
+                Generate PPT
+              </button>
+            </div>
+          )}
+        </div>
         <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
         <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
       </div>
