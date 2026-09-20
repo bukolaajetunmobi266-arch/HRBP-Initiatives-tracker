@@ -133,14 +133,28 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   // Candidate-level filters affect the candidate population and therefore the
   // Overview, Roles and Candidates views. Role-location filters such as
   // Sourcing / Yet to Start are evaluated from the derived role status.
-  const candidateScoped = Boolean(
-    filters.employmentType ||
-    (filters.stage && CANDIDATE_STATUS_FILTERS.includes(filters.stage))
-  );
-  let scoped = candidateScoped ? result.filter(rl => rl.candidates.length > 0) : result;
+  let scoped = result;
 
-  if (filters.stage && ROLE_LOCATION_STATUS_FILTERS.includes(filters.stage)) {
-    scoped = scoped.filter(rl => rl.derived_status === filters.stage);
+  if (filters.employmentType) {
+    scoped = scoped.filter(rl => rl.candidates.length > 0);
+  }
+
+  if (filters.stage) {
+    if (ROLE_LOCATION_STATUS_FILTERS.includes(filters.stage)) {
+      // Role/location stages are derived from the requisition and must remain
+      // visible even when there are no candidate records (e.g. Sourcing).
+      // "Sourcing" can also be a candidate status, so include either case.
+      if (filters.stage === 'Sourcing') {
+        scoped = scoped.filter(rl =>
+          rl.derived_status === 'Sourcing' ||
+          rl.candidates.some(c => c.status === 'Sourcing')
+        );
+      } else {
+        scoped = scoped.filter(rl => rl.derived_status === filters.stage);
+      }
+    } else if (CANDIDATE_STATUS_FILTERS.includes(filters.stage)) {
+      scoped = scoped.filter(rl => rl.candidates.some(c => c.status === filters.stage));
+    }
   }
 
   return scoped;
