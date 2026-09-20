@@ -257,6 +257,11 @@ function Dashboard({ session, theme, setTheme }) {
           }
           [data-recruitment-kpis] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
           [data-recruitment-filter-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .deliverables-board-grid { grid-template-columns: 1fr !important; }
+          .deliverables-nav { overflow-x: auto !important; flex-wrap: nowrap !important; scrollbar-width: none; }
+          .deliverables-nav::-webkit-scrollbar { display: none; }
+          .deliverables-nav button { flex: 0 0 auto !important; white-space: nowrap !important; }
+          .deliverables-table-wrap { width: 100%; }
         }
         @media (max-width: 600px) {
           [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -286,11 +291,7 @@ function Dashboard({ session, theme, setTheme }) {
         <>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 50, background: 'var(--acc-fill)', display: 'inline-block' }} />
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--acc-tx)' }}>People Management</span>
-            </div>
-            <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables</h1>
+            <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables Tracker</h1>
             <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
           </div>
         </div>
@@ -499,7 +500,6 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <div data-sidebar-section style={{ fontSize: 9, color: 'var(--txm)', padding: '0 10px 6px', letterSpacing: 1.1, textTransform: 'uppercase' }}>People</div>
       <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
         <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables Tracker</span>}
       </button>
@@ -514,7 +514,7 @@ function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
 function Nav({ view, setView, setSelected }) {
   const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
   return (
-    <div style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
+    <div className="deliverables-nav" style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => { setView(id); setSelected({}) }}
           style={{ border: 'none', borderBottom: view === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: view === id ? 600 : 500, padding: '9px 12px 10px', borderRadius: 0, cursor: 'pointer' }}>
@@ -606,7 +606,7 @@ function BoardView({ items, isAdmin, onOpen, onStatus, onDelete, onAdd, ownerNam
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div className="deliverables-board-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
         {STATUSES.map((status) => {
           const col = items.filter((d) => d.status === status)
           return (
@@ -742,7 +742,8 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                                   </span>
                                 </div>
                                 {!krCollapsed && (
-                                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                                  <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
+                                  <table style={{ width: '100%', minWidth: 760, fontSize: 12, borderCollapse: 'collapse' }}>
                                     <thead>
                                       <tr style={{ background: 'var(--bg1)' }}>
                                         <th style={{ width: 26 }}></th>
@@ -780,6 +781,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                                       })}
                                     </tbody>
                                   </table>
+                                  </div>
                                 )}
                               </div>
                             )
