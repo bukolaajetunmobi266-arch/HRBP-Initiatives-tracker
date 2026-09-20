@@ -81,7 +81,9 @@ function Dashboard({ session, theme, setTheme }) {
   const [strategyNodes, setStrategyNodes] = useState([])
   const [keyActions, setKeyActions] = useState([])
   const [actionStatuses, setActionStatuses] = useState([])
-  const [view, setView] = useState('summary')
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('hrbp_tracker_view') || 'summary' } catch { return 'summary' }
+  })
   const [filters, setFilters] = useState({ search: '', divisions: [], owner: 'all', status: 'all', overdueOnly: false })
   const [actionFilter, setActionFilter] = useState({ status: 'all', overdueOnly: false })
   const [collapsed, setCollapsed] = useState({})
@@ -95,11 +97,27 @@ function Dashboard({ session, theme, setTheme }) {
   const [showPpt, setShowPpt] = useState(null)
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [appMode, setAppMode] = useState('deliverables') // 'deliverables' | 'recruitment'
-  const [recruitmentTab, setRecruitmentTab] = useState('overview')
+  const [appMode, setAppMode] = useState(() => {
+    try { return localStorage.getItem('hrbp_tracker_mode') || 'deliverables' } catch { return 'deliverables' }
+  }) // 'deliverables' | 'recruitment'
+  const [recruitmentTab, setRecruitmentTab] = useState(() => {
+    try { return localStorage.getItem('hrbp_recruitment_tab') || 'overview' } catch { return 'overview' }
+  })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const userId = session.user.id
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_tracker_view', view) } catch {}
+  }, [view])
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_tracker_mode', appMode) } catch {}
+  }, [appMode])
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_recruitment_tab', recruitmentTab) } catch {}
+  }, [recruitmentTab])
 
   useEffect(() => {
     loadProfile(); loadProfiles(); loadDeliverables(); loadStrategyNodes(); loadKeyActions(); loadActionStatuses()
