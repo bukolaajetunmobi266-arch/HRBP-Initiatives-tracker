@@ -7,9 +7,10 @@ import { generateCpoReviewPack, generatePersonalReviewPack } from './exportPpt'
 import ImportDialog from './ImportDialog'
 import { OWNER_FUNCTIONS, DIVISIONS, STATUSES, CO_COLORS } from './constants'
 import RecruitmentModule from './RecruitmentModule'
+import DeliverablesWorkspace from './DeliverablesWorkspace'
 
-const LIGHT = { '--bg0': '#F3F6FA', '--bg1': '#EEF2F7', '--bg2': '#FFFFFF', '--tx1': '#1A2733', '--tx2': '#52606D', '--txm': '#8A94A0', '--bd': '#E2E8F0', '--bds': '#CBD5E0', '--acc-bg': '#E6F1FB', '--acc-tx': '#0C447C', '--acc-fill': '#0F7FC4', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EAEDF0', '--neu-tx': '#52606D', '--neu-fill': '#B4B2A9', '--navy': '#1B2A3C' }
-const DARK = { '--bg0': '#0F1720', '--bg1': '#16202B', '--bg2': '#1C2733', '--tx1': '#F0F4F8', '--tx2': '#B7C2CC', '--txm': '#7C8794', '--bd': '#2A3541', '--bds': '#3A4652', '--acc-bg': '#123152', '--acc-tx': '#7FB8EE', '--acc-fill': '#3B93DA', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#232D38', '--neu-tx': '#B7C2CC', '--neu-fill': '#5F5E5A', '--navy': '#101A26' }
+const LIGHT = { '--bg0': '#F4F6F8', '--bg1': '#FFFFFF', '--bg2': '#FFFFFF', '--tx1': '#172033', '--tx2': '#4B5B6B', '--txm': '#8492A0', '--bd': '#E1E7EC', '--bds': '#CBD7E0', '--acc-bg': '#E5F3FB', '--acc-tx': '#006FB9', '--acc-fill': '#0077BD', '--dgr-bg': '#FAECE7', '--dgr-tx': '#993C1D', '--wrn-bg': '#FAEEDA', '--wrn-tx': '#854F0B', '--suc-bg': '#E1F5EE', '--suc-tx': '#085041', '--suc-fill': '#2E9E75', '--wrn-fill': '#EF9F27', '--dgr-fill': '#D85A30', '--neu-bg': '#EEF2F5', '--neu-tx': '#52606D', '--neu-fill': '#AAB8C4', '--navy': '#0E2A43' }
+const DARK = { '--bg0': '#091722', '--bg1': '#0F2233', '--bg2': '#142C40', '--tx1': '#F4F8FC', '--tx2': '#C2D2DF', '--txm': '#8296A8', '--bd': '#274357', '--bds': '#39576B', '--acc-bg': '#0A3655', '--acc-tx': '#72C4F2', '--acc-fill': '#1594D0', '--dgr-bg': '#3A1B10', '--dgr-tx': '#F0997B', '--wrn-bg': '#3A2A0E', '--wrn-tx': '#F5C775', '--suc-bg': '#0C2A22', '--suc-tx': '#5DCAA5', '--suc-fill': '#3C8F72', '--wrn-fill': '#EF9F27', '--dgr-fill': '#E8724A', '--neu-bg': '#1A3347', '--neu-tx': '#C2D2DF', '--neu-fill': '#637A8C', '--navy': '#061B2B' }
 
 function localISODate(date) {
   const d = date || new Date()
@@ -77,10 +78,14 @@ function Dashboard({ session, theme, setTheme }) {
   const [profile, setProfile] = useState(null)
   const [profiles, setProfiles] = useState([])
   const [deliverables, setDeliverables] = useState([])
+  const [strategyNodes, setStrategyNodes] = useState([])
   const [keyActions, setKeyActions] = useState([])
   const [actionStatuses, setActionStatuses] = useState([])
-  const [view, setView] = useState('summary')
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('hrbp_tracker_view') || 'summary' } catch { return 'summary' }
+  })
   const [filters, setFilters] = useState({ search: '', divisions: [], owner: 'all', status: 'all', overdueOnly: false })
+  const [actionFilter, setActionFilter] = useState({ status: 'all', overdueOnly: false })
   const [collapsed, setCollapsed] = useState({})
   const [selected, setSelected] = useState({})
   const [sort, setSort] = useState({ key: 'due_date', dir: 'asc' })
@@ -92,14 +97,30 @@ function Dashboard({ session, theme, setTheme }) {
   const [showPpt, setShowPpt] = useState(null)
   const [pptBusy, setPptBusy] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [appMode, setAppMode] = useState('deliverables') // 'deliverables' | 'recruitment'
-  const [recruitmentTab, setRecruitmentTab] = useState('overview')
+  const [appMode, setAppMode] = useState(() => {
+    try { return localStorage.getItem('hrbp_tracker_mode') || 'deliverables' } catch { return 'deliverables' }
+  }) // 'deliverables' | 'recruitment'
+  const [recruitmentTab, setRecruitmentTab] = useState(() => {
+    try { return localStorage.getItem('hrbp_recruitment_tab') || 'overview' } catch { return 'overview' }
+  })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const userId = session.user.id
 
   useEffect(() => {
-    loadProfile(); loadProfiles(); loadDeliverables(); loadKeyActions(); loadActionStatuses()
+    try { localStorage.setItem('hrbp_tracker_view', view) } catch {}
+  }, [view])
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_tracker_mode', appMode) } catch {}
+  }, [appMode])
+
+  useEffect(() => {
+    try { localStorage.setItem('hrbp_recruitment_tab', recruitmentTab) } catch {}
+  }, [recruitmentTab])
+
+  useEffect(() => {
+    loadProfile(); loadProfiles(); loadDeliverables(); loadStrategyNodes(); loadKeyActions(); loadActionStatuses()
     const ch = supabase.channel('deliverables-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'deliverables' }, loadDeliverables).subscribe()
     const ch2 = supabase.channel('action-status-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'action_item_statuses' }, loadActionStatuses).subscribe()
     return () => { supabase.removeChannel(ch); supabase.removeChannel(ch2) }
@@ -112,6 +133,7 @@ function Dashboard({ session, theme, setTheme }) {
     const { data } = await supabase.from('deliverables').select('*, comments(*)').order('created_at', { ascending: false })
     setDeliverables(data || []); setLoading(false)
   }
+  const loadStrategyNodes = async () => { const { data } = await supabase.from('strategy_nodes').select('*').order('node_type').order('sort_order').order('name'); setStrategyNodes(data || []) }
   const loadKeyActions = async () => { const { data } = await supabase.from('key_actions').select('*').order('created_at', { ascending: false }); setKeyActions(data || []) }
   const loadActionStatuses = async () => { const { data } = await supabase.from('action_item_statuses').select('*'); setActionStatuses(data || []) }
 
@@ -175,13 +197,139 @@ function Dashboard({ session, theme, setTheme }) {
       revised_due_date: form.revisedDueDate || null, revision_reason: form.revisionReason, next_steps: form.nextSteps,
     }
     if (isNew) {
-      const { error } = await supabase.from('deliverables').insert(payload)
+      const { data: inserted, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
       if (error) { alert(error.message); return }
+      if (!inserted || inserted.owner_id !== form.ownerId) {
+        alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.')
+        return
+      }
     } else {
-      const { error } = await supabase.from('deliverables').update(payload).eq('id', form.id)
+      const { data: updated, error } = await supabase.from('deliverables').update(payload).eq('id', form.id).select('id, owner_id').single()
       if (error) { alert(error.message); return }
+      if (!updated || updated.owner_id !== form.ownerId) {
+        alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.')
+        return
+      }
     }
     setEditing(null); loadDeliverables()
+  }
+
+  const updateDeliverableField = async (id, field, value) => {
+    const allowed = { title: 'title', next_steps: 'next_steps' }
+    const column = allowed[field]
+    if (!column) return false
+    const { error } = await supabase.from('deliverables').update({ [column]: value }).eq('id', id)
+    if (error) { alert(error.message); return false }
+    await loadDeliverables()
+    return true
+  }
+
+  const quickAddDeliverable = async ({ title, corporateObjective, pmObjective, keyResult, ownerId, dueDate, corporateObjectiveId, pmObjectiveId, keyResultId }) => {
+    const fallbackOwner = profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || userId
+    const selectedOwner = isAdmin ? (ownerId || fallbackOwner) : userId
+    const ownerProfile = profiles.find((p) => p.id === selectedOwner)
+    const division = OWNER_FUNCTIONS[ownerProfile?.full_name]?.[0] || DIVISIONS[0] || ''
+    const payload = { title, corporate_objective: corporateObjective, pm_objective: pmObjective, key_result: keyResult, corporate_objective_id: corporateObjectiveId, pm_objective_id: pmObjectiveId, key_result_id: keyResultId, division, owner_id: selectedOwner, status: 'Not Started', due_date: dueDate || null, revised_due_date: null, revision_reason: '', next_steps: '' }
+    const { data: inserted, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
+    if (error) { alert(error.message); return false }
+    if (!inserted || inserted.owner_id !== selectedOwner) { alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.'); return false }
+    await loadDeliverables(); return true
+  }
+  const duplicateDeliverable = async ({ item }) => {
+    const kr = strategyNodes.find((n) => n.id === item.key_result_id && n.node_type === 'key_result')
+    if (!kr) { alert('This deliverable is not linked to a Key Result.'); return false }
+    const pm = strategyNodes.find((n) => n.id === kr.parent_id && n.node_type === 'pm')
+    const co = pm ? strategyNodes.find((n) => n.id === pm.parent_id && n.node_type === 'corporate') : null
+    const payload = {
+      title: item.title + ' (Copy)', corporate_objective: co?.name || item.corporate_objective || '',
+      pm_objective: pm?.name || item.pm_objective || '', key_result: kr.name,
+      corporate_objective_id: co?.id || item.corporate_objective_id || null,
+      pm_objective_id: pm?.id || item.pm_objective_id || null, key_result_id: kr.id,
+      division: item.division, owner_id: item.owner_id, status: 'Not Started',
+      due_date: item.due_date || null, revised_due_date: null, revision_reason: '', next_steps: item.next_steps || '',
+    }
+    const { data, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
+    if (error) { alert(error.message); return false }
+    if (!data || data.owner_id !== item.owner_id) { alert('The deliverable was duplicated, but the HRBP assignment could not be confirmed.'); return false }
+    await loadDeliverables(); return true
+  }
+
+  const duplicateKeyResult = async ({ node }) => {
+    const sourcePm = strategyNodes.find((n) => n.id === node.parent_id && n.node_type === 'pm')
+    if (!sourcePm) return false
+    const sourceCo = strategyNodes.find((n) => n.id === sourcePm.parent_id && n.node_type === 'corporate')
+    const siblings = strategyNodes.filter((n) => n.node_type === 'key_result' && n.parent_id === sourcePm.id)
+    const { data: newKr, error } = await supabase.from('strategy_nodes').insert({
+      node_type: 'key_result', name: node.name + ' (Copy)', parent_id: sourcePm.id, sort_order: (node.sort_order ?? siblings.length) + 1,
+    }).select('*').single()
+    if (error) { alert(error.message); return false }
+    const sourceItems = deliverables.filter((d) => d.key_result_id === node.id)
+    if (sourceItems.length) {
+      const copies = sourceItems.map((item) => ({
+        title: item.title, corporate_objective: sourceCo?.name || item.corporate_objective || '',
+        pm_objective: sourcePm.name, key_result: newKr.name,
+        corporate_objective_id: sourceCo?.id || null, pm_objective_id: sourcePm.id, key_result_id: newKr.id,
+        division: item.division, owner_id: item.owner_id, status: 'Not Started',
+        due_date: item.due_date || null, revised_due_date: null, revision_reason: '', next_steps: item.next_steps || '',
+      }))
+      const { error: copyError } = await supabase.from('deliverables').insert(copies)
+      if (copyError) {
+        await supabase.from('strategy_nodes').delete().eq('id', newKr.id)
+        alert(copyError.message); return false
+      }
+    }
+    await loadStrategyNodes(); await loadDeliverables(); return true
+  }
+
+  const moveKeyResult = async ({ node, targetPmId }) => {
+    if (!node || node.parent_id === targetPmId) return true
+    const targetPm = strategyNodes.find((n) => n.id === targetPmId && n.node_type === 'pm')
+    if (!targetPm) return false
+    const targetCo = strategyNodes.find((n) => n.id === targetPm.parent_id && n.node_type === 'corporate')
+    const siblings = strategyNodes.filter((n) => n.node_type === 'key_result' && n.parent_id === targetPm.id)
+    const { error } = await supabase.from('strategy_nodes').update({ parent_id: targetPm.id, sort_order: siblings.length, updated_at: new Date().toISOString() }).eq('id', node.id)
+    if (error) { alert(error.message); return false }
+    const { error: linkError } = await supabase.from('deliverables').update({
+      corporate_objective: targetCo?.name || '', pm_objective: targetPm.name,
+      corporate_objective_id: targetCo?.id || null, pm_objective_id: targetPm.id,
+    }).eq('key_result_id', node.id)
+    if (linkError) { alert(linkError.message); return false }
+    await loadStrategyNodes(); await loadDeliverables(); return true
+  }
+
+  const moveDeliverable = async ({ item, targetKeyResultId }) => {
+    if (!item || item.key_result_id === targetKeyResultId) return true
+    const kr = strategyNodes.find((n) => n.id === targetKeyResultId && n.node_type === 'key_result')
+    if (!kr) return false
+    const pm = strategyNodes.find((n) => n.id === kr.parent_id && n.node_type === 'pm')
+    const co = pm ? strategyNodes.find((n) => n.id === pm.parent_id && n.node_type === 'corporate') : null
+    const { error } = await supabase.from('deliverables').update({
+      corporate_objective: co?.name || '', pm_objective: pm?.name || '', key_result: kr.name,
+      corporate_objective_id: co?.id || null, pm_objective_id: pm?.id || null, key_result_id: kr.id,
+    }).eq('id', item.id)
+    if (error) { alert(error.message); return false }
+    await loadDeliverables(); return true
+  }
+
+  const createStrategyNode = async ({ nodeType, name, parentId }) => {
+    const siblings = strategyNodes.filter((n) => n.node_type === nodeType && (n.parent_id || null) === (parentId || null))
+    const { data, error } = await supabase.from('strategy_nodes').insert({ node_type: nodeType, name: name.trim(), parent_id: parentId || null, sort_order: siblings.length }).select('*').single()
+    if (error) { alert(error.message); return null }
+    setStrategyNodes((n) => [...n, data])
+    return data
+  }
+
+  const renameStrategyNode = async (node, name) => {
+    const value = name.trim()
+    if (!value || value === node.name) return
+    const { error } = await supabase.from('strategy_nodes').update({ name: value, updated_at: new Date().toISOString() }).eq('id', node.id)
+    if (error) { alert(error.message); return }
+    const field = node.node_type === 'corporate' ? 'corporate_objective' : node.node_type === 'pm' ? 'pm_objective' : 'key_result'
+    const idField = node.node_type === 'corporate' ? 'corporate_objective_id' : node.node_type === 'pm' ? 'pm_objective_id' : 'key_result_id'
+    const { error: linkError } = await supabase.from('deliverables').update({ [field]: value }).eq(idField, node.id)
+    if (linkError) { alert(linkError.message); return }
+    setStrategyNodes((n) => n.map((x) => x.id === node.id ? { ...x, name: value } : x))
+    await loadDeliverables()
   }
 
   const changeStatus = async (id, status) => {
@@ -212,46 +360,189 @@ function Dashboard({ session, theme, setTheme }) {
   if (loading || !profile) return <div style={{ minHeight: '100vh', background: 'var(--bg0)' }} />
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+    <div data-app-shell style={{ minHeight: '100vh', background: 'var(--bg0)', color: 'var(--tx1)', display: 'flex' }}>
+      <style>{`
+        @media (max-width: 1100px) {
+          [data-app-main] { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+        @media (max-width: 1100px) {
+          [data-app-shell] { flex-direction: column !important; }
+          [data-app-sidebar] {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            height: 64px !important;
+            box-sizing: border-box !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            padding: 6px 8px !important;
+            gap: 6px !important;
+            border-right: none !important;
+            border-top: 1px solid var(--bd) !important;
+            z-index: 100 !important;
+          }
+          [data-sidebar-brand], [data-sidebar-section] { display: none !important; }
+          [data-mobile-tracker-nav] { display: block !important; }
+          [data-app-sidebar] [data-nav] {
+            flex: 1 !important;
+            justify-content: center !important;
+            border-left: none !important;
+            border-top: 3px solid transparent !important;
+            border-radius: 7px !important;
+            padding: 8px 10px !important;
+          }
+          [data-app-sidebar] [data-nav][data-active="true"] {
+            border-top-color: var(--acc-fill) !important;
+          }
+          [data-app-sidebar] [data-nav] span:last-child { white-space: nowrap; }
+          [data-app-main] {
+            max-width: none !important;
+            padding: 16px 12px 88px !important;
+          }
+          [data-recruitment-kpis] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .deliverables-board-grid { grid-template-columns: 1fr !important; }
+          .deliverables-nav { overflow-x: auto !important; flex-wrap: nowrap !important; scrollbar-width: none; }
+          .deliverables-nav::-webkit-scrollbar { display: none; }
+          .deliverables-nav button { flex: 0 0 auto !important; white-space: nowrap !important; }
+          .deliverables-table-wrap { width: 100%; }
+          .hierarchy-corporate { margin-bottom: 18px; border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; background: var(--bg2); }
+          .hierarchy-corporate-header { min-height: 58px; }
+          .hierarchy-pm { margin: 0 20px; border-top: 1px solid var(--bd); }
+          .hierarchy-pm-header { min-height: 48px; }
+          .hierarchy-kr { margin: 8px 0 18px 22px; border-left: 2px solid var(--bd); overflow: hidden; background: var(--bg2); }
+          .hierarchy-kr:last-child { margin-bottom: 20px; }
+          .hierarchy-row-actions { opacity: 0; transition: opacity .15s ease; }
+          .hierarchy-kr-header:hover .hierarchy-row-actions, .hierarchy-pm-header:hover .hierarchy-row-actions, .hierarchy-corporate-header:hover .hierarchy-row-actions { opacity: 1; }
+          .hierarchy-table thead th { background: var(--bg0); }
+          .hierarchy-table tbody tr:hover { background: var(--acc-bg); }
+          .hierarchy-table tbody tr { transition: background .12s ease; }
+          .hierarchy-empty { padding: 14px 16px; background: var(--bg1); color: var(--txm); font-size: 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+          .hierarchy-kr-header { min-height: 44px; }
+          .hierarchy-table td, .hierarchy-table th { vertical-align: middle; }
+          .hierarchy-table tbody tr td:nth-child(3) { color: var(--tx1); }
+          @media (max-width: 700px) { .hierarchy-kr { margin-left: 8px; margin-right: 0; } .hierarchy-pm { margin: 0 8px; } }
+          @media (max-width: 700px) { .hierarchy-row-actions { opacity: 1; } .hierarchy-kr { margin-left: 8px; margin-right: 0; } .hierarchy-pm { margin: 0 8px; } }
+          .summary-dashboard-grid { grid-template-columns: 1fr !important; }
+          .summary-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .summary-action-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .summary-section-heading { align-items: flex-start !important; }
+          .summary-metrics > div, .summary-action-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 600px) {
+          .summary-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .summary-action-metrics > div { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .summary-action-grid { grid-template-columns: 1fr !important; }
+          [data-recruitment-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          [data-recruitment-filter-grid] { grid-template-columns: 1fr !important; }
+          [data-recruitment-header] { align-items: flex-start !important; }
+          [data-recruitment-actions] { width: 100% !important; }
+          [data-recruitment-actions] > * { flex: 1 !important; }
+        }
+      `}</style>
       <Sidebar appMode={appMode} setAppMode={setAppMode} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Header profile={profile} userId={userId} theme={theme} setTheme={setTheme} />
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem' }}>
+        <div data-mobile-tracker-nav style={{ display: 'none', padding: '8px 12px', background: 'var(--bg2)', borderBottom: '1px solid var(--bd)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <button
+              onClick={() => setAppMode('deliverables')}
+              style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'deliverables' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'deliverables' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'deliverables' ? 650 : 500, cursor: 'pointer' }}
+            >📋 Deliverables Tracker</button>
+            <button
+              onClick={() => setAppMode('recruitment')}
+              style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '8px 6px', background: appMode === 'recruitment' ? 'var(--acc-bg)' : 'transparent', color: appMode === 'recruitment' ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 11, fontWeight: appMode === 'recruitment' ? 650 : 500, cursor: 'pointer' }}
+            >🧑‍💼 Recruitment Tracker</button>
+          </div>
+        </div>
+        <main data-app-main style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 32px 40px', width: '100%', boxSizing: 'border-box' }}>
         {appMode === 'deliverables' && (
         <>
-        {view !== 'summary' && (
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>{view === 'actions' ? 'Action Items' : 'Deliverables'}</p>
-            <MetricGrid items={view === 'actions' ? actionItemsForMetrics : kpiSource} totalLabel={view === 'actions' ? 'Total action items' : 'Total deliverables'} />
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
+          <div>
+            <h1 style={{ fontSize: 24, lineHeight: 1.15, margin: 0, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--navy)' }}>Deliverables Tracker</h1>
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: '5px 0 0' }}>Manage objectives, commitments and action items across the People function.</p>
           </div>
-        )}
+        </div>
+
         <Nav view={view} setView={setView} setSelected={setSelected} />
 
-        {(view === 'board' || view === 'deliverables' || view === 'calendar') && (
+        {(view === 'summary' || view === 'board' || view === 'deliverables' || view === 'calendar') && (
           <FilterBar filters={filters} setFilters={setFilters} profiles={profiles} isAdmin={isAdmin} />
         )}
 
-        {view === 'summary' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-              <button onClick={() => setShowPpt(isAdmin ? 'cpo' : 'personal')} style={{ fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>
-                {isAdmin ? 'Generate PPT Deck' : 'Generate my update pack (PPT)'}
-              </button>
-            </div>
-            <SummaryView
-              deliverables={visibleDeliverables} profiles={profiles} expandedActions={expandedActions} isAdmin={isAdmin}
-              dueThisWeek={visibleDeliverables.filter((d) => d.status !== 'Completed' && d.due_date && d.due_date >= currentWeekStart() && d.due_date <= currentWeekEnd())}
-              sharedWaiting={keyActions.filter((a) => a.shared && isPersonInAction(a, userId) && myActionStatus(a) !== 'Completed')}
-              actionHrbpRows={isAdmin ? profiles.filter((p) => p.role !== 'admin').map((p) => ({
-                name: p.full_name,
-                items: keyActions.filter((a) => isPersonInAction(a, p.id)).map((a) => {
-                  if (!a.shared) return { status: a.status, due_date: a.due_date }
-                  const row = actionStatuses.find((s) => s.action_id === a.id && s.user_id === p.id)
-                  return { status: row ? row.status : 'Not Started', due_date: a.due_date }
-                }),
-              })).filter((r) => r.items.length > 0) : []}
+        {view !== 'summary' && view !== 'actions' && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>Deliverables</p>
+            <MetricGrid
+              items={kpiSource}
+              totalLabel="Total deliverables"
+              onCardClick={(key) => {
+                setFilters({
+                  search: '',
+                  divisions: [],
+                  owner: 'all',
+                  status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                  overdueOnly: key === 'overdue',
+                })
+                setView('deliverables')
+                setSelected({})
+              }}
             />
-          </>
+          </div>
+        )}
+
+        {view === 'actions' && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.3 }}>Action Items</p>
+            <ActionFilterBar filter={actionFilter} setFilter={setActionFilter} />
+            <MetricGrid
+              items={actionItemsForMetrics}
+              totalLabel="Total action items"
+              onCardClick={(key) => {
+                setActionFilter({
+                  status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                  overdueOnly: key === 'overdue',
+                })
+              }}
+            />
+          </div>
+        )}
+
+        {view === 'summary' && (
+          <SummaryView
+            deliverables={getFiltered()} profiles={profiles} expandedActions={expandedActions} isAdmin={isAdmin}
+            actionHrbpRows={isAdmin ? profiles.filter((p) => p.role !== 'admin').map((p) => ({
+              name: p.full_name,
+              items: keyActions.filter((a) => isPersonInAction(a, p.id)).map((a) => {
+                if (!a.shared) return { status: a.status, due_date: a.due_date }
+                const row = actionStatuses.find((s) => s.action_id === a.id && s.user_id === p.id)
+                return { status: row ? row.status : 'Not Started', due_date: a.due_date }
+              }),
+            })).filter((r) => r.items.length > 0) : []}
+            onDeliverableMetricClick={(key) => {
+              setFilters({
+                search: '',
+                divisions: [],
+                owner: 'all',
+                status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                overdueOnly: key === 'overdue',
+              })
+              setView('deliverables')
+              setSelected({})
+            }}
+            onActionMetricClick={(key) => {
+              setActionFilter({
+                status: key === 'total' || key === 'overdue' ? 'all' : key === 'completed' ? 'Completed' : key === 'inProgress' ? 'In Progress' : 'Not Started',
+                overdueOnly: key === 'overdue',
+              })
+              setView('actions')
+            }}
+          />
         )}
 
         {view === 'board' && (
@@ -259,18 +550,24 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {view === 'deliverables' && (
-          <DeliverablesView
-            items={getFiltered()} allItems={visibleDeliverables} isAdmin={isAdmin}
+          <DeliverablesWorkspace
+            items={getFiltered()} isAdmin={isAdmin}
             collapsed={collapsed} setCollapsed={setCollapsed}
             selected={selected} setSelected={setSelected}
-            sort={sort} setSort={setSort} sortItems={sortItems}
-            ownerName={ownerName} profiles={profiles}
+            ownerName={ownerName} profiles={profiles} strategyNodes={strategyNodes}
+            onCreateNode={createStrategyNode} onRenameNode={renameStrategyNode}
+            onDuplicateKeyResult={duplicateKeyResult} onDuplicateDeliverable={duplicateDeliverable}
+            onMoveKeyResult={moveKeyResult} onMoveDeliverable={moveDeliverable}
             onOpen={(id) => setEditing({ id })}
-            onAdd={() => setEditing({ id: null })}
-            onNewObjective={() => setEditing({ id: null, isNewObjective: true })}
+            onQuickAdd={quickAddDeliverable}
+            onQuickStatus={changeStatus}
+            onInlineUpdate={updateDeliverableField}
+            userId={userId}
+            onDelete={(id) => setConfirmDelete(id)}
             onBulkStatus={bulkStatus} onBulkDelete={bulkDelete}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
+            onGeneratePpt={() => setShowPpt(isAdmin ? 'cpo' : 'personal')}
           />
         )}
 
@@ -278,6 +575,7 @@ function Dashboard({ session, theme, setTheme }) {
         {view === 'movement' && <ActivityView deliverables={visibleDeliverables} ownerName={ownerName} onOpen={(id) => setEditing({ id })} />}
         {view === 'actions' && (
           <ActionsView keyActions={keyActions} actionStatuses={actionStatuses} profiles={profiles} isAdmin={isAdmin} ownerName={ownerName} myId={userId}
+            actionFilter={actionFilter}
             onOpen={(id) => setEditingAction({ id })} onAdd={() => setEditingAction({ id: null })}
             onDelete={async (id) => { await supabase.from('key_actions').delete().eq('id', id); loadKeyActions() }}
             onMyStatusChange={async (actionId, status) => {
@@ -295,7 +593,7 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {appMode === 'recruitment' && <RecruitmentModule tab={recruitmentTab} setTab={setRecruitmentTab} />}
-        </div>
+        </main>
       </div>
 
       {editing && (
@@ -329,16 +627,41 @@ function Dashboard({ session, theme, setTheme }) {
               if (error) { alert(error.message); return }
             }
             if (form.shared) {
-              await Promise.all(form.sharedOwnerIds.map((pid) =>
-                supabase.from('action_item_statuses').upsert({ action_id: actionId, user_id: pid }, { onConflict: 'action_id,user_id', ignoreDuplicates: true })
-              ))
+              if (!form.sharedOwnerIds.length) {
+                alert('Please select at least one HRBP to assign this action item to.')
+                return
+              }
+
+              for (const pid of form.sharedOwnerIds) {
+                const { error } = await supabase
+                  .from('action_item_statuses')
+                  .upsert(
+                    { action_id: actionId, user_id: pid, status: 'Not Started' },
+                    { onConflict: 'action_id,user_id' }
+                  )
+                if (error) {
+                  alert(`The action item was saved, but the HRBP assignment could not be saved: ${error.message}`)
+                  return
+                }
+              }
+
               const previouslyAssigned = actionStatuses.filter((s) => s.action_id === actionId).map((s) => s.user_id)
               const removed = previouslyAssigned.filter((pid) => !form.sharedOwnerIds.includes(pid))
               if (removed.length) {
-                await supabase.from('action_item_statuses').delete().eq('action_id', actionId).in('user_id', removed)
+                const { error } = await supabase
+                  .from('action_item_statuses')
+                  .delete()
+                  .eq('action_id', actionId)
+                  .in('user_id', removed)
+                if (error) {
+                  alert(`The action item was saved, but removing a previous HRBP assignment failed: ${error.message}`)
+                  return
+                }
               }
             }
-            setEditingAction(null); loadKeyActions(); loadActionStatuses()
+            setEditingAction(null)
+            await loadKeyActions()
+            await loadActionStatuses()
           }}
         />
       )}
@@ -353,7 +676,7 @@ function Dashboard({ session, theme, setTheme }) {
           filters={filters} profiles={profiles}
           onCancel={() => setShowExport(false)}
           onExport={(useFiltered, includeActions) => {
-            const rows = (useFiltered ? getFiltered() : visibleDeliverables).map((d) => ({ ...d, latestComment: lastComment(d)?.text }))
+            const rows = (useFiltered ? getFiltered() : visibleDeliverables).map((d) => ({ ...d, latestComment: d.next_steps || '' }))
             exportToExcel({ deliverables: rows, keyActions: isAdmin ? keyActions : keyActions.filter((a) => isPersonInAction(a, userId)), profiles, includeActions })
             setShowExport(false)
           }}
@@ -386,55 +709,62 @@ function Dashboard({ session, theme, setTheme }) {
 
 function Header({ profile, userId, theme, setTheme }) {
   return (
-    <header style={{ background: 'var(--navy)', color: '#fff' }}>
-      <div style={{ margin: '0 auto', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8 }}>{profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}</span>
-        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '0.5px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+    <header style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderBottom: '1px solid var(--bd)', position: 'sticky', top: 0, zIndex: 30 }}>
+      <div style={{ minHeight: 58, padding: '0 28px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--tx2)', padding: '7px 10px', border: '1px solid var(--bd)', borderRadius: 7, background: 'var(--bg2)' }}>
+          {profile.full_name} · {profile.role === 'admin' ? 'Admin' : 'Team member'}
+        </span>
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', color: 'var(--tx2)', borderRadius: 7, padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}>
           {theme === 'light' ? 'Dark mode' : 'Light mode'}
         </button>
         <NotificationBell userId={userId} />
-        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
+        <button onClick={() => supabase.auth.signOut()} style={{ fontSize: 12, color: 'var(--tx2)', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
     </header>
   )
 }
 
 function Sidebar({ appMode, setAppMode, collapsed, setCollapsed }) {
-  const width = collapsed ? 56 : 220
+  const width = collapsed ? 64 : 236
   const sectionButtonStyle = (active) => ({
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-    border: 'none', background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx1)',
-    padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+    border: 'none', borderLeft: active ? '3px solid var(--acc-fill)' : '3px solid transparent',
+    background: active ? 'var(--acc-bg)' : 'transparent', color: active ? 'var(--acc-tx)' : 'var(--tx2)',
+    padding: '11px 14px', fontSize: 13, fontWeight: active ? 600 : 500, cursor: 'pointer', borderRadius: '0 7px 7px 0',
   })
 
   return (
-    <div style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg1)', borderRight: '0.5px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '12px 8px', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '4px 6px 14px' }}>
-        {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>People Management</span>}
+    <aside data-app-sidebar style={{ width, minWidth: width, transition: 'width 0.15s', background: 'var(--bg2)', borderRight: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', padding: '16px 10px', gap: 4 }}>
+      <div data-sidebar-brand style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: '2px 8px 22px' }}>
+        {!collapsed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+            <img src="/credit-direct-logo.png" alt="Credit Direct" style={{ width: 122, height: 'auto', display: 'block' }} />
+          </div>
+        )}
         <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--tx2)', fontSize: 16, padding: 4 }}>
+          style={{ border: '1px solid var(--bd)', background: 'var(--bg2)', cursor: 'pointer', color: 'var(--tx2)', fontSize: 15, padding: '5px 7px', borderRadius: 7 }}>
           {collapsed ? '»' : '«'}
         </button>
       </div>
 
-      <button onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
-        <span>📋</span>{!collapsed && <span>Deliverables</span>}
+      <button data-nav data-active={appMode === 'deliverables'} onClick={() => setAppMode('deliverables')} style={sectionButtonStyle(appMode === 'deliverables')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>📋</span>{!collapsed && <span>Deliverables Tracker</span>}
       </button>
 
-      <button onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
-        <span>🧑‍💼</span>{!collapsed && <span>Recruitment</span>}
+      <button data-nav data-active={appMode === 'recruitment'} onClick={() => setAppMode('recruitment')} style={sectionButtonStyle(appMode === 'recruitment')}>
+        <span style={{ width: 18, textAlign: 'center', fontSize: 15 }}>🧑‍💼</span>{!collapsed && <span>Recruitment Tracker</span>}
       </button>
-    </div>
+    </aside>
   )
 }
 
 function Nav({ view, setView, setSelected }) {
-  const tabs = [['summary', 'Summary dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action items']]
+  const tabs = [['summary', 'Summary Dashboard'], ['board', 'Board'], ['deliverables', 'Deliverables'], ['calendar', 'Calendar'], ['movement', 'Activity'], ['actions', 'Action Items']]
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div className="deliverables-nav" style={{ display: 'flex', gap: 2, marginBottom: 22, flexWrap: 'wrap', borderBottom: '1px solid var(--bd)' }}>
       {tabs.map(([id, label]) => (
         <button key={id} onClick={() => { setView(id); setSelected({}) }}
-          style={{ border: 'none', background: view === id ? 'var(--acc-bg)' : 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>
+          style={{ border: 'none', borderBottom: view === id ? '2px solid var(--acc-fill)' : '2px solid transparent', background: 'transparent', color: view === id ? 'var(--acc-tx)' : 'var(--tx2)', fontSize: 13, fontWeight: view === id ? 600 : 500, padding: '9px 12px 10px', borderRadius: 0, cursor: 'pointer' }}>
           {label}
         </button>
       ))}
@@ -471,29 +801,220 @@ function DivisionMultiSelect({ selected, onChange }) {
 }
 
 function FilterBar({ filters, setFilters, profiles, isAdmin }) {
-  const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }))
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(filters)
+
+  useEffect(() => { if (open) setDraft(filters) }, [open, filters])
+
+  const activeCount =
+    (filters.search ? 1 : 0) +
+    (filters.divisions.length ? 1 : 0) +
+    (filters.owner !== 'all' ? 1 : 0) +
+    (filters.status !== 'all' ? 1 : 0) +
+    (filters.overdueOnly ? 1 : 0)
+
+  const update = (key, value) => setDraft((f) => ({ ...f, [key]: value }))
+  const clearAll = () => {
+    const empty = { search: '', divisions: [], owner: 'all', status: 'all', overdueOnly: false }
+    setDraft(empty)
+    setFilters(empty)
+    setOpen(false)
+  }
+  const apply = () => { setFilters(draft); setOpen(false) }
+  const removeFilter = (key) => {
+    if (key === 'divisions') setFilters((f) => ({ ...f, divisions: [] }))
+    else if (key === 'overdueOnly') setFilters((f) => ({ ...f, overdueOnly: false }))
+    else setFilters((f) => ({ ...f, [key]: key === 'owner' || key === 'status' ? 'all' : '' }))
+  }
+
+  const ownerLabel = profiles.find((p) => p.id === filters.owner)?.full_name
+  const chips = [
+    filters.search ? ['search', `Search: ${filters.search}`] : null,
+    filters.divisions.length ? ['divisions', filters.divisions.length === 1 ? filters.divisions[0] : `${filters.divisions.length} divisions`] : null,
+    filters.owner !== 'all' ? ['owner', ownerLabel || 'Owner'] : null,
+    filters.status !== 'all' ? ['status', filters.status] : null,
+    filters.overdueOnly ? ['overdueOnly', 'Overdue'] : null,
+  ].filter(Boolean)
+
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-      <input placeholder="Search deliverables…" value={filters.search} onChange={(e) => set('search', e.target.value)} style={inputStyle({ flex: 1, minWidth: 160 })} />
-      <DivisionMultiSelect selected={filters.divisions} onChange={(v) => set('divisions', v)} />
-      {isAdmin && (
-        <select value={filters.owner} onChange={(e) => set('owner', e.target.value)} style={inputStyle({ minWidth: 130 })}>
-          <option value="all">All owners</option>
-          {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
+    <div style={{ marginBottom: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={btnStyle({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)',
+            color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)',
+            borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)',
+          })}
+          aria-expanded={open}
+        >
+          <i className="ti ti-filter" style={{ fontSize: 14 }} aria-hidden="true" />
+          <span>Filters</span>
+          {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
+          <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        </button>
+
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {chips.map(([key, label]) => (
+              <button key={key} onClick={() => removeFilter(key)} title="Remove filter"
+                style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}>
+                {label} ×
+              </button>
+            ))}
+            <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 'min(640px, calc(100vw - 40px))', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Filter deliverables</div>
+              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Apply filters across the deliverables views.</div>
+            </div>
+            {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+          </div>
+
+          <div data-recruitment-filter-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Search</span>
+              <input placeholder="Search deliverables…" value={draft.search} onChange={(e) => update('search', e.target.value)} style={inputStyle({ width: '100%' })} />
+            </label>
+
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
+              <select value={draft.status} onChange={(e) => update('status', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="all">All statuses</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+
+            {isAdmin && (
+              <label>
+                <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Owner</span>
+                <select value={draft.owner} onChange={(e) => update('owner', e.target.value)} style={inputStyle({ width: '100%' })}>
+                  <option value="all">All owners</option>
+                  {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                </select>
+              </label>
+            )}
+
+            <div>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Division</span>
+              <DivisionMultiSelect selected={draft.divisions} onChange={(v) => update('divisions', v)} />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)', paddingTop: 22 }}>
+              <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => update('overdueOnly', e.target.checked)} />
+              Overdue only
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={apply} style={primaryBtnStyle()}>Apply filters</button>
+          </div>
+        </div>
       )}
-      <select value={filters.status} onChange={(e) => set('status', e.target.value)} style={inputStyle({ minWidth: 120 })}>
-        <option value="all">All statuses</option>
-        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
-      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <input type="checkbox" checked={filters.overdueOnly} onChange={(e) => set('overdueOnly', e.target.checked)} /> Overdue only
-      </label>
     </div>
   )
 }
 
-function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '7px 10px', fontSize: 13, ...extra } }
+function ActionFilterBar({ filter, setFilter }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(filter)
+  useEffect(() => { if (open) setDraft(filter) }, [open, filter])
+
+  const activeCount = (filter.status !== 'all' ? 1 : 0) + (filter.overdueOnly ? 1 : 0)
+  const clearAll = () => {
+    const empty = { status: 'all', overdueOnly: false }
+    setDraft(empty)
+    setFilter(empty)
+    setOpen(false)
+  }
+  const chips = [
+    filter.status !== 'all' ? ['status', filter.status] : null,
+    filter.overdueOnly ? ['overdueOnly', 'Overdue'] : null,
+  ].filter(Boolean)
+
+  return (
+    <div style={{ marginBottom: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={btnStyle({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            background: activeCount ? 'var(--acc-bg)' : 'var(--bg2)',
+            color: activeCount ? 'var(--acc-tx)' : 'var(--tx1)',
+            borderColor: activeCount ? 'var(--acc-fill)' : 'var(--bds)',
+          })}
+          aria-expanded={open}
+        >
+          <i className="ti ti-filter" style={{ fontSize: 14 }} aria-hidden="true" />
+          <span>Filters</span>
+          {activeCount > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--acc-fill)', color: '#fff', fontSize: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{activeCount}</span>}
+          <span style={{ fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        </button>
+
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {chips.map(([key, label]) => (
+              <button key={key} onClick={() => key === 'status'
+                ? setFilter((f) => ({ ...f, status: 'all' }))
+                : setFilter((f) => ({ ...f, overdueOnly: false }))}
+                title="Remove filter"
+                style={btnStyle({ padding: '4px 8px', fontSize: 11, borderRadius: 999, background: 'var(--bg1)', color: 'var(--tx2)' })}
+              >
+                {label} ×
+              </button>
+            ))}
+            <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 45, width: 'min(420px, calc(100vw - 40px))', background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Filter action items</div>
+              <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Apply filters across the action items view.</div>
+            </div>
+            {activeCount > 0 && <button onClick={clearAll} style={{ ...btnStyle({ padding: '3px 6px', fontSize: 11, border: 'none', background: 'transparent', color: 'var(--dgr-tx)' }) }}>Clear all</button>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <label>
+              <span style={{ fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }}>Status</span>
+              <select value={draft.status} onChange={(e) => setDraft((f) => ({ ...f, status: e.target.value }))} style={inputStyle({ width: '100%' })}>
+                <option value="all">All statuses</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--tx2)' }}>
+              <input type="checkbox" checked={draft.overdueOnly} onChange={(e) => setDraft((f) => ({ ...f, overdueOnly: e.target.checked }))} />
+              Overdue only
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setOpen(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={() => { setFilter(draft); setOpen(false) }} style={primaryBtnStyle()}>Apply filters</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+function inputStyle(extra = {}) { return { background: 'var(--bg2)', color: 'var(--tx1)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 10px', fontSize: 13, ...extra } }
 
 function StatusBadge({ status, overdue }) {
   const role = overdue ? 'dgr' : status === 'Completed' ? 'suc' : status === 'In Progress' ? 'wrn' : 'neu'
@@ -523,7 +1044,7 @@ function BoardView({ items, isAdmin, onOpen, onStatus, onDelete, onAdd, ownerNam
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div className="deliverables-board-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
         {STATUSES.map((status) => {
           const col = items.filter((d) => d.status === status)
           return (
@@ -554,8 +1075,8 @@ function BoardView({ items, isAdmin, onOpen, onStatus, onDelete, onAdd, ownerNam
   )
 }
 
-function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '0.5px solid var(--bds)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
-function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', ...extra } }
+function btnStyle(extra = {}) { return { fontSize: 13, background: 'var(--bg2)', border: '1px solid var(--bds)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', color: 'var(--tx1)', ...extra } }
+function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(--acc-fill)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontWeight: 600, ...extra } }
 
 function buildTree(items) {
   const tree = {}
@@ -569,150 +1090,179 @@ function buildTree(items) {
   return tree
 }
 
-function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport }) {
-  const toggle = (k) => setCollapsed((c) => ({ ...c, [k]: !c[k] }))
-  const jump = () => {}
+function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, selected, setSelected, sort, setSort, sortItems, ownerName, profiles, onOpen, onAdd, onQuickAdd, onNewObjective, onBulkStatus, onBulkDelete, onExport, onImport, onGeneratePpt, strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable, onMoveKeyResult, onMoveDeliverable }) {
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [editingNode, setEditingNode] = useState(null)
+  const [newNode, setNewNode] = useState(null)
+  const [addingTo, setAddingTo] = useState(null)
+  const [quickTitle, setQuickTitle] = useState('')
+  const [quickOwner, setQuickOwner] = useState('')
+  const [quickDue, setQuickDue] = useState(todayISO())
+  const [dragging, setDragging] = useState(null)
+  const [dropTarget, setDropTarget] = useState(null)
+  const [toast, setToast] = useState(null)
+  const toggle = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }))
   const selCount = Object.values(selected).filter(Boolean).length
-  if (!items.length) return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
-        <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
-        <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
-        <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
+  const visible = items
+  const byNode = (id) => sortItems(visible.filter((d) => d.key_result_id === id))
+  const corporations = strategyNodes.filter((n) => n.node_type === 'corporate')
+  const pmsFor = (id) => strategyNodes.filter((n) => n.node_type === 'pm' && n.parent_id === id)
+  const krsFor = (id) => strategyNodes.filter((n) => n.node_type === 'key_result' && n.parent_id === id)
+  const startDrag = (e, payload) => {
+    setDragging(payload); setDropTarget(null)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', payload.type + ':' + payload.id)
+  }
+  const endDrag = () => { setDragging(null); setDropTarget(null) }
+  const allowDrop = (e, type, id) => {
+    if (dragging?.type !== type) return
+    e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setDropTarget(type + ':' + id)
+  }
+  const dropOnPm = async (e, pm) => {
+    if (dragging?.type !== 'key_result') return
+    e.preventDefault(); e.stopPropagation()
+    const node = strategyNodes.find((n) => n.id === dragging.id)
+    setDropTarget(null); setDragging(null)
+    if (node) {
+      const previousPmId = node.parent_id
+      const ok = await onMoveKeyResult({ node, targetPmId: pm.id })
+      if (ok) setToast({ message: 'Key Result moved', undo: async () => { await onMoveKeyResult({ node: { ...node, parent_id: pm.id }, targetPmId: previousPmId }) } })
+    }
+  }
+  const dropOnKr = async (e, kr) => {
+    if (dragging?.type !== 'deliverable') return
+    e.preventDefault(); e.stopPropagation()
+    const item = visible.find((d) => d.id === dragging.id) || allItems.find((d) => d.id === dragging.id)
+    setDropTarget(null); setDragging(null)
+    if (item) {
+      const previousKrId = item.key_result_id
+      const ok = await onMoveDeliverable({ item, targetKeyResultId: kr.id })
+      if (ok) setToast({ message: 'Deliverable moved', undo: async () => { await onMoveDeliverable({ item: { ...item, key_result_id: kr.id }, targetKeyResultId: previousKrId }) } })
+    }
+  }
+  const beginAdd = (co, pm, kr) => {
+    setAddingTo({ co, pm, kr }); setQuickTitle(''); setQuickOwner(isAdmin ? (profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || '') : ''); setQuickDue(todayISO())
+    setTimeout(() => document.querySelector('[data-inline-deliverable-input]')?.focus(), 0)
+  }
+  const submitAdd = async () => {
+    if (!quickTitle.trim() || !addingTo) return
+    const ok = await onQuickAdd({ title: quickTitle.trim(), corporateObjective: addingTo.co.name, pmObjective: addingTo.pm.name, keyResult: addingTo.kr.name, ownerId: quickOwner, dueDate: quickDue, corporateObjectiveId: addingTo.co.id, pmObjectiveId: addingTo.pm.id, keyResultId: addingTo.kr.id })
+    if (ok) { setAddingTo(null); setQuickTitle('') }
+  }
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 7000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  const startNew = (type, parentId) => { setNewNode({ type, parentId }); setEditingNode(null) }
+  const commitNew = async () => {
+    if (!newNode?.name?.trim()) return
+    const created = await onCreateNode({ nodeType: newNode.type, name: newNode.name, parentId: newNode.parentId })
+    if (created) setNewNode(null)
+  }
+  const NodeName = ({ node, label }) => {
+    const editing = editingNode === node.id
+    const [draft, setDraft] = useState(node.name)
+    useEffect(() => { if (editing) setDraft(node.name) }, [editing, node.name])
+    return editing ? (
+      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={async (e) => { await onRenameNode(node, e.target.value); setEditingNode(null) }} onKeyDown={async (e) => { if (e.key === 'Enter') { await onRenameNode(node, e.currentTarget.value); setEditingNode(null) } if (e.key === 'Escape') setEditingNode(null) }} style={inputStyle({ border: '1px solid var(--acc-fill)', padding: '3px 6px', fontSize: 12, flex: 1 })} />
+    ) : (
+      <span onClick={() => setEditingNode(node.id)} title="Click to edit" style={{ cursor: 'text' }}><strong>{label}</strong> {node.name}</span>
+    )
+  }
+
+  const toolbar = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap', padding: '2px 0' }}>
+      <div style={{ fontSize: 12, color: 'var(--tx2)' }}><strong style={{ color: 'var(--tx1)', fontSize: 13 }}>{visible.length}</strong> deliverables</div>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        <button onClick={() => startNew('corporate', null)} style={primaryBtnStyle({ padding: '7px 11px', fontSize: 12 })}>+ Corporate Objective</button>
+        <button onClick={onImport} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>Import</button>
+        <button onClick={onExport} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>Export</button>
+        <div style={{ position: 'relative' }}><button onClick={() => setMoreOpen((o) => !o)} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>•••</button>{moreOpen && <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 40, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 4, minWidth: 150 }}><button onClick={() => { onGeneratePpt(); setMoreOpen(false) }} style={{ width: '100%', border: 0, background: 'transparent', padding: '8px 10px', textAlign: 'left', cursor: 'pointer', color: 'var(--tx1)', fontSize: 12 }}>Generate PPT</button></div>}</div>
       </div>
-      <EmptyState msg="No deliverables match your filters." />
     </div>
   )
-
-  const totalTree = buildTree(allItems)
-  const visTree = buildTree(items)
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button onClick={onImport} style={btnStyle()}>Import from Excel</button>
-        <button onClick={onExport} style={btnStyle()}>Export to Excel</button>
-        <button onClick={onNewObjective} style={btnStyle()}>+ New corporate objective</button>
-        <button onClick={onAdd} style={btnStyle()}>+ Add deliverable</button>
-      </div>
-      {selCount > 0 && (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--acc-bg)', padding: '8px 12px', borderRadius: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--acc-tx)', fontSize: 13 }}>{selCount} selected</span>
-          <select onChange={(e) => { if (e.target.value) onBulkStatus(e.target.value) }} style={inputStyle({ width: 'auto' })} defaultValue="">
-            <option value="">Change status to…</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          {isAdmin && <button onClick={onBulkDelete} style={{ ...btnStyle(), color: 'var(--dgr-tx)', marginLeft: 'auto' }}>Delete selected</button>}
-          <button onClick={() => setSelected({})} style={btnStyle()}>Clear</button>
-        </div>
-      )}
-      {Object.keys(visTree).map((co, i) => {
-        const color = CO_COLORS[i % CO_COLORS.length]
-        const coKey = 'co::' + co
-        const coCollapsed = collapsed[coKey]
-        let coCount = 0
-        Object.values(visTree[co]).forEach((pmObj) => Object.values(pmObj).forEach((arr) => { coCount += arr.length }))
-        return (
-          <div key={co} style={{ borderLeft: `4px solid ${color}`, background: 'var(--bg1)', marginBottom: 10 }}>
-            <button onClick={() => toggle(coKey)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 12px', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span>{coCollapsed ? '▸' : '▾'}</span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{co}</span>
-              <span style={{ fontSize: 11, color: 'var(--txm)' }}>{coCount} items</span>
-            </button>
-            {!coCollapsed && (
-              <div style={{ padding: '0 12px 10px 24px' }}>
-                {Object.keys(visTree[co]).map((pm) => {
-                  const pmKey = 'pm::' + co + '|' + pm
-                  const pmCollapsed = collapsed[pmKey]
-                  return (
-                    <div key={pm} style={{ marginBottom: 8 }}>
-                      <button onClick={() => toggle(pmKey)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '6px 0', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span>{pmCollapsed ? '▸' : '▾'}</span>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)' }}>{pm}</span>
-                      </button>
-                      {!pmCollapsed && (
-                        <div style={{ paddingLeft: 20 }}>
-                          {Object.keys(visTree[co][pm]).map((kr) => {
-                            const krItemsRaw = visTree[co][pm][kr]
-                            const krItems = sortItems(krItemsRaw)
-                            const totalKr = totalTree[co]?.[pm]?.[kr] || krItems
-                            const krKey = 'kr::' + co + '|' + pm + '|' + kr
-                            const krCollapsed = collapsed[krKey]
-                            const completed = krItems.filter((d) => d.status === 'Completed').length
-                            const pct = krItems.length ? Math.round((completed / krItems.length) * 100) : 0
-                            const showingNote = totalKr.length !== krItems.length ? ` (showing ${krItems.length} of ${totalKr.length})` : ''
-                            const krMultiOwner = new Set(krItems.map((d) => d.owner_id)).size > 1
-                            return (
-                              <div key={kr} style={{ border: '0.5px solid var(--bd)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg2)', marginBottom: 8 }}>
-                                <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                  <button onClick={() => toggle(krKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center', flex: 1, textAlign: 'left' }}>
-                                    <span>{krCollapsed ? '▸' : '▾'}</span>
-                                    <span style={{ fontSize: 12 }}>{kr}{showingNote}</span>
-                                  </button>
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <OwnerDisplay items={krItems} ownerName={ownerName} onJump={jump} size={12} />
-                                    <span style={{ width: 50, height: 5, background: 'var(--bg1)', borderRadius: 999, overflow: 'hidden' }}>
-                                      <span style={{ display: 'block', height: '100%', width: pct + '%', background: pct >= 65 ? 'var(--suc-fill)' : pct >= 35 ? 'var(--wrn-fill)' : 'var(--dgr-fill)' }} />
-                                    </span>
-                                    <span style={{ fontSize: 11, color: 'var(--txm)' }}>{completed}/{krItems.length}</span>
-                                  </span>
-                                </div>
-                                {!krCollapsed && (
-                                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                                    <thead>
-                                      <tr style={{ background: 'var(--bg1)' }}>
-                                        <th style={{ width: 26 }}></th>
-                                        <th onClick={() => setSort((s) => ({ key: 'title', dir: s.key === 'title' && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                          Deliverable{sort.key === 'title' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
-                                        </th>
-                                        {krMultiOwner && <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Owner</th>}
-                                        {[['status', 'Status'], ['due_date', 'Due']].map(([key, label]) => (
-                                          <th key={key} onClick={() => setSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))} style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)', cursor: 'pointer' }}>
-                                            {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
-                                          </th>
-                                        ))}
-                                        <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Comment</th>
-                                        <th style={{ textAlign: 'left', padding: '6px 12px', fontWeight: 500, color: 'var(--tx2)' }}>Next steps</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {krItems.map((d) => {
-                                        const lc = d.comments?.length ? d.comments[d.comments.length - 1] : null
-                                        return (
-                                          <tr key={d.id} style={{ borderTop: '0.5px solid var(--bd)' }}>
-                                            <td style={{ padding: '6px 12px' }}>
-                                              <input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((s) => ({ ...s, [d.id]: e.target.checked }))} />
-                                            </td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>
-                                              {d.title}<RevisionFlag item={d} />
-                                            </td>
-                                            {krMultiOwner && <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx1)', fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>}
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}><StatusBadge status={d.status} overdue={isOverdue(d)} /></td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', whiteSpace: 'nowrap', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{lc?.text || '—'}</td>
-                                            <td onClick={() => onOpen(d.id)} style={{ padding: '6px 12px', color: 'var(--tx2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+    {toolbar}
+    {newNode?.type === 'corporate' && !newNode.parentId && <InlineNodeInput placeholder="Type Corporate Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
+    {selCount > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginBottom: 10, background: 'var(--acc-bg)', border: '1px solid var(--bd)', borderRadius: 7 }}><span style={{ fontSize: 12, color: 'var(--acc-tx)' }}>{selCount} selected</span><select defaultValue="" onChange={(e) => e.target.value && onBulkStatus(e.target.value)} style={inputStyle({ width: 'auto', padding: '6px 8px' })}><option value="">Change status…</option>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select>{isAdmin && <button onClick={onBulkDelete} style={btnStyle({ padding: '6px 9px', fontSize: 11, color: 'var(--dgr-tx)' })}>Delete</button>}<button onClick={() => setSelected({})} style={btnStyle({ padding: '6px 9px', fontSize: 11, marginLeft: 'auto' })}>Clear</button></div>}
+    <div style={{ border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg2)' }}>
+      {corporations.map((co, ci) => {
+        const coKey = 'co::' + co.id, coCollapsed = collapsed[coKey]
+        return <div key={co.id} className="hierarchy-corporate">
+          <div className="hierarchy-corporate-header" style={{ padding: '15px 17px', background: 'var(--bg1)', borderLeft: '3px solid ' + CO_COLORS[ci % CO_COLORS.length], display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => toggle(coKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)' }}>{coCollapsed ? '▸' : '▾'}</button>
+            <div style={{ flex: 1, fontSize: 13 }}><NodeName node={co} label="Corporate Objective:" /></div>
+            <button onClick={() => startNew('pm', co.id)} style={btnStyle({ padding: '4px 8px', fontSize: 10 })}>+ PM Objective</button>
           </div>
-        )
+          {!coCollapsed && pmsFor(co.id).map((pm) => {
+            const pmKey = 'pm::' + pm.id, pmCollapsed = collapsed[pmKey]
+            return <div key={pm.id} className="hierarchy-pm">
+              <div className="hierarchy-pm-header" onDragOver={(e) => allowDrop(e, 'key_result', pm.id)} onDragLeave={() => dropTarget === 'key_result:' + pm.id && setDropTarget(null)} onDrop={(e) => dropOnPm(e, pm)} style={{ padding: '13px 8px', display: 'flex', alignItems: 'center', gap: 8, background: dropTarget === 'key_result:' + pm.id ? 'var(--acc-bg)' : 'transparent', outline: dropTarget === 'key_result:' + pm.id ? '2px dashed var(--acc-fill)' : 'none', outlineOffset: -2 }}>
+                <button onClick={() => toggle(pmKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)' }}>{pmCollapsed ? '▸' : '▾'}</button>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--tx2)' }}><NodeName node={pm} label="PM Objective:" /></div>
+                <div className="hierarchy-row-actions"><button onClick={() => startNew('key_result', pm.id)} style={btnStyle({ padding: '4px 8px', fontSize: 10 })}>+ Key Result</button></div>
+              </div>
+              {!pmCollapsed && krsFor(pm.id).map((kr) => {
+                const krKey = 'kr::' + kr.id, krCollapsed = collapsed[krKey], krItems = byNode(kr.id), complete = krItems.filter((d) => d.status === 'Completed').length, pct = krItems.length ? Math.round(complete / krItems.length * 100) : 0
+                const adding = addingTo?.kr?.id === kr.id
+                return <div key={kr.id} className="hierarchy-kr">
+                  <div className="hierarchy-kr-header" onDragOver={(e) => allowDrop(e, 'deliverable', kr.id)} onDragLeave={() => dropTarget === 'deliverable:' + kr.id && setDropTarget(null)} onDrop={(e) => dropOnKr(e, kr)} style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 9, background: dropTarget === 'deliverable:' + kr.id ? 'var(--acc-bg)' : 'var(--bg2)', outline: dropTarget === 'deliverable:' + kr.id ? '2px dashed var(--acc-fill)' : 'none', outlineOffset: -2 }}>
+                    <button onClick={() => toggle(krKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)', padding: 2 }}>{krCollapsed ? '▸' : '▾'}</button>
+                    <span draggable onDragStart={(e) => { e.stopPropagation(); startDrag(e, { type: 'key_result', id: kr.id }) }} onDragEnd={endDrag} title="Drag Key Result to another PM Objective" style={{ color: 'var(--txm)', cursor: dragging?.type === 'key_result' ? 'grabbing' : 'grab', fontSize: 12, userSelect: 'none' }}>⠿</span>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                      <NodeName node={kr} label="Key Result:" />
+                    </div>
+                    <span style={{ fontSize: 10, color: 'var(--txm)', whiteSpace: 'nowrap', paddingRight: 4 }}>{complete}/{krItems.length} complete</span>
+                    <button onClick={() => onDuplicateKeyResult({ node: kr })} title="Duplicate Key Result" aria-label="Duplicate Key Result" style={btnStyle({ padding: '5px 7px', fontSize: 12, color: 'var(--txm)', borderColor: 'transparent', background: 'transparent' })}>⧉</button>
+                  </div>
+
+                  {!krCollapsed && (
+                    krItems.length === 0 && !adding
+                      ? <div className="hierarchy-empty"><span>No deliverables under this Key Result yet.</span><button onClick={() => beginAdd(co, pm, kr)} style={{ border: 0, background: 'transparent', color: 'var(--acc-tx)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>+ Add deliverable</button></div>
+                      : <div className="deliverables-table-wrap" style={{ overflowX: 'auto' }}>
+                          <table className="hierarchy-table" style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
+                            <thead><tr><th style={{ width: 28 }}></th><th style={{ width: 30 }}></th><th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--txm)', fontWeight: 500 }}>Deliverable</th><th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--txm)', fontWeight: 500 }}>HRBP</th><th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--txm)', fontWeight: 500 }}>Status</th><th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--txm)', fontWeight: 500 }}>Due</th><th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--txm)', fontWeight: 500 }}>Next step</th><th style={{ width: 34 }}></th></tr></thead>
+                            <tbody>
+                              {krItems.map((d) => <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
+                                <td style={{ padding: '8px 6px', width: 28 }}><span draggable onDragStart={(e) => { e.stopPropagation(); startDrag(e, { type: 'deliverable', id: d.id }) }} onDragEnd={endDrag} title="Drag deliverable to another Key Result" style={{ color: 'var(--txm)', cursor: dragging?.type === 'deliverable' ? 'grabbing' : 'grab', fontSize: 12, userSelect: 'none' }}>⠿</span></td>
+                                <td style={{ padding: '8px 10px' }}><input type="checkbox" checked={!!selected[d.id]} onChange={(e) => setSelected((v) => ({ ...v, [d.id]: e.target.checked }))} /></td>
+                                <td onClick={() => onOpen(d.id)} style={{ padding: '8px 10px', fontWeight: 550, cursor: 'pointer' }}>{d.title}<RevisionFlag item={d} /></td>
+                                <td onClick={() => onOpen(d.id)} style={{ padding: '8px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{ownerName(d.owner_id)}</td>
+                                <td style={{ padding: '8px 10px' }} onClick={(e) => e.stopPropagation()}><select value={d.status} onChange={(e) => onStatus?.(d.id, e.target.value)} style={{ border: 'none', background: 'transparent', color: 'inherit', fontSize: 11, padding: '2px 4px', cursor: 'pointer' }} aria-label={'Change status for ' + d.title}><option>Not Started</option><option>In Progress</option><option>Completed</option></select></td>
+                                <td onClick={() => onOpen(d.id)} style={{ padding: '8px 10px', color: 'var(--tx2)', cursor: 'pointer' }}>{fmtDate(d.due_date) || '—'}</td>
+                                <td onClick={() => onOpen(d.id)} style={{ padding: '8px 10px', color: 'var(--tx2)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>{d.next_steps || '—'}</td>
+                                <td style={{ width: 34, padding: '8px 6px' }}><button onClick={() => onDuplicateDeliverable({ item: d })} title="Duplicate deliverable" aria-label="Duplicate deliverable" style={btnStyle({ padding: '3px 6px', fontSize: 11, color: 'var(--txm)', borderColor: 'transparent', background: 'transparent' })}>⧉</button></td>
+                              </tr>)}
+                              {adding && <tr style={{ background: 'var(--acc-bg)' }}><td></td><td></td><td style={{ padding: 6 }}><input data-inline-deliverable-input autoFocus value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') setAddingTo(null) }} placeholder="Type a deliverable…" style={inputStyle({ width: '100%', padding: '7px 9px' })} /></td><td style={{ padding: 6 }}><select value={quickOwner} disabled={!isAdmin} onChange={(e) => setQuickOwner(e.target.value)} style={inputStyle({ width: '100%' })}>{profiles.filter((p) => p.role !== 'admin').map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></td><td style={{ padding: 6 }}>Not Started</td><td style={{ padding: 6 }}><input type="date" value={quickDue} onChange={(e) => setQuickDue(e.target.value)} style={inputStyle({ width: '100%' })} /></td><td style={{ padding: 6 }}><div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><button onClick={submitAdd} style={primaryBtnStyle({ padding: '6px 9px', fontSize: 11 })}>Add</button><button onClick={() => setAddingTo(null)} style={btnStyle({ padding: '6px 9px', fontSize: 11 })}>Cancel</button></div></td><td></td></tr>}
+                            </tbody>
+                          </table>
+                          {!adding && <button onClick={() => beginAdd(co, pm, kr)} style={{ width: '100%', padding: '8px 12px', border: 0, borderTop: '1px dashed var(--bd)', background: 'transparent', color: 'var(--acc-tx)', textAlign: 'left', fontSize: 11, cursor: 'pointer' }}>+ Add deliverable</button>}
+                        </div>
+                  )}
+                </div>
+          })}
+          {newNode?.type === 'key_result' && newNode.parentId === pm.id && <InlineNodeInput placeholder="Type Key Result…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
+            </div>
+          })}
+          {newNode?.type === 'pm' && newNode.parentId === co.id && <InlineNodeInput placeholder="Type PM Objective…" value={newNode.name || ''} onChange={(name) => setNewNode((n) => ({ ...n, name }))} onCommit={commitNew} onCancel={() => setNewNode(null)} />}
+        </div>
       })}
     </div>
+    {toast && <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 80, display: 'flex', alignItems: 'center', gap: 12, background: 'var(--navy)', color: '#fff', padding: '10px 12px 10px 14px', borderRadius: 9, boxShadow: '0 10px 28px rgba(0,0,0,0.2)', fontSize: 12 }}><span>{toast.message}</span><button onClick={async () => { const undo = toast.undo; setToast(null); await undo() }} style={{ border: '1px solid rgba(255,255,255,0.35)', background: 'transparent', color: '#fff', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 11 }}>Undo</button><button onClick={() => setToast(null)} aria-label="Dismiss" style={{ border: 0, background: 'transparent', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', fontSize: 14 }}>×</button></div>}
+    </div>
   )
+}
+
+function InlineNodeInput({ placeholder, value, onChange, onCommit, onCancel }) {
+  return <div style={{ padding: '8px 14px 10px 34px', background: 'var(--acc-bg)', borderTop: '1px dashed var(--bd)', display: 'flex', gap: 7 }}>
+    <input autoFocus value={value} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel() }} placeholder={placeholder} style={inputStyle({ flex: 1, padding: '7px 9px' })} />
+    <button onClick={onCommit} style={primaryBtnStyle({ padding: '6px 10px', fontSize: 11 })}>Add</button>
+    <button onClick={onCancel} style={btnStyle({ padding: '6px 10px', fontSize: 11 })}>Cancel</button>
+  </div>
 }
 
 function CalendarView({ items, onOpen }) {
@@ -809,21 +1359,29 @@ function metricSet(items, totalLabel) {
   const total = items.length
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0)
   return [
-    ['ti-circle-check', 'Completed', `${completed} (${pct(completed)}%)`, 'suc'],
-    ['ti-loader-2', 'In progress', `${inProgress} (${pct(inProgress)}%)`, 'wrn'],
-    ['ti-hourglass-empty', 'Yet to start', `${notStarted} (${pct(notStarted)}%)`, 'neu'],
-    ['ti-alert-triangle', 'Overdue', `${overdue} (${pct(overdue)}%)`, 'dgr'],
-    ['ti-list-details', totalLabel, String(total), 'flat'],
+    ['ti-circle-check', 'Completed', `${completed} (${pct(completed)}%)`, 'suc', 'completed'],
+    ['ti-loader-2', 'In progress', `${inProgress} (${pct(inProgress)}%)`, 'wrn', 'inProgress'],
+    ['ti-hourglass-empty', 'Yet to start', `${notStarted} (${pct(notStarted)}%)`, 'neu', 'notStarted'],
+    ['ti-alert-triangle', 'Overdue', `${overdue} (${pct(overdue)}%)`, 'dgr', 'overdue'],
+    ['ti-list-details', totalLabel, String(total), 'flat', 'total'],
   ]
 }
-function MetricGrid({ items, totalLabel }) {
+function MetricGrid({ items, totalLabel, onCardClick }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 8 }}>
-      {metricSet(items, totalLabel).map(([icon, label, val, role]) => (
-        <div key={label} style={{ background: `var(--${role === 'flat' ? 'bg1' : role + '-bg'})`, borderRadius: 12, padding: '10px 8px' }}>
-          <i className={`ti ${icon}`} style={{ fontSize: 16, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)` }} aria-hidden="true" />
-          <p style={{ fontSize: 11, color: role === 'flat' ? 'var(--tx2)' : `var(--${role}-tx)`, margin: '6px 0 2px' }}>{label}</p>
-          <p style={{ fontSize: 16, fontWeight: 500, margin: 0, color: role === 'flat' ? 'var(--tx1)' : `var(--${role}-tx)` }}>{val}</p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}>
+      {metricSet(items, totalLabel).map(([icon, label, val, role, key]) => (
+        <div key={label} onClick={() => onCardClick?.(key)} style={{
+          background: 'var(--bg2)',
+          border: '1px solid var(--bd)',
+          borderTop: role === 'suc' ? '3px solid var(--suc-fill)' : role === 'wrn' ? '3px solid var(--wrn-fill)' : role === 'dgr' ? '3px solid var(--dgr-fill)' : role === 'acc' ? '3px solid var(--acc-fill)' : '3px solid var(--bds)',
+          borderRadius: 8, padding: '13px 14px', minHeight: 72,
+          boxSizing: 'border-box', boxShadow: '0 1px 2px rgba(15,42,67,0.04)',
+          cursor: onCardClick ? 'pointer' : 'default',
+          transition: 'transform 0.12s, box-shadow 0.12s',
+        }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 15, color: role === 'flat' ? 'var(--txm)' : `var(--${role}-tx)` }} aria-hidden="true" />
+          <p style={{ fontSize: 11, color: 'var(--tx2)', margin: '7px 0 3px' }}>{label}</p>
+          <p style={{ fontSize: 19, fontWeight: 650, margin: 0, color: 'var(--tx1)', letterSpacing: '-0.2px' }}>{val}</p>
         </div>
       ))}
     </div>
@@ -887,72 +1445,71 @@ function HrbpBarLegend() {
   )
 }
 
-function SummaryView({ deliverables, profiles, expandedActions, isAdmin, dueThisWeek, sharedWaiting, actionHrbpRows }) {
+function SummaryView({ deliverables, profiles, expandedActions, isAdmin, actionHrbpRows, onDeliverableMetricClick, onActionMetricClick }) {
   const deliverableHrbpRows = profiles.filter((p) => p.role !== 'admin').map((p) => ({
-    name: p.full_name, items: deliverables.filter((d) => d.owner_id === p.id),
+    name: p.full_name,
+    items: deliverables.filter((d) => d.owner_id === p.id),
   })).filter((r) => r.items.length > 0)
-  const myActionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
+
+  const actionItems = expandedActions.map((a) => ({ status: a._effStatus, due_date: a.due_date }))
+
   return (
     <div>
-      <p style={{ fontSize: 13, fontWeight: 500, margin: '0 0 10px' }}>{isAdmin ? 'Deliverables' : 'My deliverables'}</p>
-      <MetricGrid items={deliverables} totalLabel="Total deliverables" />
-
-      {isAdmin && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 16, marginBottom: 4 }}>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 4px' }}>Completion by HRBP</p>
-          <HrbpBarLegend />
-          {deliverableHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
-        </div>
-      )}
-
-      <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 20, marginTop: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 500, margin: '0 0 10px' }}>{isAdmin ? 'Action items' : 'My action items'}</p>
-        <MetricGrid items={myActionItems} totalLabel="Total action items" />
+      <div className="summary-section-heading" style={{ marginBottom: 8 }}>
+        <p style={{ fontSize: 15, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Deliverables Overview</p>
+      </div>
+      <div className="summary-metrics">
+        <MetricGrid items={deliverables} totalLabel="Total deliverables" onCardClick={onDeliverableMetricClick} />
       </div>
 
-      {isAdmin && actionHrbpRows.length > 0 && (
-        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16, marginTop: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--tx2)', margin: '0 0 4px' }}>Completion by HRBP — Action items</p>
-          <HrbpBarLegend />
-          {actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />)}
-        </div>
-      )}
+      <div className="summary-section-heading" style={{ marginTop: 20, marginBottom: 8 }}>
+        <p style={{ fontSize: 15, fontWeight: 650, margin: 0, color: 'var(--navy)' }}>Action Items Overview</p>
+      </div>
+      <div className="summary-action-metrics">
+        <MetricGrid items={actionItems} totalLabel="Total action items" onCardClick={onActionMetricClick} />
+      </div>
 
-      {!isAdmin && (
-        <div style={{ borderTop: '0.5px solid var(--bd)', paddingTop: 16, marginTop: 20 }}>
-          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)', margin: '0 0 8px' }}>Due this week</p>
-          {dueThisWeek.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--txm)' }}>Nothing due before the week resets Monday.</p>
-          ) : (
-            <div style={{ border: '0.5px solid var(--bd)', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-              {dueThisWeek.map((d, i) => (
-                <div key={d.id} style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', background: 'var(--bg2)', fontSize: 13, borderTop: i ? '0.5px solid var(--bd)' : 'none' }}>
-                  <span>{d.title}</span><span style={{ color: 'var(--tx2)', fontSize: 11 }}>{fmtDate(d.due_date)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {sharedWaiting.length > 0 && (
-            <>
-              <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--tx2)', margin: '0 0 8px' }}>Shared action items still waiting on you</p>
-              {sharedWaiting.map((a) => (
-                <div key={a.id} style={{ background: 'var(--acc-bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
-                  <p style={{ fontSize: 13, color: 'var(--acc-tx)', margin: 0 }}>{a.title}</p>
-                </div>
-              ))}
-            </>
+      <div className="summary-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 14, marginTop: 18 }}>
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Deliverables Completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress across assigned deliverables</p>
+          <HrbpBarLegend />
+          {deliverableHrbpRows.length ? deliverableHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />) : (
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No assigned deliverables yet.</p>
           )}
         </div>
-      )}
+
+        <div style={{ background: 'var(--bg2)', border: '0.5px solid var(--bd)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', margin: '0 0 3px' }}>Action Items Completion by HRBP</p>
+          <p style={{ fontSize: 11, color: 'var(--txm)', margin: '0 0 12px' }}>Progress across assigned action items</p>
+          <HrbpBarLegend />
+          {isAdmin && actionHrbpRows.length ? actionHrbpRows.map((r) => <HrbpBar key={r.name} name={r.name} items={r.items} />) : (
+            <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>{isAdmin ? 'No assigned action items yet.' : 'Action item progress is available to HRBPs through the Action Items tab.'}</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
-
-function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName, myId, onOpen, onAdd, onDelete, onMyStatusChange, onAdminStatusChange, onExport, onImport }) {
+function ActionsView({ keyActions, actionStatuses, profiles, isAdmin, ownerName, myId, actionFilter, onOpen, onAdd, onDelete, onMyStatusChange, onAdminStatusChange, onExport, onImport }) {
   const [collapsed, setCollapsed] = useState({})
-  const visible = isAdmin ? keyActions : keyActions.filter((a) =>
+  const visible = (isAdmin ? keyActions : keyActions.filter((a) =>
     a.shared ? actionStatuses.some((s) => s.action_id === a.id && s.user_id === myId) : a.owner_id === myId
-  )
+  )).filter((a) => {
+    const rows = a.shared ? actionStatuses.filter((s) => s.action_id === a.id) : []
+    const status = a.shared
+      ? (isAdmin
+        ? (rows.length && rows.every((r) => r.status === 'Completed')
+          ? 'Completed'
+          : rows.some((r) => r.status === 'In Progress' || r.status === 'Completed')
+            ? 'In Progress'
+            : 'Not Started')
+        : (rows.find((s) => s.user_id === myId)?.status || 'Not Started'))
+      : a.status
+    if (actionFilter.status !== 'all' && status !== actionFilter.status) return false
+    if (actionFilter.overdueOnly && !(a.due_date && status !== 'Completed' && a.due_date < todayISO())) return false
+    return true
+  })
   if (!visible.length) return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
@@ -1073,7 +1630,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
   useEffect(() => { modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [])
   useEffect(() => {
     if (!isNew) {
-      supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
+      supabase.from('comments').select('*').eq('deliverable_id', item.id).order('created_at').then(({ data }) => setComments(data || []))
       supabase.from('sub_deliverables').select('*').eq('deliverable_id', item.id).then(({ data }) => setSubs(data || []))
     }
     // eslint-disable-next-line
@@ -1082,11 +1639,13 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
   const ownerFunctions = OWNER_FUNCTIONS[profiles.find((p) => p.id === form.ownerId)?.full_name] || DIVISIONS
 
   const postComment = async () => {
-    if (!commentText.trim()) return
-    await supabase.from('comments').insert({ deliverable_id: item.id, author_id: userId, text: commentText.trim() })
+    if (!commentText.trim() || isNew) return
+    const { error } = await supabase.from('comments').insert({ deliverable_id: item.id, author_id: userId, text: commentText.trim() })
+    if (error) { alert(error.message); return }
     setCommentText('')
-    const { data } = await supabase.from('comments').select('*, author:profiles(full_name)').eq('deliverable_id', item.id).order('created_at')
+    const { data } = await supabase.from('comments').select('*').eq('deliverable_id', item.id).order('created_at')
     setComments(data || [])
+    reloadDeliverables?.()
   }
 
   const addSub = async () => {
@@ -1146,7 +1705,7 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
             <Field label="Revised due date"><input type="date" value={form.revisedDueDate} onChange={(e) => setForm((f) => ({ ...f, revisedDueDate: e.target.value }))} style={inputStyle({ width: '100%' })} /></Field>
           </div>
           <Field label="Revision reason"><input value={form.revisionReason} onChange={(e) => setForm((f) => ({ ...f, revisionReason: e.target.value }))} style={inputStyle({ width: '100%' })} placeholder="Why is the date shifting?" /></Field>
-          <Field label="Next steps"><textarea rows={2} value={form.nextSteps} onChange={(e) => setForm((f) => ({ ...f, nextSteps: e.target.value }))} style={inputStyle({ width: '100%', resize: 'vertical', fontFamily: 'inherit' })} /></Field>
+          <Field label="Updates & Next Steps"><textarea rows={3} value={form.nextSteps} onChange={(e) => setForm((f) => ({ ...f, nextSteps: e.target.value }))} placeholder="Capture the latest update, context, action, or next step…" style={inputStyle({ width: '100%', resize: 'vertical', fontFamily: 'inherit' })} /></Field>
 
           <div>
             <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Sub-deliverables</p>
@@ -1171,18 +1730,21 @@ function DeliverableModal({ item, isNewObjective, isAdmin, profiles, userId, onC
           {!isNew && (
             <>
               <div>
-                <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Comment</p>
-                <div style={{ maxHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontSize: 12, color: 'var(--tx2)', margin: '0 0 6px' }}>Comments</p>
+                <div style={{ maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {comments.length === 0 && <p style={{ fontSize: 12, color: 'var(--txm)', margin: 0 }}>No comments yet.</p>}
-                  {comments.map((c) => (
-                    <div key={c.id} style={{ fontSize: 12 }}>
-                      <span style={{ fontWeight: 500 }}>{c.author?.full_name}</span> <span style={{ color: 'var(--txm)' }}>· {new Date(c.created_at).toLocaleDateString()}</span>
-                      <div>{c.text}</div>
+                  {comments.map((comment) => (
+                    <div key={comment.id} style={{ fontSize: 12, paddingBottom: 7, borderBottom: '1px solid var(--bd)' }}>
+                      <div style={{ marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600 }}>{profiles.find((p) => p.id === comment.author_id)?.full_name || 'User'}</span>
+                        <span style={{ color: 'var(--txm)' }}> · {new Date(comment.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ color: 'var(--tx2)' }}>{comment.text}</div>
                     </div>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment…" style={inputStyle({ flex: 1 })} />
+                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') postComment() }} placeholder="Add a comment…" style={inputStyle({ flex: 1 })} />
                   <button onClick={postComment} style={btnStyle()}>Post</button>
                 </div>
               </div>
@@ -1265,6 +1827,9 @@ function ActionModal({ action, profiles, isAdmin, myId, existingStatuses, onClos
                     <input type="checkbox" disabled={!isAdmin} checked={form.sharedOwnerIds.includes(p.id)} onChange={() => toggleOwner(p.id)} /> {p.full_name}
                   </label>
                 ))}
+                {isAdmin && <span style={{ fontSize: 10, color: 'var(--txm)', marginTop: 2 }}>
+                  {form.sharedOwnerIds.length ? `${form.sharedOwnerIds.length} HRBP${form.sharedOwnerIds.length === 1 ? '' : 's'} selected` : 'Select the HRBPs responsible for this action item.'}
+                </span>}
               </div>
             </Field>
           ) : (
