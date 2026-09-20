@@ -71,7 +71,7 @@ function AddNodeRow({ placeholder, onCommit, onCancel }) {
 export default function DeliverablesWorkspace({
   items, isAdmin, collapsed, setCollapsed, selected, setSelected, ownerName, profiles,
   strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable,
-  onMoveKeyResult, onMoveDeliverable, onOpen, onQuickAdd, onBulkStatus, onBulkDelete,
+  onMoveKeyResult, onMoveDeliverable, onOpen, onQuickAdd, onQuickStatus, onDelete, onBulkStatus, onBulkDelete,
   onExport, onImport, onGeneratePpt,
 }) {
   const [menu, setMenu] = useState(null)
