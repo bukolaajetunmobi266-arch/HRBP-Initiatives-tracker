@@ -543,6 +543,8 @@ function Dashboard({ session, theme, setTheme }) {
             onOpen={(id) => setEditing({ id })}
             onQuickAdd={quickAddDeliverable}
             onQuickStatus={changeStatus}
+            onInlineUpdate={updateDeliverableField}
+            userId={userId}
             onDelete={(id) => setConfirmDelete(id)}
             onBulkStatus={bulkStatus} onBulkDelete={bulkDelete}
             onExport={() => setShowExport(true)}
