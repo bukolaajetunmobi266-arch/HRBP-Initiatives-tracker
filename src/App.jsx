@@ -1116,7 +1116,11 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
         </div>
       })}
     </div>
-    {dufunction DuplicateDialog({ target, strategyNodes, onClose, onDuplicateKeyResult, onDuplicateDeliverable }) {
+    {duplicateTarget && <DuplicateDialog target={duplicateTarget} strategyNodes={strategyNodes} onClose={() => setDuplicateTarget(null)} onDuplicateKeyResult={onDuplicateKeyResult} onDuplicateDeliverable={onDuplicateDeliverable} />}
+  )
+}
+
+function DuplicateDialog({ target, strategyNodes, onClose, onDuplicateKeyResult, onDuplicateDeliverable }) {
   const pms = strategyNodes.filter((n) => n.node_type === 'pm')
   const krs = strategyNodes.filter((n) => n.node_type === 'key_result')
   const [targetPmId, setTargetPmId] = useState('')
@@ -1189,9 +1193,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
   )
 }
 
-plicateTarget && <DuplicateDialog target={duplicateTarget} strategyNodes={strategyNodes} onClose={() => setDuplicateTarget(null)} onDuplicateKeyResult={onDuplicateKeyResult} onDuplicateDeliverable={onDuplicateDeliverable} />}
-  )
-}function InlineNodeInput({ placeholder, value, onChange, onCommit, onCancel }) {
+function InlineNodeInput({ placeholder, value, onChange, onCommit, onCancel }) {
   return <div style={{ padding: '8px 14px 10px 34px', background: 'var(--acc-bg)', borderTop: '1px dashed var(--bd)', display: 'flex', gap: 7 }}>
     <input autoFocus value={value} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel() }} placeholder={placeholder} style={inputStyle({ flex: 1, padding: '7px 9px' })} />
     <button onClick={onCommit} style={primaryBtnStyle({ padding: '6px 10px', fontSize: 11 })}>Add</button>
