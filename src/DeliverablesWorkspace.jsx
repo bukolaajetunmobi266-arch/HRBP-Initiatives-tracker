@@ -378,7 +378,7 @@ export default function DeliverablesWorkspace({
                                                     <span onClick={() => onOpen(item.id)} title="Click to edit" style={{cursor:'pointer'}}>{overdue ? 'Overdue · ' : ''}{dateLabel(item.due_date)}</span>
                                                   </td>
                                                   <td style={{ color:'var(--tx2)', maxWidth:240 }}>
-                                                    <InlineDeliverableField value={item.next_steps} placeholder="Add update or next step…" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
+                                                    <InlineDeliverableField value={item.next_steps} placeholder="—" multiline style={{ overflow:'hidden', textOverflow:'ellipsis' }} onSave={(value) => onInlineUpdate(item.id, 'next_steps', value)} />
                                                   </td>
                                                   <td>
                                                     <ActionMenu open={menu === item.id} onToggle={() => setMenu(menu === item.id ? null : item.id)}>
