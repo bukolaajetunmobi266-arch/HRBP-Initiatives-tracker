@@ -193,6 +193,34 @@ function Dashboard({ session, theme, setTheme }) {
     setEditing(null); loadDeliverables()
   }
 
+  const quickAddDeliverable = async ({ title, corporateObjective, pmObjective, keyResult, ownerId, dueDate }) => {
+    const fallbackOwner = profiles.find((p) => p.role !== 'admin')?.id || profiles[0]?.id || userId
+    const selectedOwner = isAdmin ? (ownerId || fallbackOwner) : userId
+    const ownerProfile = profiles.find((p) => p.id === selectedOwner)
+    const division = OWNER_FUNCTIONS[ownerProfile?.full_name]?.[0] || DIVISIONS[0] || ''
+    const payload = {
+      title,
+      corporate_objective: corporateObjective,
+      pm_objective: pmObjective,
+      key_result: keyResult,
+      division,
+      owner_id: selectedOwner,
+      status: 'Not Started',
+      due_date: dueDate || null,
+      revised_due_date: null,
+      revision_reason: '',
+      next_steps: '',
+    }
+    const { data: inserted, error } = await supabase.from('deliverables').insert(payload).select('id, owner_id').single()
+    if (error) { alert(error.message); return false }
+    if (!inserted || inserted.owner_id !== selectedOwner) {
+      alert('The deliverable was saved, but the HRBP assignment could not be confirmed. Please try again.')
+      return false
+    }
+    await loadDeliverables()
+    return true
+  }
+
   const changeStatus = async (id, status) => {
     const { error } = await supabase.from('deliverables').update({ status }).eq('id', id)
     if (error) alert(error.message)
@@ -402,6 +430,7 @@ function Dashboard({ session, theme, setTheme }) {
             ownerName={ownerName} profiles={profiles}
             onOpen={(id) => setEditing({ id })}
             onAdd={() => setEditing({ id: null })}
+            onQuickAdd={quickAddDeliverable}
             onNewObjective={() => setEditing({ id: null, isNewObjective: true })}
             onBulkStatus={bulkStatus} onBulkDelete={bulkDelete}
             onExport={() => setShowExport(true)}
