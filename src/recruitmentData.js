@@ -58,6 +58,19 @@ export async function fetchDivisions() {
   return data;
 }
 
+export async function fetchRecruitmentYears() {
+  const { data, error } = await supabase
+    .from('role_locations')
+    .select('date_request_received')
+    .is('deleted_at', null)
+    .order('date_request_received', { ascending: false });
+  if (error) throw error;
+  return [...new Set((data || [])
+    .map(r => r.date_request_received ? new Date(r.date_request_received).getFullYear() : null)
+    .filter(Boolean)
+  )].sort((a, b) => b - a);
+}
+
 export async function fetchRolesByDivision(divisionId) {
   let query = supabase.from('roles').select('role_id, role_title, role_type, division_id').is('deleted_at', null);
   if (divisionId) query = query.eq('division_id', divisionId);
