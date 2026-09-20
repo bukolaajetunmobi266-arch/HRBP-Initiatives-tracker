@@ -381,18 +381,22 @@ function Dashboard({ session, theme, setTheme }) {
           .deliverables-nav::-webkit-scrollbar { display: none; }
           .deliverables-nav button { flex: 0 0 auto !important; white-space: nowrap !important; }
           .deliverables-table-wrap { width: 100%; }
-          .hierarchy-corporate { margin-bottom: 14px; border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; background: var(--bg2); }
+          .hierarchy-corporate { margin-bottom: 18px; border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; background: var(--bg2); }
           .hierarchy-corporate-header { min-height: 58px; }
-          .hierarchy-pm { margin: 0 18px; border-top: 1px solid var(--bd); }
-          .hierarchy-pm-header { min-height: 46px; }
-          .hierarchy-kr { margin: 8px 0 14px 18px; border: 1px solid var(--bd); border-radius: 9px; overflow: hidden; background: var(--bg2); }
-          .hierarchy-kr:last-child { margin-bottom: 18px; }
+          .hierarchy-pm { margin: 0 20px; border-top: 1px solid var(--bd); }
+          .hierarchy-pm-header { min-height: 48px; }
+          .hierarchy-kr { margin: 8px 0 18px 22px; border-left: 2px solid var(--bd); overflow: hidden; background: var(--bg2); }
+          .hierarchy-kr:last-child { margin-bottom: 20px; }
           .hierarchy-row-actions { opacity: 0; transition: opacity .15s ease; }
           .hierarchy-kr-header:hover .hierarchy-row-actions, .hierarchy-pm-header:hover .hierarchy-row-actions, .hierarchy-corporate-header:hover .hierarchy-row-actions { opacity: 1; }
-          .hierarchy-table thead th { background: var(--bg1); }
+          .hierarchy-table thead th { background: var(--bg0); }
           .hierarchy-table tbody tr:hover { background: var(--acc-bg); }
           .hierarchy-table tbody tr { transition: background .12s ease; }
-          .hierarchy-empty { padding: 16px 18px; background: var(--bg1); color: var(--txm); font-size: 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+          .hierarchy-empty { padding: 14px 16px; background: var(--bg1); color: var(--txm); font-size: 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+          .hierarchy-kr-header { min-height: 44px; }
+          .hierarchy-table td, .hierarchy-table th { vertical-align: middle; }
+          .hierarchy-table tbody tr td:nth-child(3) { color: var(--tx1); }
+          @media (max-width: 700px) { .hierarchy-kr { margin-left: 8px; margin-right: 0; } .hierarchy-pm { margin: 0 8px; } }
           @media (max-width: 700px) { .hierarchy-row-actions { opacity: 1; } .hierarchy-kr { margin-left: 8px; margin-right: 0; } .hierarchy-pm { margin: 0 8px; } }
           .summary-dashboard-grid { grid-template-columns: 1fr !important; }
           .summary-metrics > div { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
@@ -1138,8 +1142,8 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
   }
 
   const toolbar = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-      <div style={{ fontSize: 12, color: 'var(--tx2)' }}><strong style={{ color: 'var(--tx1)' }}>{visible.length}</strong> deliverables</div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap', padding: '2px 0' }}>
+      <div style={{ fontSize: 12, color: 'var(--tx2)' }}><strong style={{ color: 'var(--tx1)', fontSize: 13 }}>{visible.length}</strong> deliverables</div>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
         <button onClick={() => startNew('corporate', null)} style={primaryBtnStyle({ padding: '7px 11px', fontSize: 12 })}>+ Corporate Objective</button>
         <button onClick={onImport} style={btnStyle({ padding: '7px 10px', fontSize: 12 })}>Import</button>
@@ -1158,7 +1162,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
       {corporations.map((co, ci) => {
         const coKey = 'co::' + co.id, coCollapsed = collapsed[coKey]
         return <div key={co.id} className="hierarchy-corporate">
-          <div className="hierarchy-corporate-header" style={{ padding: '14px 16px', background: 'var(--bg1)', borderLeft: '3px solid ' + CO_COLORS[ci % CO_COLORS.length], display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="hierarchy-corporate-header" style={{ padding: '15px 17px', background: 'var(--bg1)', borderLeft: '3px solid ' + CO_COLORS[ci % CO_COLORS.length], display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => toggle(coKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)' }}>{coCollapsed ? '▸' : '▾'}</button>
             <div style={{ flex: 1, fontSize: 13 }}><NodeName node={co} label="Corporate Objective:" /></div>
             <button onClick={() => startNew('pm', co.id)} style={btnStyle({ padding: '4px 8px', fontSize: 10 })}>+ PM Objective</button>
@@ -1168,7 +1172,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
             return <div key={pm.id} className="hierarchy-pm">
               <div className="hierarchy-pm-header" onDragOver={(e) => allowDrop(e, 'key_result', pm.id)} onDragLeave={() => dropTarget === 'key_result:' + pm.id && setDropTarget(null)} onDrop={(e) => dropOnPm(e, pm)} style={{ padding: '13px 8px', display: 'flex', alignItems: 'center', gap: 8, background: dropTarget === 'key_result:' + pm.id ? 'var(--acc-bg)' : 'transparent', outline: dropTarget === 'key_result:' + pm.id ? '2px dashed var(--acc-fill)' : 'none', outlineOffset: -2 }}>
                 <button onClick={() => toggle(pmKey)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--txm)' }}>{pmCollapsed ? '▸' : '▾'}</button>
-                <div style={{ flex: 1, fontSize: 12, color: 'var(--tx2)' }}><NodeName node={pm} label="PM Objective:" /></div>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--tx2)' }}><NodeName node={pm} label="PM Objective:" /></div>
                 <div className="hierarchy-row-actions"><button onClick={() => startNew('key_result', pm.id)} style={btnStyle({ padding: '4px 8px', fontSize: 10 })}>+ Key Result</button></div>
               </div>
               {!pmCollapsed && krsFor(pm.id).map((kr) => {
@@ -1181,7 +1185,7 @@ function DeliverablesView({ items, allItems, isAdmin, collapsed, setCollapsed, s
                     <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
                       <NodeName node={kr} label="Key Result:" />
                     </div>
-                    <span style={{ fontSize: 10, color: 'var(--txm)', whiteSpace: 'nowrap' }}>{complete} of {krItems.length} complete</span>
+                    <span style={{ fontSize: 10, color: 'var(--txm)', whiteSpace: 'nowrap', paddingRight: 4 }}>{complete}/{krItems.length} complete</span>
                     <button onClick={() => beginAdd(co, pm, kr)} style={btnStyle({ padding: '5px 9px', fontSize: 10, background: 'var(--acc-bg)', color: 'var(--acc-tx)', borderColor: 'transparent' })}>+ Deliverable</button>
                     <button onClick={() => onDuplicateKeyResult({ node: kr })} title="Duplicate Key Result" aria-label="Duplicate Key Result" style={btnStyle({ padding: '5px 7px', fontSize: 12, color: 'var(--txm)', borderColor: 'transparent', background: 'transparent' })}>⧉</button>
                   </div>
