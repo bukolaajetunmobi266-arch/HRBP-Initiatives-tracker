@@ -58,9 +58,25 @@ function downloadCsv(filename, headers, rows) {
 }
 
 function Modal({ children, onClose, maxWidth = 380 }) {
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 60 }}>
-      <div style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderRadius: 12, width: '100%', maxWidth, maxHeight: '85vh', overflowY: 'auto', padding: 20 }}>
+    <div
+      onMouseDown={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 60 }}
+    >
+      <div
+        onMouseDown={event => event.stopPropagation()}
+        style={{ background: 'var(--bg2)', color: 'var(--tx1)', borderRadius: 12, width: '100%', maxWidth, maxHeight: '85vh', overflowY: 'auto', padding: 20 }}
+      >
         {children}
       </div>
     </div>
