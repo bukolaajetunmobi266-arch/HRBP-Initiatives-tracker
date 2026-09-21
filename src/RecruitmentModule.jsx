@@ -285,7 +285,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
   ].filter(Boolean);
 
   return (
-    <div style={{ marginBottom: 22, position: 'relative', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ marginBottom: 18, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button
           onClick={() => setOpen(o => !o)}
@@ -652,19 +652,23 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
         }
       `}</style>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {[['all', 'All'], ['aging', 'Aging (30+ days)'], ['yetToStart', 'Yet to start']].map(([key, label]) => (
-            <button key={key} onClick={() => setFilterMode(key)}
-              style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: filterMode === key ? 'var(--acc-fill)' : 'var(--bg1)', color: filterMode === key ? '#fff' : 'var(--tx2)' }}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={exportRoles} style={btnStyle()}>Export CSV</button>
-          <button onClick={() => setShowNewRole(true)} style={primaryBtnStyle()}>+ New role</button>
-          <button onClick={() => setShowRolesUpload(true)} style={btnStyle()}>Bulk upload</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowRolesUpload(v => !v)}
+            aria-label="Open recruitment actions"
+            style={btnStyle({ fontSize: 18, lineHeight: 1, padding: '6px 9px', letterSpacing: 2 })}
+          >•••</button>
+          {showRolesUpload && (
+            <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 40, minWidth: 190, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 6 }}>
+              <button onClick={() => { setShowNewRole(true); setShowRolesUpload(false); }} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>+ New role</button>
+              <button onClick={() => { setShowRolesUpload('import'); }} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Import</button>
+              <button onClick={() => exportRoles()} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Export CSV</button>
+              <div style={{ height: 1, background: 'var(--bd)', margin: '5px 4px' }} />
+              <button onClick={() => { setFilterMode(filterMode === 'aging' ? 'all' : 'aging'); setShowRolesUpload(false); }} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Aging (30+ days)</button>
+              <button onClick={() => { setFilterMode(filterMode === 'yetToStart' ? 'all' : 'yetToStart'); setShowRolesUpload(false); }} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Yet to start</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -782,10 +786,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} onSaved={() => { setEditingRole(null); onChanged(); }} />}
       {editingLocation && <EditLocationModal rl={editingLocation} onClose={() => setEditingLocation(null)} onSaved={() => { setEditingLocation(null); onChanged(); }} />}
       {showNewRole && <NewRoleModal divisions={divisions} onClose={() => setShowNewRole(false)} onSaved={() => { setShowNewRole(false); onChanged(); }} />}
-      {showRolesUpload && (
+      {showRolesUpload === 'import' && (
         <BulkUploadModal
-          title="Bulk upload roles and locations"
-          helpText="Use the analyst template to upload roles and, where available, candidates in one go. Only the essential setup fields are required; update recruitment-stage details in the tracker after upload."
+          title="Import recruitment data"
+          helpText="Upload the completed Recruitment Tracker Excel template to add recruitment roles, locations and candidates."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowRolesUpload(false)}
@@ -1118,9 +1122,20 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input placeholder="Search candidate name…" value={search} onChange={e => setSearch(e.target.value)} style={inputStyle({ flex: 1, minWidth: 160 })} />
-        <button onClick={() => setShowAddCandidate(true)} style={primaryBtnStyle()}>+ Add candidate</button>
-        <button onClick={() => setShowCandidateUpload(true)} style={btnStyle()}>Bulk upload</button>
-        <button onClick={exportCandidates} style={btnStyle()}>Export CSV</button>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowCandidateUpload(v => !v)}
+            aria-label="Open candidate actions"
+            style={btnStyle({ fontSize: 18, lineHeight: 1, padding: '6px 9px', letterSpacing: 2 })}
+          >•••</button>
+          {showCandidateUpload && (
+            <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 40, minWidth: 170, background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 6 }}>
+              <button onClick={() => { setShowAddCandidate(true); setShowCandidateUpload(false); }} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>+ Add candidate</button>
+              <button onClick={() => setShowCandidateUpload('import')} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Import</button>
+              <button onClick={() => exportCandidates()} style={btnStyle({ width: '100%', textAlign: 'left', border: 'none', background: 'transparent' })}>Export CSV</button>
+            </div>
+          )}
+        </div>
         <button onClick={() => setStatusFilter('__dropped__')} style={btnStyle()}>Dropped / rejected</button>
         {(statusFilter || locationFilter) && (
           <button onClick={() => { setStatusFilter(null); setLocationFilter(null); }} style={btnStyle()}>
@@ -1210,9 +1225,9 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showAddCandidate && (
         <AddCandidateModal rowsWithCandidates={rowsWithCandidates} presetRoleLocationId={locationFilter} onClose={() => setShowAddCandidate(false)} onSaved={() => { setShowAddCandidate(false); onChanged(); }} />
       )}
-      {showCandidateUpload && (
+      {showCandidateUpload === 'import' && (
         <BulkUploadModal
-          title="Bulk upload candidates"
+          title="Import candidates"
           helpText="Upload candidates against existing roles/locations using the same streamlined template. Employment Type is required for mixed roles such as Relationship Officer."
           executor={executeCandidateUpload}
           mode="candidates"
@@ -2011,7 +2026,7 @@ function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
       {parsed && parsed.errors.length === 0 && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 13, marginBottom: 8 }}>{parsed.rows.length} rows ready to upload.</div>
-          <button onClick={runUpload} disabled={running} style={primaryBtnStyle()}>{running ? 'Uploading…' : 'Upload'}</button>
+          <button onClick={runUpload} disabled={running} style={primaryBtnStyle()}>{running ? 'Importing…' : 'Import'}</button>
         </div>
       )}
 
