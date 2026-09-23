@@ -600,6 +600,21 @@ function locationProgress(rl) {
   return { closed, secured, left, pct };
 }
 
+function aggregateRoleStatus(locations) {
+  const statuses = locations.map(rl => rl.derived_status);
+  if (statuses.length === 0) return 'Open';
+
+  // A role-level status should reflect a consistent manual/terminal state
+  // across all of its locations. If at least one location is still active,
+  // the role remains Open at the summary level.
+  if (statuses.every(s => s === 'Closed')) return 'Closed';
+  if (statuses.every(s => s === 'On Hold')) return 'On Hold';
+  if (statuses.every(s => s === 'Cancelled')) return 'Cancelled';
+  if (statuses.every(s => s === 'Yet to Start')) return 'Yet to Start';
+
+  return 'Open';
+}
+
 function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates }) {
   const [editingRole, setEditingRole] = useState(null);
   const [editingLocation, setEditingLocation] = useState(null);
@@ -719,6 +734,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                     const totalPositions = role.locations.reduce((sum, rl) => sum + Number(rl.no_of_positions || 0), 0);
                     const totalClosed = role.locations.reduce((sum, rl) => sum + locationProgress(rl).closed, 0);
                     const totalRemaining = Math.max(0, totalPositions - totalClosed);
+                    const roleStatus = aggregateRoleStatus(role.locations);
                     const roleIsExpanded = expandedRoles[roleId];
 
                     return (
@@ -733,8 +749,14 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                             <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{role.locations.length} location{role.locations.length !== 1 ? 's' : ''} · {totalPositions} slots</div>
                           </div>
                           <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} to be filled</span>
-                          <span style={{ fontSize: 11, color: totalRemaining ? 'var(--wrn-tx)' : 'var(--suc-tx)', background: totalRemaining ? 'var(--wrn-bg)' : 'var(--suc-bg)', padding: '3px 8px', borderRadius: 999 }}>
-                            {totalRemaining ? 'Open' : 'Closed'}
+                          <span style={{
+                            fontSize: 11,
+                            color: roleStatus === 'Closed' ? 'var(--suc-tx)' : roleStatus === 'On Hold' ? 'var(--acc-tx)' : roleStatus === 'Cancelled' ? 'var(--dgr-tx)' : roleStatus === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--wrn-tx)',
+                            background: roleStatus === 'Closed' ? 'var(--suc-bg)' : roleStatus === 'On Hold' ? 'var(--acc-bg)' : roleStatus === 'Cancelled' ? 'var(--dgr-bg)' : roleStatus === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--wrn-bg)',
+                            padding: '3px 8px',
+                            borderRadius: 999
+                          }}>
+                            {roleStatus}
                           </span>
                           <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
                             <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
