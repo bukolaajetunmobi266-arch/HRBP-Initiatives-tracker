@@ -84,8 +84,8 @@ function validateParsedRows(parsed, mode) {
     if (!row['Division']?.trim()) rowErrors.push(`Row ${rowNum}: Division is blank`);
     if (!row['Role Title']?.trim()) rowErrors.push(`Row ${rowNum}: Role Title is blank`);
     if (!row['Location']?.trim()) rowErrors.push(`Row ${rowNum}: Location is blank`);
-    if (mode === 'roles' && (!row['No of Positions'] || isNaN(Number(row['No of Positions'])))) {
-      rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
+    if (mode === 'roles' && (!row['No. of Positions'] || isNaN(Number(row['No. of Positions'])))) {
+      rowErrors.push(`Row ${rowNum}: No. of Positions must be a number`);
     }
 
     if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
