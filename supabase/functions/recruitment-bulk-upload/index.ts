@@ -29,12 +29,32 @@ function clean(value: unknown) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
-function parseDate(value: unknown) {
+function isBlankLike(value: unknown) {
+  return ['', 'N/A', 'NA', 'N.A.', '-', '—'].includes(clean(value).toUpperCase());
+}
+
+function parseDate(value: unknown, optional = false) {
   const raw = clean(value);
-  if (!raw) return null;
+  if (isBlankLike(raw)) {
+    if (optional) return null;
+    throw new Error("Date is required. Use YYYY-MM-DD.");
+  }
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) throw new Error(`Invalid date: "${raw}". Use YYYY-MM-DD.`);
   return d.toISOString().slice(0, 10);
+}
+
+function normaliseDivisionName(value: unknown) {
+  const raw = clean(value);
+  const aliases: Record<string, string> = {
+    "Federal Business": "Federal Business Sales",
+    "State Business": "State Business Sales",
+    "BMC": "Executive Office - Brand Marketing & Corporate Communication",
+    "DT": "Executive Office - Digital Transformation",
+    "FI": "Executive Office - Financial Inclusion",
+    "Financial Inclusion": "Executive Office - Financial Inclusion",
+  };
+  return aliases[raw] || raw;
 }
 
 function parseNumber(value: unknown) {
@@ -51,7 +71,7 @@ function profileCanAccessDivision(profile: any, division: any) {
 }
 
 function validateRow(raw: any, rowNum: number) {
-  const division = clean(raw["Division"]);
+  const division = normaliseDivisionName(raw["Division"] || raw["Division / Business"]);
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
@@ -67,6 +87,8 @@ function validateRow(raw: any, rowNum: number) {
   }
   if (!location) throw new Error(`Row ${rowNum}: Location is blank.`);
   parseNumber(raw["No. of Positions"] || raw["No of Positions"]);
+  parseDate(raw["Date Request Received"]);
+  parseDate(raw["Start Date"], true);
   if (!ROLE_LOCATION_STATUSES.includes(status)) {
     throw new Error(`Row ${rowNum}: Role Location Status is invalid.`);
   }
@@ -109,18 +131,18 @@ async function getProfile(admin: any, userId: string) {
 async function processRow(admin: any, profile: any, raw: any, rowNum: number, userId: string) {
   validateRow(raw, rowNum);
 
-  const divisionName = clean(raw["Division"]);
+  const divisionName = normaliseDivisionName(raw["Division"] || raw["Division / Business"]);
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
   const positions = parseNumber(raw["No. of Positions"] || raw["No of Positions"]);
   const status = clean(raw["Role Location Status"]) || "Open";
   const statusReason = clean(raw["Status Reason"]) || null;
-  const reviewDate = parseDate(raw["Review Date"]);
+  const reviewDate = parseDate(raw["Review Date"], true);
   const deferredToYearRaw = clean(raw["Deferred To Year"]);
   const deferredToYear = deferredToYearRaw ? Number(deferredToYearRaw) : null;
   const requestDate = parseDate(raw["Date Request Received"]);
-  const startDate = parseDate(raw["Start Date"]);
+  const startDate = parseDate(raw["Start Date"], true);
 
   const { data: division, error: divisionError } = await admin
     .from("divisions")
@@ -235,15 +257,13 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const url = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !anonKey || !serviceKey) return json({ error: "Recruitment import backend is not configured." }, 500);
+    if (!url || !anonKey) return json({ error: "Recruitment import backend is not configured." }, 500);
 
-    const userClient = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
+    const db = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+    const { data: { user }, error: userError } = await db.auth.getUser(token);
     if (userError || !user) return json({ error: "Your session is no longer valid. Please sign in again." }, 401);
 
-    const admin = createClient(url, serviceKey);
-    const profile = await getProfile(admin, user.id);
+    const profile = await getProfile(db, user.id);
 
     const body = await req.json();
     const rows = Array.isArray(body?.rows) ? body.rows : [];
@@ -254,7 +274,7 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < rows.length; i++) {
       try {
-        await processRow(admin, profile, rows[i], i + 2, user.id);
+        await processRow(db, profile, rows[i], i + 2, user.id);
         results.created++;
       } catch (error) {
         results.failed.push({ rowNum: i + 2, message: error instanceof Error ? error.message : String(error) });

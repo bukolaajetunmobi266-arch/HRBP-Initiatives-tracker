@@ -126,7 +126,7 @@ function Dashboard({ session, theme, setTheme }) {
 
   useEffect(() => {
     if (!profile) return
-    const recruitmentOnly = profile.recruitment_role === 'analyst'
+    const recruitmentOnly = ['analyst', 'recruitment_admin'].includes(profile.recruitment_role)
     if (recruitmentOnly) {
       setAppMode('recruitment')
       setLoading(false)
@@ -139,8 +139,8 @@ function Dashboard({ session, theme, setTheme }) {
     // eslint-disable-next-line
   }, [profile?.id, profile?.recruitment_role])
 
-  const loadProfile = async () => { const { data } = await supabase.from('profiles').select('*').eq('id', userId).single(); setProfile(data) }
-  const loadProfiles = async () => { const { data } = await supabase.from('profiles').select('*').order('full_name'); setProfiles(data || []) }
+  const loadProfile = async () => { const { data } = await supabase.from('profiles').select('id, full_name, role, recruitment_role, recruitment_hrbp_id').eq('id', userId).single(); setProfile(data) }
+  const loadProfiles = async () => { const { data } = await supabase.from('profiles').select('id, full_name, role, recruitment_role, recruitment_hrbp_id').order('full_name'); setProfiles(data || []) }
   const loadDeliverables = async () => {
     const { data } = await supabase.from('deliverables').select('*, comments(*)').order('created_at', { ascending: false })
     setDeliverables(data || []); setLoading(false)
@@ -150,7 +150,7 @@ function Dashboard({ session, theme, setTheme }) {
   const loadActionStatuses = async () => { const { data } = await supabase.from('action_item_statuses').select('*'); setActionStatuses(data || []) }
 
   const isAdmin = profile?.role === 'admin'
-  const recruitmentOnly = profile?.recruitment_role === 'analyst'
+  const recruitmentOnly = ['analyst', 'recruitment_admin'].includes(profile?.recruitment_role)
   const ownerName = (id) => profiles.find((p) => p.id === id)?.full_name || 'Unassigned'
   const lastComment = (d) => (d.comments?.length ? d.comments[d.comments.length - 1] : null)
 

@@ -55,61 +55,107 @@ const REQUIRED_HEADERS = [
   'Candidate Name', 'Employment Type', 'Recruitment Stage', 'Contact Phone',
 ];
 
-const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
+const HEADER_ALIASES = {
+  'Division / Business': 'Division',
+  'No of Positions': 'No. of Positions',
+};
 
-function parseDate(val) {
-  if (!val || String(val).trim() === '') return null;
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
+const VALID_ROLE_STATUSES = ['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'];
+const VALID_CANDIDATE_STATUSES = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+
+function normaliseRowHeaders(row) {
+  const out = {};
+  for (const [key, value] of Object.entries(row)) {
+    const canonical = HEADER_ALIASES[key.trim()] || key.trim();
+    out[canonical] = value;
+  }
+  return out;
+}
+
+function normaliseDivisionName(value) {
+  const raw = String(value || '').trim();
+  const aliases = {
+    'Federal Business': 'Federal Business Sales',
+    'State Business': 'State Business Sales',
+    'BMC': 'Executive Office - Brand Marketing & Corporate Communication',
+    'DT': 'Executive Office - Digital Transformation',
+    'FI': 'Executive Office - Financial Inclusion',
+    'Financial Inclusion': 'Executive Office - Financial Inclusion',
+  };
+  return aliases[raw] || raw;
+}
+
+function isBlankLike(value) {
+  return ['', 'N/A', 'NA', 'N.A.', '-', '—'].includes(String(value ?? '').trim().toUpperCase());
+}
+
+function parseDate(val, optional = false) {
+  if (isBlankLike(val)) {
+    if (optional) return null;
+    throw new Error('Date is required. Use YYYY-MM-DD.');
+  }
+  const d = new Date(String(val).trim());
+  if (isNaN(d.getTime())) throw new Error(`Invalid date: "${val}". Use YYYY-MM-DD.`);
+  return d.toISOString().slice(0, 10);
 }
 
 function parseBool(val) {
   return String(val).trim().toUpperCase() === 'TRUE';
 }
 
-// Returns { rows: [...], errors: [...] } — validates before writing anything.
 function validateParsedRows(parsed, mode) {
   const errors = [];
-  const headers = parsed.meta.fields || [];
+  const normalisedData = (parsed.data || []).map(normaliseRowHeaders);
+  const headers = [...new Set(normalisedData.flatMap(row => Object.keys(row)))];
   const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
   if (missingHeaders.length) {
     errors.push(`Missing columns: ${missingHeaders.join(', ')}. Did you edit the header row?`);
     return { rows: [], errors };
   }
 
-  const rows = parsed.data.map((row, idx) => {
-    const rowNum = idx + 2; // +1 for header, +1 for 1-indexing
+  const rows = normalisedData.map((row, idx) => {
+    const rowNum = idx + 2;
     const rowErrors = [];
-    if (!row['Division']?.trim()) rowErrors.push(`Row ${rowNum}: Division is blank`);
+    const division = normaliseDivisionName(row['Division']);
+    row['Division'] = division;
+
+    if (!division) rowErrors.push(`Row ${rowNum}: Division is blank`);
     if (!row['Role Title']?.trim()) rowErrors.push(`Row ${rowNum}: Role Title is blank`);
     if (!row['Location']?.trim()) rowErrors.push(`Row ${rowNum}: Location is blank`);
     if (mode === 'roles' && (!row['No. of Positions'] || isNaN(Number(row['No. of Positions'])))) {
       rowErrors.push(`Row ${rowNum}: No. of Positions must be a number`);
     }
 
-    if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
+    const roleStatus = row['Role Location Status']?.trim() || 'Open';
+    if (!VALID_ROLE_STATUSES.includes(roleStatus)) {
       rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Deferred, Cancelled, or Closed.`);
     }
 
-    if (row['Recruitment Stage']?.trim() && !['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'].includes(row['Recruitment Stage'].trim())) {
+    if (!row['Date Request Received'] || isBlankLike(row['Date Request Received'])) {
+      rowErrors.push(`Row ${rowNum}: Date Request Received is required for YTD recruitment records.`);
+    }
+
+    if (row['Start Date'] && !isBlankLike(row['Start Date'])) {
+      const parsedDate = new Date(row['Start Date']);
+      if (Number.isNaN(parsedDate.getTime())) rowErrors.push(`Row ${rowNum}: Invalid Start Date. Use YYYY-MM-DD or leave it blank if unknown.`);
+    }
+
+    if (row['Recruitment Stage']?.trim() && !VALID_CANDIDATE_STATUSES.includes(row['Recruitment Stage'].trim())) {
       rowErrors.push(`Row ${rowNum}: Recruitment Stage is invalid.`);
     }
 
-    if (['On Hold', 'Deferred', 'Cancelled'].includes(row['Role Location Status']?.trim())) {
-      if (!row['Status Reason']?.trim()) {
-        rowErrors.push(`Row ${rowNum}: Status Reason is required for ${row['Role Location Status']}.`);
-      }
+    if (['On Hold', 'Deferred', 'Cancelled'].includes(roleStatus) && !row['Status Reason']?.trim()) {
+      rowErrors.push(`Row ${rowNum}: Status Reason is required for ${roleStatus}.`);
     }
 
-    if (row['Role Location Status']?.trim() === 'Deferred') {
+    if (roleStatus === 'Deferred') {
       const year = Number(row['Deferred To Year']);
       if (!Number.isInteger(year) || year < 2000 || year > 2100) {
         rowErrors.push(`Row ${rowNum}: Deferred To Year is required for Deferred roles.`);
       }
     }
 
-    // Employment Type is represented in the template and is required when a candidate is being uploaded.
     if (row['Role Type']?.trim() && !['Sales', 'Support'].includes(row['Role Type'].trim())) {
       rowErrors.push(`Row ${rowNum}: Role Type must be Sales or Support.`);
     }
@@ -128,11 +174,6 @@ function validateParsedRows(parsed, mode) {
   });
 
   return { rows, errors };
-}
-
-// CSV entry point — unchanged behavior, no external dependency.
-export function parseUploadFile(fileText, mode = 'roles') {
-  return validateParsedRows(parseCsv(fileText), mode);
 }
 
 // ---------------------------------------------------------------

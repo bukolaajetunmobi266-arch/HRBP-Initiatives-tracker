@@ -35,7 +35,8 @@ function Badge({ status }) {
   return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{status}</span>;
 }
 
-const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected', 'On Hold', 'Cancelled'];
+const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+const FILTER_STATUS_OPTIONS = [...STATUS_OPTIONS, 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
 const EMPLOYMENT_TYPE_OPTIONS = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 function employmentTypeState(value) {
@@ -404,10 +405,10 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
               </select>
             </label>
             <label>
-              <span style={labelStyle()}>Recruitment Stage</span>
+              <span style={labelStyle()}>Recruitment Stage / Status</span>
               <select value={draft.stage} onChange={e => update('stage', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All stages</option>
-                {STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+                {FILTER_STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
               </select>
             </label>
           </div>
@@ -609,6 +610,7 @@ function aggregateRoleStatus(locations) {
   // the role remains Open at the summary level.
   if (statuses.every(s => s === 'Closed')) return 'Closed';
   if (statuses.every(s => s === 'On Hold')) return 'On Hold';
+  if (statuses.every(s => s === 'Deferred')) return 'Deferred';
   if (statuses.every(s => s === 'Cancelled')) return 'Cancelled';
   if (statuses.every(s => s === 'Yet to Start')) return 'Yet to Start';
 
@@ -631,7 +633,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   function passesFilter(rl) {
     if (filterMode === 'yetToStart') return rl.derived_status === 'Yet to Start';
     if (filterMode === 'aging') {
-      if (['Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(rl.derived_status) || !rl.date_request_received) return false;
+      if (['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status) || !rl.date_request_received) return false;
       return Math.floor((now - new Date(rl.date_request_received)) / 86400000) >= 30;
     }
     return true;
@@ -751,8 +753,8 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                           <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} to be filled</span>
                           <span style={{
                             fontSize: 11,
-                            color: roleStatus === 'Closed' ? 'var(--suc-tx)' : roleStatus === 'On Hold' ? 'var(--acc-tx)' : roleStatus === 'Cancelled' ? 'var(--dgr-tx)' : roleStatus === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--wrn-tx)',
-                            background: roleStatus === 'Closed' ? 'var(--suc-bg)' : roleStatus === 'On Hold' ? 'var(--acc-bg)' : roleStatus === 'Cancelled' ? 'var(--dgr-bg)' : roleStatus === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--wrn-bg)',
+                            color: roleStatus === 'Closed' ? 'var(--suc-tx)' : roleStatus === 'On Hold' ? 'var(--acc-tx)' : roleStatus === 'Deferred' ? 'var(--acc-tx)' : roleStatus === 'Cancelled' ? 'var(--dgr-tx)' : roleStatus === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--wrn-tx)',
+                            background: roleStatus === 'Closed' ? 'var(--suc-bg)' : roleStatus === 'On Hold' ? 'var(--acc-bg)' : roleStatus === 'Deferred' ? 'var(--acc-bg)' : roleStatus === 'Cancelled' ? 'var(--dgr-bg)' : roleStatus === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--wrn-bg)',
                             padding: '3px 8px',
                             borderRadius: 999
                           }}>
@@ -775,6 +777,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                               const startDate = rl.planned_start_date
                                 ? new Date(rl.planned_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                                 : null;
+                              const statusReason = rl.status_reason || null;
+                              const reviewDate = rl.status_review_date
+                                ? new Date(rl.status_review_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : null;
 
                               return (
                                 <div key={rl.role_location_id} className="location-card" style={{ background: 'var(--bg1)', border: '0.5px solid var(--bd)', borderRadius: 9, padding: '11px 12px' }}>
@@ -787,16 +793,33 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                     </div>
                                     <span style={{
                                       flexShrink: 0, fontSize: 11, padding: '3px 8px', borderRadius: 999,
-                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--acc-bg)',
-                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--acc-tx)',
+                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : status === 'Cancelled' ? 'var(--dgr-bg)' : 'var(--acc-bg)',
+                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : status === 'Cancelled' ? 'var(--dgr-tx)' : 'var(--acc-tx)',
                                       whiteSpace: 'nowrap'
                                     }}>{status}</span>
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 11, color: 'var(--txm)' }}>
                                     {startDate && <span>Start Date · {startDate}</span>}
-                                    {ageDays !== null && ageDays >= 30 && status !== 'Closed' && <span>· {ageDays} days open</span>}
+                                    {ageDays !== null && ageDays >= 30 && !['Closed', 'On Hold', 'Deferred', 'Cancelled', 'Yet to Start'].includes(status) && <span>· {ageDays} days open</span>}
                                   </div>
+                                  {status === 'On Hold' && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      {statusReason ? <>Hold reason · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span></> : 'Hold reason —'}
+                                      {reviewDate ? <> · Review <span style={{ color: 'var(--tx2)' }}>{reviewDate}</span></> : null}
+                                    </div>
+                                  )}
+                                  {status === 'Deferred' && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      Deferred to <span style={{ color: 'var(--tx2)' }}>{rl.deferred_to_year || '—'}</span>
+                                      {statusReason ? <> · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span></> : null}
+                                    </div>
+                                  )}
+                                  {status === 'Cancelled' && statusReason && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      Reason · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span>
+                                    </div>
+                                  )}
 
                                   <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8, opacity: 0, transition: 'opacity 0.1s' }}>
                                     <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
@@ -926,20 +949,32 @@ function EditRoleModal({ role, onClose, onSaved }) {
 function EditLocationModal({ rl, onClose, onSaved }) {
   const [location, setLocation] = useState(rl.location);
   const [noOfPositions, setNoOfPositions] = useState(rl.no_of_positions);
-  const [status, setStatus] = useState(rl.status);
+  const [status, setStatus] = useState(rl.status || 'Open');
   const [plannedStartDate, setPlannedStartDate] = useState(rl.planned_start_date || '');
   const [dateRequestReceived, setDateRequestReceived] = useState(rl.date_request_received || '');
   const [dateLocationClosed, setDateLocationClosed] = useState(rl.date_location_closed || '');
+  const [statusReason, setStatusReason] = useState(rl.status_reason || '');
+  const [statusReviewDate, setStatusReviewDate] = useState(rl.status_review_date || '');
+  const [deferredToYear, setDeferredToYear] = useState(rl.deferred_to_year || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const needsReason = ['On Hold', 'Deferred', 'Cancelled'].includes(status);
 
   async function submit() {
     setSaving(true); setError('');
     try {
       await updateRoleLocation({
-        roleLocationId: rl.role_location_id, location, noOfPositions: Number(noOfPositions), status,
-        plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+        roleLocationId: rl.role_location_id,
+        location,
+        noOfPositions: Number(noOfPositions),
+        status,
+        plannedStartDate: plannedStartDate || null,
+        dateRequestReceived: dateRequestReceived || null,
         dateLocationClosed: dateLocationClosed || null,
+        statusReason,
+        statusReviewDate,
+        deferredToYear,
       });
       onSaved();
     } catch (err) {
@@ -955,11 +990,33 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <input value={location} onChange={e => setLocation(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>No. of positions</label>
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-      <label style={labelStyle()}>Status override</label>
+      <label style={labelStyle()}>Status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
-        <option>Open</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
+        <option>Open</option><option>On Hold</option><option>Deferred</option><option>Cancelled</option><option>Closed</option>
       </select>
-      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the Start Date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
+      <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Open and Closed are system outcomes; On Hold, Deferred and Cancelled are manual lifecycle statuses.</div>
+
+      {needsReason && (
+        <>
+          <label style={labelStyle()}>Reason</label>
+          <input value={statusReason} onChange={e => setStatusReason(e.target.value)} placeholder={status === 'Deferred' ? 'Why is this role being deferred?' : status === 'On Hold' ? 'Why is hiring paused?' : 'Why is this role no longer required?'} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
+      {status === 'On Hold' && (
+        <>
+          <label style={labelStyle()}>Review Date <span style={{ color: 'var(--txm)', fontWeight: 400 }}>(optional)</span></label>
+          <input type="date" value={statusReviewDate} onChange={e => setStatusReviewDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
+      {status === 'Deferred' && (
+        <>
+          <label style={labelStyle()}>Deferred To Year</label>
+          <input type="number" min="2000" max="2100" value={deferredToYear} onChange={e => setDeferredToYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
@@ -986,6 +1043,9 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
   const [status, setStatus] = useState('Open');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusReviewDate, setStatusReviewDate] = useState('');
+  const [deferredToYear, setDeferredToYear] = useState('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [saving, setSaving] = useState(false);
@@ -1003,6 +1063,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       await createRoleLocation({
         roleId: newRole.role_id, location: location.trim(), noOfPositions: Number(noOfPositions),
         status, plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+        statusReason, statusReviewDate, deferredToYear,
       });
       onSaved();
     } catch (err) {
@@ -1035,8 +1096,26 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
+        <option>Open</option><option>On Hold</option><option>Deferred</option><option>Cancelled</option>
       </select>
+      {['On Hold', 'Deferred', 'Cancelled'].includes(status) && (
+        <>
+          <label style={labelStyle()}>Reason</label>
+          <input value={statusReason} onChange={e => setStatusReason(e.target.value)} placeholder={status === 'Deferred' ? 'Why is this role being deferred?' : status === 'On Hold' ? 'Why is hiring paused?' : 'Why is this role no longer required?'} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {status === 'On Hold' && (
+        <>
+          <label style={labelStyle()}>Review Date <span style={{ color: 'var(--txm)', fontWeight: 400 }}>(optional)</span></label>
+          <input type="date" value={statusReviewDate} onChange={e => setStatusReviewDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {status === 'Deferred' && (
+        <>
+          <label style={labelStyle()}>Deferred To Year</label>
+          <input type="number" min="2000" max="2100" value={deferredToYear} onChange={e => setDeferredToYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
