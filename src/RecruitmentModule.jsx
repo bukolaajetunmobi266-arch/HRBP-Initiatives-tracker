@@ -1043,6 +1043,9 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
   const [status, setStatus] = useState('Open');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusReviewDate, setStatusReviewDate] = useState('');
+  const [deferredToYear, setDeferredToYear] = useState('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [saving, setSaving] = useState(false);
@@ -1060,6 +1063,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       await createRoleLocation({
         roleId: newRole.role_id, location: location.trim(), noOfPositions: Number(noOfPositions),
         status, plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+        statusReason, statusReviewDate, deferredToYear,
       });
       onSaved();
     } catch (err) {
@@ -1092,8 +1096,26 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
+        <option>Open</option><option>On Hold</option><option>Deferred</option><option>Cancelled</option>
       </select>
+      {['On Hold', 'Deferred', 'Cancelled'].includes(status) && (
+        <>
+          <label style={labelStyle()}>Reason</label>
+          <input value={statusReason} onChange={e => setStatusReason(e.target.value)} placeholder={status === 'Deferred' ? 'Why is this role being deferred?' : status === 'On Hold' ? 'Why is hiring paused?' : 'Why is this role no longer required?'} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {status === 'On Hold' && (
+        <>
+          <label style={labelStyle()}>Review Date <span style={{ color: 'var(--txm)', fontWeight: 400 }}>(optional)</span></label>
+          <input type="date" value={statusReviewDate} onChange={e => setStatusReviewDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
+      {status === 'Deferred' && (
+        <>
+          <label style={labelStyle()}>Deferred To Year</label>
+          <input type="number" min="2000" max="2100" value={deferredToYear} onChange={e => setDeferredToYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+        </>
+      )}
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
