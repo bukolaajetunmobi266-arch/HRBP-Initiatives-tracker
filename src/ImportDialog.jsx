@@ -6,6 +6,7 @@ export default function ImportDialog({ profiles, onCancel, onDone }) {
   const [parsed, setParsed] = useState(null)
   const [importing, setImporting] = useState(false)
   const [fileErr, setFileErr] = useState('')
+  const [importResult, setImportResult] = useState(null)
 
   const handleFile = async (e) => {
     const file = e.target.files[0]
@@ -27,12 +28,16 @@ export default function ImportDialog({ profiles, onCancel, onDone }) {
 
   const runImport = async () => {
     setImporting(true)
+    setImportResult(null)
     const { deliverables, actions } = parsed
+    const errors = []
+    let created = 0
 
     for (const d of deliverables) {
       const { _comment, ...payload } = d
       const { data, error } = await supabase.from('deliverables').insert(payload).select().single()
-      if (error) continue
+      if (error) { errors.push(`Deliverable "${d.title}": ${error.message}`); continue }
+      created++
       if (_comment && data) {
         await supabase.from('comments').insert({ deliverable_id: data.id, author_id: (await supabase.auth.getUser()).data.user.id, text: _comment })
       }
@@ -45,17 +50,21 @@ export default function ImportDialog({ profiles, onCancel, onDone }) {
           const { data, error } = await supabase.from('key_actions')
             .insert({ title, raised_in, shared: true, due_date, status: 'Not Started', comment })
             .select().single()
-          if (error) continue
+          if (error) { errors.push(`Action "${title}": ${error.message}`); continue }
+          created++
           await Promise.all(nonAdminProfiles.map((p) =>
             supabase.from('action_item_statuses').upsert({ action_id: data.id, user_id: p.id, status }, { onConflict: 'action_id,user_id' })
           ))
         } else {
-          await supabase.from('key_actions').insert(act)
+          const { error } = await supabase.from('key_actions').insert(act)
+          if (error) errors.push(`Action "${act.title}": ${error.message}`)
+          else created++
         }
       }
     }
     setImporting(false)
-    onDone()
+    setImportResult({ created, errors })
+    if (errors.length === 0) onDone()
   }
 
   return (
@@ -87,6 +96,17 @@ export default function ImportDialog({ profiles, onCancel, onDone }) {
             )}
             <p style={{ fontSize: 12, color: 'var(--txm)', marginBottom: 16 }}>This adds to your existing tracker — it doesn't replace anything already there.</p>
           </>
+        )}
+
+        {importResult && (
+          <div style={{ marginTop: 12, background: importResult.errors.length ? 'var(--wrn-bg)' : 'var(--suc-bg)', color: importResult.errors.length ? 'var(--wrn-tx)' : 'var(--suc-tx)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+            <strong>{importResult.created} item(s) imported successfully.</strong>
+            {importResult.errors.length > 0 && (
+              <div style={{ marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
+                {importResult.errors.map((e, i) => <div key={i} style={{ marginBottom: 4 }}>{e}</div>)}
+              </div>
+            )}
+          </div>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
