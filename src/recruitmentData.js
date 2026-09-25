@@ -232,14 +232,13 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   for (const rl of roleLocationsWithCandidates) {
     const divName = rl.roles.divisions.name;
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
-    uniqueRoleIds.add(rl.roles.role_id);
-
     if (['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)) {
       // Non-active lifecycle states are excluded from active slot totals and funnel metrics.
       if (rl.derived_status === 'Yet to Start') yetToStartSlots += rl.no_of_positions;
       continue;
     }
 
+    uniqueRoleIds.add(rl.roles.role_id);
     totalSlots += rl.no_of_positions;
     divisionAgg[divName].slots += rl.no_of_positions;
 
@@ -273,7 +272,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   return {
     totalSlots,
     totalRoles: uniqueRoleIds.size,
-    totalRoleLocations: roleLocationsWithCandidates.length,
+    totalRoleLocations: roleLocationsWithCandidates.filter(rl => !['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)).length,
     yetToStartSlots,
     avgTimeToClose,
     avgTimeToOnboard,
