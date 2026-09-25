@@ -101,7 +101,30 @@ export async function moveCandidate(candidateId, newRoleLocationId, movedReason,
 }
 
 // Create a new role_location under an existing role (analysts/HRBPs allowed, per RLS)
-export async function createRoleLocation({ roleId, location, noOfPositions, status = 'Yet to Start', plannedStartDate, dateRequestReceived }) {
+export async function createRoleLocation({
+  roleId,
+  location,
+  noOfPositions,
+  status = 'Yet to Start',
+  plannedStartDate,
+  dateRequestReceived,
+  statusReason,
+  statusReviewDate,
+  deferredToYear,
+}) {
+  const isHold = status === 'On Hold';
+  const isDeferred = status === 'Deferred';
+  const isCancelled = status === 'Cancelled';
+  if ((isHold || isDeferred || isCancelled) && !String(statusReason || '').trim()) {
+    throw new Error(`A reason is required when a location is ${status}.`);
+  }
+  if (isDeferred) {
+    const year = Number(deferredToYear);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      throw new Error('Deferred To Year is required and must be between 2000 and 2100.');
+    }
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('role_locations')
@@ -112,6 +135,9 @@ export async function createRoleLocation({ roleId, location, noOfPositions, stat
       status,
       planned_start_date: plannedStartDate || null,
       date_request_received: dateRequestReceived || null,
+      status_reason: (isHold || isDeferred || isCancelled) ? String(statusReason).trim() : null,
+      status_review_date: isHold ? (statusReviewDate || null) : null,
+      deferred_to_year: isDeferred ? Number(deferredToYear) : null,
       created_by: user?.id,
     })
     .select()
