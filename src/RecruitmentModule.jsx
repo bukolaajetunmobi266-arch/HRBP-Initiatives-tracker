@@ -35,7 +35,8 @@ function Badge({ status }) {
   return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{status}</span>;
 }
 
-const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected', 'On Hold', 'Deferred', 'Cancelled'];
+const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+const FILTER_STATUS_OPTIONS = [...STATUS_OPTIONS, 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
 const EMPLOYMENT_TYPE_OPTIONS = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 function employmentTypeState(value) {
@@ -407,7 +408,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
               <span style={labelStyle()}>Recruitment Stage / Status</span>
               <select value={draft.stage} onChange={e => update('stage', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All stages</option>
-                {STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+                {FILTER_STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
               </select>
             </label>
           </div>
