@@ -267,3 +267,103 @@ select cron.schedule(
 -- Done. Next: sign up in the app, then run:
 --   update profiles set role = 'admin' where email = 'YOUR_EMAIL';
 -- ============================================================================
+
+-- ============================================================================
+-- RECRUITMENT — canonical schema additions
+-- Documents the current recruitment fields used by the application, including
+-- the lifecycle model and candidate email.
+-- ============================================================================
+
+alter table if exists profiles add column if not exists hrbp_id uuid references profiles(id);
+alter table if exists profiles add column if not exists recruitment_role text
+  check (recruitment_role in ('admin', 'hrbp', 'analyst', 'recruitment_admin'));
+alter table if exists profiles add column if not exists recruitment_hrbp_id uuid references profiles(id);
+
+create table if not exists divisions (
+  division_id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  hrbp_id uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists roles (
+  role_id uuid primary key default gen_random_uuid(),
+  division_id uuid not null references divisions(division_id),
+  role_title text not null,
+  role_type text check (role_type in ('Support', 'Sales', 'Affiliate')),
+  date_request_received date,
+  created_at timestamptz default now(),
+  created_by uuid references profiles(id),
+  updated_at timestamptz default now(),
+  deleted_at timestamptz,
+  deleted_by uuid references profiles(id)
+);
+
+create table if not exists role_locations (
+  role_location_id uuid primary key default gen_random_uuid(),
+  role_id uuid not null references roles(role_id) on delete cascade,
+  location text not null,
+  no_of_positions integer not null default 1,
+  status text not null default 'Open'
+    check (status in ('Yet to Start', 'Open', 'On Hold', 'Deferred', 'Cancelled', 'Closed')),
+  planned_start_date date,
+  status_reason text,
+  status_review_date date,
+  deferred_to_year integer check (deferred_to_year between 2000 and 2100),
+  created_at timestamptz default now(),
+  created_by uuid references profiles(id),
+  updated_at timestamptz default now(),
+  deleted_at timestamptz,
+  deleted_by uuid references profiles(id)
+);
+
+create table if not exists candidates (
+  candidate_id uuid primary key default gen_random_uuid(),
+  role_location_id uuid not null references role_locations(role_location_id) on delete cascade,
+  candidate_name text not null,
+  contact_phone text,
+  email text,
+  source text,
+  status text not null default 'Sourcing',
+  role_type text,
+  employment_type text check (employment_type in ('Full-Time', 'Contract', 'Affiliate', 'Intern')),
+  status_reason text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  created_by uuid references profiles(id),
+  updated_by uuid references profiles(id),
+  deleted_at timestamptz,
+  deleted_by uuid references profiles(id)
+);
+
+create table if not exists role_location_status_history (
+  history_id uuid primary key default gen_random_uuid(),
+  role_location_id uuid not null references role_locations(role_location_id) on delete cascade,
+  previous_status text,
+  new_status text not null,
+  reason text,
+  review_date date,
+  deferred_to_year integer,
+  changed_by uuid references profiles(id),
+  changed_at timestamptz default now()
+);
+
+create table if not exists candidate_status_history (
+  history_id uuid primary key default gen_random_uuid(),
+  candidate_id uuid not null references candidates(candidate_id) on delete cascade,
+  previous_status text,
+  new_status text not null,
+  changed_by uuid references profiles(id),
+  changed_at timestamptz default now()
+);
+
+alter table if exists candidates add column if not exists email text;
+alter table if exists candidates add column if not exists role_type text;
+alter table if exists candidates add column if not exists employment_type text;
+alter table if exists role_locations add column if not exists status_reason text;
+alter table if exists role_locations add column if not exists status_review_date date;
+alter table if exists role_locations add column if not exists deferred_to_year integer;
+
+-- ============================================================================
+-- END RECRUITMENT SCHEMA
+-- ============================================================================
