@@ -95,6 +95,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .select(`
       role_location_id, location, no_of_positions, status, planned_start_date,
       date_request_received, date_location_closed,
+      status_reason, status_review_date, deferred_to_year,
       roles!inner ( role_id, role_title, role_type, suggested_grade, division_id,
         divisions!inner ( division_id, name, hrbp_id ) )
     `)
@@ -188,11 +189,11 @@ const FUNNEL_STAGES = [
 const CANDIDATE_FUNNEL_STAGES = FUNNEL_STAGES.filter(s => s !== 'Yet to Start');
 
 const CANDIDATE_STATUS_FILTERS = [...CANDIDATE_FUNNEL_STAGES, 'Dropped', 'Rejected'];
-const ROLE_LOCATION_STATUS_FILTERS = ['Yet to Start', 'Sourcing', 'On Hold', 'Cancelled'];
+const ROLE_LOCATION_STATUS_FILTERS = ['Yet to Start', 'Sourcing', 'On Hold', 'Deferred', 'Cancelled'];
 
 function deriveRoleLocationStatus(rl) {
-  // On Hold and Cancelled are deliberate manual overrides.
-  if (rl.status === 'On Hold' || rl.status === 'Cancelled') return rl.status;
+  // On Hold, Deferred and Cancelled are deliberate manual overrides.
+  if (['On Hold', 'Deferred', 'Cancelled'].includes(rl.status)) return rl.status;
 
   const positions = Number(rl.no_of_positions || 0);
   const closed = rl.candidates.filter(c => c.status === 'Closed').length;
@@ -233,9 +234,9 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
     uniqueRoleIds.add(rl.roles.role_id);
 
-    if (rl.derived_status === 'Yet to Start') {
-      // Not yet active — excluded from slot totals, Fill Rate, Closure Rate, and the funnel.
-      yetToStartSlots += rl.no_of_positions;
+    if (['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)) {
+      // Non-active lifecycle states are excluded from active slot totals and funnel metrics.
+      if (rl.derived_status === 'Yet to Start') yetToStartSlots += rl.no_of_positions;
       continue;
     }
 
