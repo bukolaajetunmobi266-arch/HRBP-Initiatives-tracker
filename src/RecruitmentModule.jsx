@@ -1086,11 +1086,11 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
 
   function exportCandidates() {
     const rows = flat.map(c => ({
-      Name: c.candidate_name, Division: c.division, Role: c.roleTitle, Location: c.location,
+      Name: c.candidate_name, Email: c.email || '', Division: c.division, Role: c.roleTitle, Location: c.location,
       'Employment Type': c.employment_type || '', Status: c.status, Source: c.source || '', Phone: c.contact_phone || '',
       'Time to Onboard (days)': computeTimeToOnboard(c) ?? '',
     }));
-    downloadCsv('candidates_export.csv', ['Name', 'Division', 'Role', 'Location', 'Employment Type', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
+    downloadCsv('candidates_export.csv', ['Name', 'Email', 'Division', 'Role', 'Location', 'Employment Type', 'Status', 'Source', 'Phone', 'Time to Onboard (days)'], rows);
   }
 
   const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
@@ -1218,6 +1218,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                 />
               </th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Name</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Email</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Division</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Role</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Location</th>
@@ -1243,6 +1244,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                     </button>
                     {isStalled && <span style={{ marginLeft: 6, color: 'var(--dgr-tx)' }}>⚠</span>}
                   </td>
+                  <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.email || '—'}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.division}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.roleTitle}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.location}</td>
@@ -1308,6 +1310,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
   const [roleId, setRoleId] = useState('');
   const [roleLocationId, setRoleLocationId] = useState(presetRoleLocationId || '');
   const [candidateName, setCandidateName] = useState('');
+  const [email, setEmail] = useState('');
   const [employmentType, setEmploymentType] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [source, setSource] = useState('');
@@ -1361,7 +1364,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
     }
     setSaving(true); setError('');
     try {
-      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), employmentType: employmentType, contactPhone, source, status });
+      await addCandidate({ roleLocationId, candidateName: candidateName.trim(), email: email.trim(), employmentType: employmentType, contactPhone, source, status });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -1397,6 +1400,8 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       )}
       <label style={labelStyle()}>Candidate name</label>
       <input value={candidateName} onChange={e => setCandidateName(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <label style={labelStyle()}>Email address</label>
+      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="candidate@example.com" style={inputStyle({ width: '100%', marginBottom: 10 })} />
       {(() => {
         const role = presetRl || rowsWithCandidates.find(rl => rl.role_location_id === roleLocationId);
         const typeState = employmentTypeState(employmentType);
@@ -1778,6 +1783,7 @@ function BulkStatusDateModal({ pending, onClose, onSaved }) {
 function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClose, onSaved }) {
   const [form, setForm] = useState({
     candidate_name: candidate.candidate_name || '',
+    email: candidate.email || '',
     employment_type: candidate.employment_type || '',
     contact_phone: candidate.contact_phone || '',
     source: candidate.source || '',
@@ -1872,6 +1878,9 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClo
 
       <label style={labelStyle()}>Name</label>
       <input value={form.candidate_name} onChange={e => set('candidate_name', e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+
+      <label style={labelStyle()}>Email address</label>
+      <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="candidate@example.com" style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
       {(() => {
         const typeState = employmentTypeState(form.employment_type);
