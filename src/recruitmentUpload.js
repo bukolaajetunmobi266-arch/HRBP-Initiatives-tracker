@@ -160,6 +160,10 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: Role Type must be Sales or Support.`);
     }
 
+    if (row['Email']?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row['Email'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Email address is invalid.`);
+    }
+
     if (row['Candidate Name']?.trim()) {
       const employmentType = row['Employment Type']?.trim();
       if (!employmentType) {
