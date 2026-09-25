@@ -792,16 +792,33 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                     </div>
                                     <span style={{
                                       flexShrink: 0, fontSize: 11, padding: '3px 8px', borderRadius: 999,
-                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : 'var(--acc-bg)',
-                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : 'var(--acc-tx)',
+                                      background: status === 'Closed' ? 'var(--suc-bg)' : status === 'Yet to Start' ? 'var(--neu-bg)' : status === 'Cancelled' ? 'var(--dgr-bg)' : 'var(--acc-bg)',
+                                      color: status === 'Closed' ? 'var(--suc-tx)' : status === 'Yet to Start' ? 'var(--neu-tx)' : status === 'Cancelled' ? 'var(--dgr-tx)' : 'var(--acc-tx)',
                                       whiteSpace: 'nowrap'
                                     }}>{status}</span>
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 11, color: 'var(--txm)' }}>
                                     {startDate && <span>Start Date · {startDate}</span>}
-                                    {ageDays !== null && ageDays >= 30 && status !== 'Closed' && <span>· {ageDays} days open</span>}
+                                    {ageDays !== null && ageDays >= 30 && !['Closed', 'On Hold', 'Deferred', 'Cancelled', 'Yet to Start'].includes(status) && <span>· {ageDays} days open</span>}
                                   </div>
+                                  {status === 'On Hold' && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      {statusReason ? <>Hold reason · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span></> : 'Hold reason —'}
+                                      {reviewDate ? <> · Review <span style={{ color: 'var(--tx2)' }}>{reviewDate}</span></> : null}
+                                    </div>
+                                  )}
+                                  {status === 'Deferred' && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      Deferred to <span style={{ color: 'var(--tx2)' }}>{rl.deferred_to_year || '—'}</span>
+                                      {statusReason ? <> · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span></> : null}
+                                    </div>
+                                  )}
+                                  {status === 'Cancelled' && statusReason && (
+                                    <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 6 }}>
+                                      Reason · <span style={{ color: 'var(--tx2)' }}>{statusReason}</span>
+                                    </div>
+                                  )}
 
                                   <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8, opacity: 0, transition: 'opacity 0.1s' }}>
                                     <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
