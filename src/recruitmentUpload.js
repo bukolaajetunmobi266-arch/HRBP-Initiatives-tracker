@@ -50,8 +50,9 @@ function parseCsv(text) {
 
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const REQUIRED_HEADERS = [
-  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions',
-  'Role Location Status', 'Candidate Name', 'Employment Type', 'Contact Phone',
+  'Division', 'Role Title', 'Role Type', 'Location', 'No. of Positions',
+  'Role Location Status', 'Date Request Received', 'Start Date',
+  'Candidate Name', 'Employment Type', 'Recruitment Stage', 'Contact Phone',
 ];
 
 const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
@@ -87,8 +88,25 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
     }
 
-    if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
-      rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
+    if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Deferred, Cancelled, or Closed.`);
+    }
+
+    if (row['Recruitment Stage']?.trim() && !['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'].includes(row['Recruitment Stage'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Recruitment Stage is invalid.`);
+    }
+
+    if (['On Hold', 'Deferred', 'Cancelled'].includes(row['Role Location Status']?.trim())) {
+      if (!row['Status Reason']?.trim()) {
+        rowErrors.push(`Row ${rowNum}: Status Reason is required for ${row['Role Location Status']}.`);
+      }
+    }
+
+    if (row['Role Location Status']?.trim() === 'Deferred') {
+      const year = Number(row['Deferred To Year']);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+        rowErrors.push(`Row ${rowNum}: Deferred To Year is required for Deferred roles.`);
+      }
     }
 
     // Employment Type is represented in the template and is required when a candidate is being uploaded.
@@ -163,118 +181,30 @@ export async function parseXlsxUploadFile(file, mode = 'roles') {
 // exist — this does NOT create new divisions, only roles/role_locations/candidates),
 // then roles, then role_locations, then candidates.
 export async function executeUpload(parsedRows, onProgress) {
-  const results = { created: 0, skipped: 0, failed: [] };
-
-  // Cache lookups within this run to avoid repeat queries
-  const divisionCache = new Map();
-  const roleCache = new Map(); // key: `${divisionId}::${roleTitle}` -> role_id
-  const roleLocationCache = new Map(); // key: `${roleId}::${location}` -> role_location_id
-
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Your session has expired. Please sign in again.');
 
-  for (const row of parsedRows) {
-    if (row.errors.length) { results.skipped++; continue; }
-    const r = row.raw;
+  const rows = parsedRows
+    .filter(row => !row.errors.length)
+    .map(row => row.raw);
 
-    try {
-      // 1. Resolve division (must already exist)
-      let divisionId = divisionCache.get(r['Division']);
-      if (!divisionId) {
-        const { data: div, error } = await supabase
-          .from('divisions').select('division_id').eq('name', r['Division'].trim()).maybeSingle();
-        if (error) throw error;
-        if (!div) throw new Error(`Division "${r['Division']}" does not exist — add it first.`);
-        divisionId = div.division_id;
-        divisionCache.set(r['Division'], divisionId);
-      }
+  if (!rows.length) return { created: 0, failed: [], skipped: parsedRows.length };
 
-      // 2. Resolve or create role
-      const roleKey = `${divisionId}::${r['Role Title'].trim()}`;
-      let roleId = roleCache.get(roleKey);
-      if (!roleId) {
-        const { data: existingRole } = await supabase
-          .from('roles').select('role_id')
-          .eq('division_id', divisionId).eq('role_title', r['Role Title'].trim())
-          .is('deleted_at', null).maybeSingle();
-        if (existingRole) {
-          roleId = existingRole.role_id;
-        } else {
-          const { data: newRole, error } = await supabase
-            .from('roles').insert({
-              division_id: divisionId,
-              role_title: r['Role Title'].trim(),
-              role_type: r['Role Type']?.trim() || null,
-              suggested_grade: r['Suggested Grade']?.trim() || null,
-              created_by: user?.id,
-            }).select('role_id').single();
-          if (error) throw error;
-          roleId = newRole.role_id;
-        }
-        roleCache.set(roleKey, roleId);
-      }
+  const { data, error } = await supabase.functions.invoke('recruitment-bulk-upload', {
+    body: { rows },
+  });
 
-      // 3. Resolve or create role_location
-      const rlKey = `${roleId}::${r['Location'].trim()}`;
-      let roleLocationId = roleLocationCache.get(rlKey);
-      if (!roleLocationId) {
-        const { data: existingRL } = await supabase
-          .from('role_locations').select('role_location_id')
-          .eq('role_id', roleId).eq('location', r['Location'].trim())
-          .is('deleted_at', null).maybeSingle();
-        if (existingRL) {
-          roleLocationId = existingRL.role_location_id;
-        } else {
-          const { data: newRL, error } = await supabase
-            .from('role_locations').insert({
-              role_id: roleId,
-              location: r['Location'].trim(),
-              no_of_positions: Number(r['No of Positions']),
-              status: r['Role Location Status']?.trim() || 'Open',
-              planned_start_date: null,
-              date_request_received: new Date().toISOString().slice(0, 10),
-              date_location_closed: null,
-              created_by: user?.id,
-            }).select('role_location_id').single();
-          if (error) throw error;
-          roleLocationId = newRL.role_location_id;
-        }
-        roleLocationCache.set(rlKey, roleLocationId);
-      }
-
-      // 4. Add candidate, only if a name was actually given
-      if (r['Candidate Name']?.trim()) {
-        const { error } = await supabase.from('candidates').insert({
-          role_location_id: roleLocationId,
-          candidate_name: r['Candidate Name'].trim(),
-          contact_phone: r['Contact Phone']?.trim() || null,
-          source: null,
-          status: 'Sourcing',
-          employment_type: r['Employment Type']?.trim() || null,
-          medical_report_received: false,
-          date_sourced: null,
-          date_interview: null,
-          date_sent_for_onboarding_approval: null,
-          date_documentation_started: null,
-          date_offer_extended: null,
-          date_offer_accepted: null,
-          expected_resumption_date: null,
-          actual_resumption_date: null,
-          date_closed: null,
-          status_reason: null,
-          status_stage_at_exit: null,
-          created_by: user?.id,
-          updated_by: user?.id,
-        });
-        if (error) throw error;
-      }
-
-      results.created++;
-    } catch (err) {
-      results.failed.push({ rowNum: row.rowNum, message: err.message });
-    }
-    onProgress?.(results);
+  if (error) {
+    throw new Error(error.message || 'The recruitment import service could not process the upload.');
   }
 
+  const results = {
+    created: Number(data?.created || 0),
+    skipped: parsedRows.length - rows.length,
+    failed: Array.isArray(data?.failed) ? data.failed : [],
+  };
+
+  onProgress?.(results);
   return results;
 }
 
