@@ -139,8 +139,8 @@ function Dashboard({ session, theme, setTheme }) {
     // eslint-disable-next-line
   }, [profile?.id, profile?.recruitment_role])
 
-  const loadProfile = async () => { const { data } = await supabase.from('profiles').select('*').eq('id', userId).single(); setProfile(data) }
-  const loadProfiles = async () => { const { data } = await supabase.from('profiles').select('*').order('full_name'); setProfiles(data || []) }
+  const loadProfile = async () => { const { data } = await supabase.from('profiles').select('id, full_name, role, recruitment_role, recruitment_hrbp_id').eq('id', userId).single(); setProfile(data) }
+  const loadProfiles = async () => { const { data } = await supabase.from('profiles').select('id, full_name, role, recruitment_role, recruitment_hrbp_id').order('full_name'); setProfiles(data || []) }
   const loadDeliverables = async () => {
     const { data } = await supabase.from('deliverables').select('*, comments(*)').order('created_at', { ascending: false })
     setDeliverables(data || []); setLoading(false)
