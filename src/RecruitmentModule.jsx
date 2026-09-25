@@ -776,6 +776,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                               const startDate = rl.planned_start_date
                                 ? new Date(rl.planned_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                                 : null;
+                              const statusReason = rl.status_reason || null;
+                              const reviewDate = rl.status_review_date
+                                ? new Date(rl.status_review_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : null;
 
                               return (
                                 <div key={rl.role_location_id} className="location-card" style={{ background: 'var(--bg1)', border: '0.5px solid var(--bd)', borderRadius: 9, padding: '11px 12px' }}>
@@ -1005,7 +1009,6 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <p style={{ fontSize: 11, color: 'var(--txm)', marginTop: -6, marginBottom: 10 }}>This is what Time to Close is calculated from — leave blank until every position here is filled.</p>
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={btnStyle()}>Cancel</button>
         <button onClick={onClose} style={btnStyle()}>Cancel</button>
         <button onClick={submit} disabled={saving} style={primaryBtnStyle()}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
