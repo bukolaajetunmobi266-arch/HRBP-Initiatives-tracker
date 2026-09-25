@@ -257,15 +257,13 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const url = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !anonKey || !serviceKey) return json({ error: "Recruitment import backend is not configured." }, 500);
+    if (!url || !anonKey) return json({ error: "Recruitment import backend is not configured." }, 500);
 
-    const userClient = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
+    const db = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+    const { data: { user }, error: userError } = await db.auth.getUser(token);
     if (userError || !user) return json({ error: "Your session is no longer valid. Please sign in again." }, 401);
 
-    const admin = createClient(url, serviceKey);
-    const profile = await getProfile(admin, user.id);
+    const profile = await getProfile(db, user.id);
 
     const body = await req.json();
     const rows = Array.isArray(body?.rows) ? body.rows : [];
@@ -276,7 +274,7 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < rows.length; i++) {
       try {
-        await processRow(admin, profile, rows[i], i + 2, user.id);
+        await processRow(db, profile, rows[i], i + 2, user.id);
         results.created++;
       } catch (error) {
         results.failed.push({ rowNum: i + 2, message: error instanceof Error ? error.message : String(error) });
