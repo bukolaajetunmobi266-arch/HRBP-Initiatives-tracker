@@ -2037,7 +2037,9 @@ function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
     try {
       const res = await executor(parsed.rows);
       setResult(res);
-      onDone();
+      if ((res.failed || []).length === 0) {
+        onDone();
+      }
     } catch (err) {
       console.error('Upload failed:', err);
       setUploadError(err.message || String(err));
@@ -2070,12 +2072,18 @@ function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
 
       {result && (
         <div style={{ marginTop: 16, fontSize: 13 }}>
-          <div>{result.created} rows created successfully.</div>
+          <div style={{ color: result.failed.length ? 'var(--wrn-tx)' : 'var(--suc-tx)' }}>
+            {result.created} rows created successfully.
+            {result.skipped ? ` ${result.skipped} rows were skipped because they had validation errors.` : ''}
+          </div>
           {result.failed.length > 0 && (
-            <div style={{ color: 'var(--dgr-tx)', marginTop: 8 }}>
-              <strong>{result.failed.length} rows failed:</strong>
-              <ul>{result.failed.map((f, i) => <li key={i}>Row {f.rowNum}: {f.message}</li>)}</ul>
+            <div style={{ color: 'var(--dgr-tx)', marginTop: 8, background: 'var(--dgr-bg)', borderRadius: 8, padding: 10 }}>
+              <strong>{result.failed.length} rows could not be imported. Nothing was hidden — fix these rows and import again:</strong>
+              <ul style={{ marginBottom: 0 }}>{result.failed.map((f, i) => <li key={i}>Row {f.rowNum}: {f.message}</li>)}</ul>
             </div>
+          )}
+          {result.failed.length === 0 && (
+            <div style={{ marginTop: 8, color: 'var(--tx2)' }}>Import completed successfully. The tracker has been refreshed.</div>
           )}
         </div>
       )}
