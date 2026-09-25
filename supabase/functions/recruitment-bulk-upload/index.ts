@@ -21,6 +21,16 @@ const CANDIDATE_STATUSES = [
 ];
 const EMPLOYMENT_TYPES = ["Full-Time", "Contract", "Affiliate", "Intern"];
 
+const DIVISION_ALIASES: Record<string, string> = {
+  "state business": "State Business Sales",
+  "federal business": "Federal Business Sales",
+  "digital transformation": "Executive Office - Digital Transformation",
+  "financial inclusion": "Executive Office - Financial Inclusion",
+  "bmc": "Executive Office - Brand Marketing & Corporate Communication",
+  "brand marketing & corporate communication": "Executive Office - Brand Marketing & Corporate Communication",
+  "people management": "People Management & Admin",
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
@@ -29,9 +39,13 @@ function clean(value: unknown) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function isBlankOrNotApplicable(value: unknown) {
+  return ["", "N/A", "NA", "N.A.", "-", "—"].includes(clean(value).toUpperCase());
+}
+
 function parseDate(value: unknown) {
   const raw = clean(value);
-  if (!raw) return null;
+  if (isBlankOrNotApplicable(raw)) return null;
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) throw new Error(`Invalid date: "${raw}". Use YYYY-MM-DD.`);
   return d.toISOString().slice(0, 10);
@@ -50,8 +64,13 @@ function profileCanAccessDivision(profile: any, division: any) {
     && division.hrbp_id === profile.recruitment_hrbp_id;
 }
 
+function normalizeDivisionName(value: unknown) {
+  const name = clean(value);
+  return DIVISION_ALIASES[name.toLowerCase()] || name;
+}
+
 function validateRow(raw: any, rowNum: number) {
-  const division = clean(raw["Division"]);
+  const division = normalizeDivisionName(raw["Division"] || raw["Division / Business"]);
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
@@ -70,6 +89,13 @@ function validateRow(raw: any, rowNum: number) {
   if (!ROLE_LOCATION_STATUSES.includes(status)) {
     throw new Error(`Row ${rowNum}: Role Location Status is invalid.`);
   }
+
+  // Validate optional date fields here so the user gets a row-level error.
+  // N/A/blank values are treated as intentionally empty.
+  parseDate(raw["Date Request Received"]);
+  parseDate(raw["Start Date"]);
+  parseDate(raw["Review Date"]);
+  parseDate(raw["Date Location Closed"]);
 
   if (candidateName) {
     if (!employmentType || !EMPLOYMENT_TYPES.includes(employmentType)) {
@@ -109,7 +135,8 @@ async function getProfile(admin: any, userId: string) {
 async function processRow(admin: any, profile: any, raw: any, rowNum: number, userId: string) {
   validateRow(raw, rowNum);
 
-  const divisionName = clean(raw["Division"]);
+  const divisionInput = clean(raw["Division"] || raw["Division / Business"]);
+  const divisionName = normalizeDivisionName(divisionInput);
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
@@ -128,7 +155,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
     .eq("name", divisionName)
     .maybeSingle();
   if (divisionError) throw divisionError;
-  if (!division) throw new Error(`Division "${divisionName}" does not exist.`);
+  if (!division) throw new Error(`Division "${divisionInput}" does not exist. Use the business/division name shown in the tracker.`);
   if (!profileCanAccessDivision(profile, division)) {
     throw new Error(`You do not have access to the "${divisionName}" division.`);
   }
