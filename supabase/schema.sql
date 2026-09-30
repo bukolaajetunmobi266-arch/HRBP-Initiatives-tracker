@@ -360,6 +360,12 @@ create table if not exists candidate_status_history (
 );
 
 alter table if exists candidates add column if not exists email text;
+
+-- Candidate pipeline stages supported by the recruitment tracker and legacy upload template.
+alter table if exists candidates drop constraint if exists candidates_status_check;
+alter table if exists candidates add constraint candidates_status_check check (
+  status = any (array['Sourcing','Screening','Interview','Assessment','Onboarding Approval','Documentation','Offer','Awaiting Resumption','Closed','Dropped','Rejected'])
+);
 alter table if exists candidates add column if not exists role_type text;
 alter table if exists candidates add column if not exists employment_type text;
 alter table if exists role_locations add column if not exists status_reason text;
