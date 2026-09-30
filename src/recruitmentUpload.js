@@ -255,7 +255,7 @@ export async function executeUpload(parsedRows, onProgress) {
 
   const results = {
     created: Number(data?.created || 0),
-    skipped: parsedRows.length - rows.length,
+    skipped: Number(data?.skipped || 0) + (parsedRows.length - rows.length),
     failed: Array.isArray(data?.failed) ? data.failed : [],
   };
 
