@@ -203,7 +203,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
     status,
     planned_start_date: startDate,
     date_request_received: requestDate,
-    date_location_closed: status === "Closed" ? (parseDate(raw["Date Location Closed"]) || new Date().toISOString().slice(0, 10)) : null,
+    date_location_closed: status === "Closed" ? (parseDate(raw["Date Location Closed"], true) || new Date().toISOString().slice(0, 10)) : null,
     status_reason: statusReason,
     status_review_date: reviewDate,
     deferred_to_year: status === "Deferred" ? deferredToYear : null,
