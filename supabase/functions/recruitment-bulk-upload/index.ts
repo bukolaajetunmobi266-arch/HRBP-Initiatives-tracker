@@ -53,6 +53,7 @@ function normaliseDivisionName(value: unknown) {
     "DT": "Executive Office - Digital Transformation",
     "FI": "Executive Office - Financial Inclusion",
     "Financial Inclusion": "Executive Office - Financial Inclusion",
+    "People Management and Admin": "People Management & Admin",
   };
   return aliases[raw] || raw;
 }
@@ -234,6 +235,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
         candidate_name: candidateName,
         employment_type: clean(raw["Employment Type"]) || null,
         contact_phone: clean(raw["Contact Phone"]) || null,
+        email: clean(raw["Email"]) || null,
         source: clean(raw["Source"]) || null,
         status: clean(raw["Recruitment Stage"]) || "Sourcing",
         medical_report_received: false,
