@@ -75,16 +75,25 @@ function normaliseRowHeaders(row) {
 
 function normaliseDivisionName(value) {
   const raw = String(value || '').trim();
+  const key = raw
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[–—-]/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\\s+/g, ' ')
+    .trim();
+
   const aliases = {
-    'Federal Business': 'Federal Business Sales',
-    'State Business': 'State Business Sales',
-    'BMC': 'Executive Office - Brand Marketing & Corporate Communication',
-    'DT': 'Executive Office - Digital Transformation',
-    'FI': 'Executive Office - Financial Inclusion',
-    'Financial Inclusion': 'Executive Office - Financial Inclusion',
-    'People Management and Admin': 'People Management & Admin',
+    'federal business': 'Federal Business Sales',
+    'state business': 'State Business Sales',
+    'bmc': 'Executive Office - Brand Marketing & Corporate Communication',
+    'dt': 'Executive Office - Digital Transformation',
+    'fi': 'Executive Office - Financial Inclusion',
+    'financial inclusion': 'Executive Office - Financial Inclusion',
+    'people management and admin': 'People Management & Admin',
   };
-  return aliases[raw] || raw;
+
+  return aliases[key] || raw;
 }
 
 function isBlankLike(value) {
