@@ -29,6 +29,20 @@ function clean(value: unknown) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function formatDatabaseError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    const parts = [e.message, e.details, e.hint, e.code]
+      .filter(Boolean)
+      .map((value) => String(value));
+    if (parts.length) return parts.join(" — ");
+    try { return JSON.stringify(error); } catch { return "Database operation failed."; }
+  }
+  return String(error);
+}
+
 function isBlankLike(value: unknown) {
   return ['', 'N/A', 'NA', 'N.A.', '-', '—'].includes(clean(value).toUpperCase());
 }
@@ -140,6 +154,26 @@ async function getProfile(admin: any, userId: string) {
   return data;
 }
 
+async function findExistingCandidate(admin: any, roleLocationId: string, candidateName: string, email: string, phone: string) {
+  if (email) {
+    const { data, error } = await admin.from("candidates").select("candidate_id")
+      .eq("role_location_id", roleLocationId).eq("email", email).is("deleted_at", null).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  }
+  if (phone) {
+    const { data, error } = await admin.from("candidates").select("candidate_id")
+      .eq("role_location_id", roleLocationId).eq("contact_phone", phone).is("deleted_at", null).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  }
+  const { data, error } = await admin.from("candidates").select("candidate_id")
+    .eq("role_location_id", roleLocationId).ilike("candidate_name", candidateName).is("deleted_at", null).limit(1).maybeSingle();
+  if (error) throw error;
+  if (data) return data;
+  return null;
+}
+
 async function processRow(admin: any, profile: any, raw: any, rowNum: number, userId: string) {
   validateRow(raw, rowNum);
 
@@ -240,14 +274,19 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
 
   const candidateName = clean(raw["Candidate Name"]);
   if (candidateName) {
+    const email = clean(raw["Email"]);
+    const phone = clean(raw["Contact Phone"]);
+    const existingCandidate = await findExistingCandidate(admin, roleLocationId, candidateName, email, phone);
+    if (existingCandidate) return { rowNum, roleTitle, location, candidateName, duplicate: true };
+
     const { error } = await admin
       .from("candidates")
       .insert({
         role_location_id: roleLocationId,
         candidate_name: candidateName,
         employment_type: clean(raw["Employment Type"]) || null,
-        contact_phone: clean(raw["Contact Phone"]) || null,
-        email: clean(raw["Email"]) || null,
+        contact_phone: phone || null,
+        email: email || null,
         source: clean(raw["Source"]) || null,
         status: clean(raw["Recruitment Stage"]) || "Sourcing",
         medical_report_received: false,
@@ -257,7 +296,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
     if (error) throw error;
   }
 
-  return { rowNum, roleTitle, location, candidateName: candidateName || null };
+  return { rowNum, roleTitle, location, candidateName: candidateName || null, duplicate: false };
 }
 
 Deno.serve(async (req) => {
@@ -284,19 +323,20 @@ Deno.serve(async (req) => {
     if (!rows.length) return json({ error: "No recruitment rows were supplied." }, 400);
     if (rows.length > 1000) return json({ error: "A single import is limited to 1,000 rows." }, 400);
 
-    const results = { created: 0, failed: [] as Array<{ rowNum: number; message: string }> };
+    const results = { created: 0, skipped: 0, failed: [] as Array<{ rowNum: number; message: string }> };
 
     for (let i = 0; i < rows.length; i++) {
       try {
-        await processRow(db, profile, rows[i], i + 2, user.id);
-        results.created++;
+        const result = await processRow(db, profile, rows[i], i + 2, user.id);
+        if (result.duplicate) results.skipped++;
+        else results.created++;
       } catch (error) {
-        results.failed.push({ rowNum: i + 2, message: error instanceof Error ? error.message : String(error) });
+        results.failed.push({ rowNum: i + 2, message: formatDatabaseError(error) });
       }
     }
 
     return json(results);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({ error: formatDatabaseError(error) }, 500);
   }
 });

@@ -2167,7 +2167,12 @@ function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
           {result.failed.length > 0 && (
             <div style={{ color: 'var(--dgr-tx)', marginTop: 8, background: 'var(--dgr-bg)', borderRadius: 8, padding: 10 }}>
               <strong>{result.failed.length} rows could not be imported. Nothing was hidden — fix these rows and import again:</strong>
-              <ul style={{ marginBottom: 0 }}>{result.failed.map((f, i) => <li key={i}>Row {f.rowNum}: {f.message}</li>)}</ul>
+              <ul style={{ marginBottom: 0 }}>{result.failed.map((f, i) => {
+  const message = typeof f?.message === 'string'
+    ? f.message
+    : f?.message?.message || f?.message?.details || JSON.stringify(f?.message || f);
+  return <li key={i}>Row {f?.rowNum ?? '—'}: {message}</li>;
+})}</ul>
             </div>
           )}
           {result.failed.length === 0 && (
