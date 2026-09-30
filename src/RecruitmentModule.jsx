@@ -35,7 +35,7 @@ function Badge({ status }) {
   return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{status}</span>;
 }
 
-const STATUS_OPTIONS = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+const STATUS_OPTIONS = ['Sourcing', 'Screening', 'Interview', 'Assessment', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 const FILTER_STATUS_OPTIONS = [...STATUS_OPTIONS, 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled'];
 const SECURED_STATUSES = ['Offer', 'Awaiting Resumption', 'Closed'];
 const EMPLOYMENT_TYPE_OPTIONS = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
@@ -1174,7 +1174,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
 
   const [pendingStatusChange, setPendingStatusChange] = useState(null); // { candidateId, newStatus, rl }
 
-  const STATUSES_NEEDING_DATE = ['Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+  const STATUSES_NEEDING_DATE = ['Interview', 'Assessment', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 
   async function quickChangeStatus(candidateId, newStatus, rl, previousStatus) {
     if (STATUSES_NEEDING_DATE.includes(newStatus)) {

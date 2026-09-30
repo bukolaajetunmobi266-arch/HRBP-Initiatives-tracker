@@ -62,7 +62,7 @@ const HEADER_ALIASES = {
 
 const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
 const VALID_ROLE_STATUSES = ['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'];
-const VALID_CANDIDATE_STATUSES = ['Sourcing', 'Interview', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
+const VALID_CANDIDATE_STATUSES = ['Sourcing', 'Screening', 'Interview', 'Assessment', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
 
 function normaliseRowHeaders(row) {
   const out = {};
@@ -142,7 +142,7 @@ function validateParsedRows(parsed, mode) {
       if (Number.isNaN(parsedDate.getTime())) rowErrors.push(`Row ${rowNum}: Invalid Start Date. Use YYYY-MM-DD or leave it blank if unknown.`);
     }
 
-    if (row['Recruitment Stage']?.trim() && !VALID_CANDIDATE_STATUSES.includes(row['Recruitment Stage'].trim())) {
+    if (row['Candidate Name']?.trim() && row['Recruitment Stage']?.trim() && !VALID_CANDIDATE_STATUSES.includes(row['Recruitment Stage'].trim())) {
       rowErrors.push(`Row ${rowNum}: Recruitment Stage is invalid.`);
     }
 
