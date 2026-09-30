@@ -29,6 +29,20 @@ function clean(value: unknown) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function formatDatabaseError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    const parts = [e.message, e.details, e.hint, e.code]
+      .filter(Boolean)
+      .map((value) => String(value));
+    if (parts.length) return parts.join(" — ");
+    try { return JSON.stringify(error); } catch { return "Database operation failed."; }
+  }
+  return String(error);
+}
+
 function isBlankLike(value: unknown) {
   return ['', 'N/A', 'NA', 'N.A.', '-', '—'].includes(clean(value).toUpperCase());
 }
@@ -153,12 +167,10 @@ async function findExistingCandidate(admin: any, roleLocationId: string, candida
     if (error) throw error;
     if (data) return data;
   }
-  if (!email && !phone) {
-    const { data, error } = await admin.from("candidates").select("candidate_id")
-      .eq("role_location_id", roleLocationId).eq("candidate_name", candidateName).is("deleted_at", null).limit(1).maybeSingle();
-    if (error) throw error;
-    if (data) return data;
-  }
+  const { data, error } = await admin.from("candidates").select("candidate_id")
+    .eq("role_location_id", roleLocationId).ilike("candidate_name", candidateName).is("deleted_at", null).limit(1).maybeSingle();
+  if (error) throw error;
+  if (data) return data;
   return null;
 }
 
@@ -319,12 +331,12 @@ Deno.serve(async (req) => {
         if (result.duplicate) results.skipped++;
         else results.created++;
       } catch (error) {
-        results.failed.push({ rowNum: i + 2, message: error instanceof Error ? error.message : String(error) });
+        results.failed.push({ rowNum: i + 2, message: formatDatabaseError(error) });
       }
     }
 
     return json(results);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({ error: formatDatabaseError(error) }, 500);
   }
 });
