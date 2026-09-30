@@ -82,6 +82,7 @@ function normaliseDivisionName(value) {
     'DT': 'Executive Office - Digital Transformation',
     'FI': 'Executive Office - Financial Inclusion',
     'Financial Inclusion': 'Executive Office - Financial Inclusion',
+    'People Management and Admin': 'People Management & Admin',
   };
   return aliases[raw] || raw;
 }
@@ -306,6 +307,7 @@ export async function executeCandidateUpload(parsedRows, onProgress) {
         role_location_id: roleLocationId,
         candidate_name: r['Candidate Name'].trim(),
         contact_phone: r['Contact Phone']?.trim() || null,
+        email: r['Email']?.trim() || null,
         source: r['Source']?.trim() || null,
         status: r['Candidate Status']?.trim() || 'Sourcing',
         medical_report_received: parseBool(r['Medical Report Received']),

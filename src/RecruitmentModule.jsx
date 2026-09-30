@@ -1347,9 +1347,9 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showCandidateUpload === 'import' && (
         <BulkUploadModal
           title="Import candidates"
-          helpText="Upload candidates against existing roles/locations using the same streamlined template. Employment Type is required for mixed roles such as Relationship Officer."
-          executor={executeCandidateUpload}
-          mode="candidates"
+          helpText="Upload recruitment records using the same template as the Roles import. Missing roles or locations are created automatically, and candidate details including Email are added to the tracker."
+          executor={executeUpload}
+          mode="roles"
           onClose={() => setShowCandidateUpload(false)}
           onDone={() => { setShowCandidateUpload(false); onChanged(); }}
         />

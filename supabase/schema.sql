@@ -307,6 +307,8 @@ create table if not exists role_locations (
   status text not null default 'Open'
     check (status in ('Yet to Start', 'Open', 'On Hold', 'Deferred', 'Cancelled', 'Closed')),
   planned_start_date date,
+  date_request_received date,
+  date_location_closed date,
   status_reason text,
   status_review_date date,
   deferred_to_year integer check (deferred_to_year between 2000 and 2100),

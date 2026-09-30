@@ -53,6 +53,7 @@ function normaliseDivisionName(value: unknown) {
     "DT": "Executive Office - Digital Transformation",
     "FI": "Executive Office - Financial Inclusion",
     "Financial Inclusion": "Executive Office - Financial Inclusion",
+    "People Management and Admin": "People Management & Admin",
   };
   return aliases[raw] || raw;
 }
@@ -202,7 +203,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
     status,
     planned_start_date: startDate,
     date_request_received: requestDate,
-    date_location_closed: status === "Closed" ? (parseDate(raw["Date Location Closed"]) || new Date().toISOString().slice(0, 10)) : null,
+    date_location_closed: status === "Closed" ? (parseDate(raw["Date Location Closed"], true) || new Date().toISOString().slice(0, 10)) : null,
     status_reason: statusReason,
     status_review_date: reviewDate,
     deferred_to_year: status === "Deferred" ? deferredToYear : null,
@@ -234,6 +235,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
         candidate_name: candidateName,
         employment_type: clean(raw["Employment Type"]) || null,
         contact_phone: clean(raw["Contact Phone"]) || null,
+        email: clean(raw["Email"]) || null,
         source: clean(raw["Source"]) || null,
         status: clean(raw["Recruitment Stage"]) || "Sourcing",
         medical_report_received: false,
