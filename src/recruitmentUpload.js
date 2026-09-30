@@ -48,6 +48,13 @@ function parseCsv(text) {
   return { data, meta: { fields: headers } };
 }
 
+
+// CSV entry point used by the Recruitment import modal. Keep this named export
+// alongside the XLSX parser so CSV and Excel uploads share the exact same validation.
+export function parseUploadFile(text, mode = 'roles') {
+  return validateParsedRows(parseCsv(text), mode);
+}
+
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const REQUIRED_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Location', 'No. of Positions',
