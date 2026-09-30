@@ -44,18 +44,29 @@ function parseDate(value: unknown, optional = false) {
   return d.toISOString().slice(0, 10);
 }
 
+function normaliseKey(value: unknown) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[–—-]/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normaliseDivisionName(value: unknown) {
   const raw = clean(value);
+  const key = normaliseKey(raw);
   const aliases: Record<string, string> = {
-    "Federal Business": "Federal Business Sales",
-    "State Business": "State Business Sales",
-    "BMC": "Executive Office - Brand Marketing & Corporate Communication",
-    "DT": "Executive Office - Digital Transformation",
-    "FI": "Executive Office - Financial Inclusion",
-    "Financial Inclusion": "Executive Office - Financial Inclusion",
-    "People Management and Admin": "People Management & Admin",
+    "federal business": "Federal Business Sales",
+    "state business": "State Business Sales",
+    "bmc": "Executive Office - Brand Marketing & Corporate Communication",
+    "dt": "Executive Office - Digital Transformation",
+    "fi": "Executive Office - Financial Inclusion",
+    "financial inclusion": "Executive Office - Financial Inclusion",
+    "people management and admin": "People Management & Admin",
   };
-  return aliases[raw] || raw;
+  return aliases[key] || raw;
 }
 
 function parseNumber(value: unknown) {
@@ -145,13 +156,14 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
   const requestDate = parseDate(raw["Date Request Received"]);
   const startDate = parseDate(raw["Start Date"], true);
 
-  const { data: division, error: divisionError } = await admin
+  const { data: divisions, error: divisionError } = await admin
     .from("divisions")
-    .select("division_id, name, hrbp_id")
-    .eq("name", divisionName)
-    .maybeSingle();
+    .select("division_id, name, hrbp_id");
   if (divisionError) throw divisionError;
-  if (!division) throw new Error(`Division "${divisionName}" does not exist.`);
+
+  const requestedDivisionKey = normaliseKey(divisionName);
+  const division = (divisions || []).find((item: any) => normaliseKey(item.name) === requestedDivisionKey);
+  if (!division) throw new Error(`Division "${divisionName}" does not exist. Check the Division / Business name against the tracker list.`);
   if (!profileCanAccessDivision(profile, division)) {
     throw new Error(`You do not have access to the "${divisionName}" division.`);
   }
