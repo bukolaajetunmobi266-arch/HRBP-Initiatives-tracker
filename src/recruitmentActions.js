@@ -164,6 +164,63 @@ export async function createRole({ divisionId, roleTitle, roleType, suggestedGra
   return data;
 }
 
+export async function deleteRole({ roleId }) {
+  const user = await getCurrentUser();
+  const now = new Date().toISOString();
+
+  const { data: locations, error: locationsError } = await supabase
+    .from('role_locations')
+    .select('role_location_id')
+    .eq('role_id', roleId)
+    .is('deleted_at', null);
+  if (locationsError) throw locationsError;
+
+  const locationIds = (locations || []).map(x => x.role_location_id);
+  if (locationIds.length) {
+    const { error: candidatesError } = await supabase
+      .from('candidates')
+      .update({ deleted_at: now, deleted_by: user?.id || null })
+      .in('role_location_id', locationIds)
+      .is('deleted_at', null);
+    if (candidatesError) throw candidatesError;
+
+    const { error: locationsUpdateError } = await supabase
+      .from('role_locations')
+      .update({ deleted_at: now, deleted_by: user?.id || null })
+      .in('role_location_id', locationIds)
+      .is('deleted_at', null);
+    if (locationsUpdateError) throw locationsUpdateError;
+  }
+
+  const { error: roleError } = await supabase
+    .from('roles')
+    .update({ deleted_at: now, deleted_by: user?.id || null })
+    .eq('role_id', roleId)
+    .is('deleted_at', null);
+  if (roleError) throw roleError;
+  return true;
+}
+
+export async function deleteRoleLocation({ roleLocationId }) {
+  const user = await getCurrentUser();
+  const now = new Date().toISOString();
+
+  const { error: candidatesError } = await supabase
+    .from('candidates')
+    .update({ deleted_at: now, deleted_by: user?.id || null })
+    .eq('role_location_id', roleLocationId)
+    .is('deleted_at', null);
+  if (candidatesError) throw candidatesError;
+
+  const { error } = await supabase
+    .from('role_locations')
+    .update({ deleted_at: now, deleted_by: user?.id || null })
+    .eq('role_location_id', roleLocationId)
+    .is('deleted_at', null);
+  if (error) throw error;
+  return true;
+}
+
 export async function updateRole({ roleId, roleTitle, roleType, suggestedGrade }) {
   const { data, error } = await supabase
     .from('roles')
