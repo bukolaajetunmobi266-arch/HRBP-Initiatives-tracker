@@ -544,7 +544,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
       </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
-        <CollapsibleSection title="Candidate funnel — click any stage">
+        <CollapsibleSection title="Recruitment funnel — click any stage">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {FUNNEL_STAGES.map(stage => {
             const [role] = funnelStyle(stage);
