@@ -172,17 +172,33 @@ function validateParsedRows(parsed, mode) {
     return { rows: [], errors };
   }
 
+  // Candidate rows often repeat the same role/location. If one repeated row
+  // omitted No. of Positions, inherit the explicit positive value from its
+  // matching role/location row rather than inventing a number.
+  const positionByRoleLocation = new Map();
+  for (const sourceRow of normalisedData) {
+    const division = normaliseDivisionName(sourceRow['Division'], sourceRow['Business']);
+    const key = `${division}::${String(sourceRow['Role Title'] || '').trim()}::${String(sourceRow['Location'] || '').trim()}`;
+    const positions = Number(sourceRow['No. of Positions']);
+    if (key && Number.isFinite(positions) && positions > 0) positionByRoleLocation.set(key, positions);
+  }
+
   const rows = normalisedData.map((row, idx) => {
     const rowNum = idx + 2;
     const rowErrors = [];
     const division = normaliseDivisionName(row['Division'], row['Business']);
     row['Division'] = division;
+    const positionKey = `${division}::${String(row['Role Title'] || '').trim()}::${String(row['Location'] || '').trim()}`;
+    if (mode === 'roles' && (!row['No. of Positions'] || Number(row['No. of Positions']) <= 0)) {
+      const inheritedPositions = positionByRoleLocation.get(positionKey);
+      if (inheritedPositions) row['No. of Positions'] = inheritedPositions;
+    }
 
     if (!division) rowErrors.push(`Row ${rowNum}: Division is blank`);
     if (!row['Role Title']?.trim()) rowErrors.push(`Row ${rowNum}: Role Title is blank`);
     if (!row['Location']?.trim()) rowErrors.push(`Row ${rowNum}: Location is blank`);
-    if (mode === 'roles' && (!row['No. of Positions'] || isNaN(Number(row['No. of Positions'])))) {
-      rowErrors.push(`Row ${rowNum}: No. of Positions must be a number`);
+    if (mode === 'roles' && (!row['No. of Positions'] || !Number.isFinite(Number(row['No. of Positions'])) || Number(row['No. of Positions']) <= 0)) {
+      rowErrors.push(`Row ${rowNum}: No. of Positions must be a positive number`);
     }
 
     const roleStatus = row['Role Location Status']?.trim() || 'Open';
