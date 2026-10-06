@@ -10,7 +10,9 @@ const corsHeaders = {
 const ROLE_LOCATION_STATUSES = ["Open", "Yet to Start", "On Hold", "Deferred", "Cancelled", "Closed"];
 const CANDIDATE_STATUSES = [
   "Sourcing",
+  "Screening",
   "Interview",
+  "Assessment",
   "Onboarding Approval",
   "Documentation",
   "Offer",
@@ -68,19 +70,57 @@ function normaliseKey(value: unknown) {
     .trim();
 }
 
-function normaliseDivisionName(value: unknown) {
+function normaliseDivisionName(value: unknown, businessValue: unknown = "") {
   const raw = clean(value);
+  const business = clean(businessValue);
   const key = normaliseKey(raw);
-  const aliases: Record<string, string> = {
+  const businessKey = normaliseKey(business);
+
+  const businessAliases: Record<string, string> = {
+    "financial inclusion": "Executive Office - Financial Inclusion",
+    "brand marketing and corporate communication": "Executive Office - Brand Marketing & Corporate Communication",
+    "brand marketing and corporate comm": "Executive Office - Brand Marketing & Corporate Communication",
+    "strategy": "Executive Office - Strategy",
+    "digital transformation": "Executive Office - Digital Transformation",
+    "digital personal loans": "Digital Personal Loans",
+    "customer experience and operations": "Customer Experience & Operations",
+    "people management and admin": "People Management & Admin",
+    "embedded finance": "Embedded Finance",
+    "paramilitary and education business": "Paramilitary Business",
+    "paramilitary business": "Paramilitary Business",
+    "federal business sales": "Federal Business Sales",
     "federal business": "Federal Business Sales",
+    "state business sales": "State Business Sales",
     "state business": "State Business Sales",
+    "finance": "Finance",
+    "enterprise risk management": "Enterprise Risk Management",
+    "information and infrastructure": "Information & Infrastructure",
+    "infrastructure and information": "Information & Infrastructure",
+    "technology": "Technology",
+    "project management": "Project Management",
+    "enterprise project management": "Project Management",
+    "product management": "Product Management",
+    "enterprise product management": "Product Management",
+    "internal audit and compliance": "Internal Audit and Compliance",
+  };
+
+  const directAliases: Record<string, string> = {
     "bmc": "Executive Office - Brand Marketing & Corporate Communication",
     "dt": "Executive Office - Digital Transformation",
     "fi": "Executive Office - Financial Inclusion",
     "financial inclusion": "Executive Office - Financial Inclusion",
+    "paramilitary and education": "Paramilitary Business",
+    "paramilitary and education business": "Paramilitary Business",
     "people management and admin": "People Management & Admin",
+    "customer experience and operations": "Customer Experience & Operations",
+    "federal business": "Federal Business Sales",
+    "state business": "State Business Sales",
   };
-  return aliases[key] || raw;
+
+  if ((key === "executive office" || key === "sales") && businessAliases[businessKey]) {
+    return businessAliases[businessKey];
+  }
+  return directAliases[key] || raw;
 }
 
 function parseNumber(value: unknown) {
@@ -97,7 +137,10 @@ function profileCanAccessDivision(profile: any, division: any) {
 }
 
 function validateRow(raw: any, rowNum: number) {
-  const division = normaliseDivisionName(raw["Division"] || raw["Division / Business"]);
+  const division = normaliseDivisionName(
+    raw["Division"] || raw["Division / Business"],
+    raw["Business"] || raw["Business Area"] || raw["Business Name"]
+  );
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
@@ -177,7 +220,10 @@ async function findExistingCandidate(admin: any, roleLocationId: string, candida
 async function processRow(admin: any, profile: any, raw: any, rowNum: number, userId: string) {
   validateRow(raw, rowNum);
 
-  const divisionName = normaliseDivisionName(raw["Division"] || raw["Division / Business"]);
+  const divisionName = normaliseDivisionName(
+    raw["Division"] || raw["Division / Business"],
+    raw["Business"] || raw["Business Area"] || raw["Business Name"]
+  );
   const roleTitle = clean(raw["Role Title"]);
   const roleType = clean(raw["Role Type"]);
   const location = clean(raw["Location"]);
@@ -197,7 +243,16 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
 
   const requestedDivisionKey = normaliseKey(divisionName);
   const division = (divisions || []).find((item: any) => normaliseKey(item.name) === requestedDivisionKey);
-  if (!division) throw new Error(`Division "${divisionName}" does not exist. Check the Division / Business name against the tracker list.`);
+  if (!division) {
+    const sourceDivision = clean(raw["Division"] || raw["Division / Business"]);
+    const sourceBusiness = clean(raw["Business"] || raw["Business Area"] || raw["Business Name"]);
+    if (["executive office", "sales"].includes(normaliseKey(sourceDivision)) && !sourceBusiness) {
+      throw new Error(
+        `"${sourceDivision}" is a source function label, not a standalone tracker division. Use the Business value for this row (for example Financial Inclusion, Federal Business Sales, State Business Sales, or Paramilitary and Education Business).`
+      );
+    }
+    throw new Error(`Division "${divisionName}" does not exist. Check the Division / Business name against the tracker list.`);
+  }
   if (!profileCanAccessDivision(profile, division)) {
     throw new Error(`You do not have access to the "${divisionName}" division.`);
   }
@@ -290,6 +345,7 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
         source: clean(raw["Source"]) || null,
         status: clean(raw["Recruitment Stage"]) || "Sourcing",
         medical_report_received: false,
+        role_type: roleType,
         created_by: userId,
         updated_by: userId,
       });
