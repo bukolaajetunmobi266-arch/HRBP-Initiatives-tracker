@@ -300,8 +300,16 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
     closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
     funnelCounts,
+    // Funnel percentages must use the funnel population as the denominator.
+    // The funnel combines sourcing requisitions with candidates in later stages,
+    // so using total position slots here made the displayed percentages stop
+    // adding up to 100%.
+    funnelTotal: Object.values(funnelCounts).reduce((sum, n) => sum + n, 0),
     funnelPct: Object.fromEntries(
-      CANDIDATE_FUNNEL_STAGES.map(s => [s, totalSlots ? Math.round((funnelCounts[s] / totalSlots) * 100) : 0])
+      CANDIDATE_FUNNEL_STAGES.map(s => {
+        const funnelTotal = Object.values(funnelCounts).reduce((sum, n) => sum + n, 0);
+        return [s, funnelTotal ? Math.round((funnelCounts[s] / funnelTotal) * 100) : 0];
+      })
     ),
     byDivision: Object.entries(divisionAgg).map(([name, v]) => ({
       name,
