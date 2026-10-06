@@ -165,7 +165,7 @@ export async function createRole({ divisionId, roleTitle, roleType, suggestedGra
 }
 
 export async function deleteRole({ roleId }) {
-  const user = await getCurrentUser();
+  const { data: { user } } = await supabase.auth.getUser();
   const now = new Date().toISOString();
 
   const { data: locations, error: locationsError } = await supabase
@@ -202,7 +202,7 @@ export async function deleteRole({ roleId }) {
 }
 
 export async function deleteRoleLocation({ roleLocationId }) {
-  const user = await getCurrentUser();
+  const { data: { user } } = await supabase.auth.getUser();
   const now = new Date().toISOString();
 
   const { error: candidatesError } = await supabase
