@@ -192,8 +192,9 @@ const CANDIDATE_STATUS_FILTERS = [...CANDIDATE_FUNNEL_STAGES, 'Dropped', 'Reject
 const ROLE_LOCATION_STATUS_FILTERS = ['Yet to Start', 'Sourcing', 'On Hold', 'Deferred', 'Cancelled'];
 
 function deriveRoleLocationStatus(rl) {
-  // On Hold, Deferred and Cancelled are deliberate manual overrides.
-  if (['On Hold', 'Deferred', 'Cancelled'].includes(rl.status)) return rl.status;
+  // These are deliberate manual lifecycle states. Closed must remain closed
+  // even when there are no candidate rows (e.g. a requisition was withdrawn).
+  if (['On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.status)) return rl.status;
 
   const positions = Number(rl.no_of_positions || 0);
   const closed = rl.candidates.filter(c => c.status === 'Closed').length;
@@ -222,6 +223,7 @@ function deriveRoleLocationStatus(rl) {
 
 export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let totalSlots = 0;
+  let openSlots = 0;
   let securedCount = 0;
   let closedCount = 0;
   let yetToStartSlots = 0;
@@ -232,25 +234,43 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   for (const rl of roleLocationsWithCandidates) {
     const divName = rl.roles.divisions.name;
     if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
-    if (['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)) {
-      // Non-active lifecycle states are excluded from active slot totals and funnel metrics.
-      if (rl.derived_status === 'Yet to Start') yetToStartSlots += rl.no_of_positions;
-      continue;
+
+    const positions = Number(rl.no_of_positions || 0);
+    const status = rl.derived_status;
+    uniqueRoleIds.add(rl.roles.role_id);
+
+    // Cancelled requisitions are not part of the active/closure denominator.
+    if (status !== 'Cancelled') {
+      totalSlots += positions;
+      divisionAgg[divName].slots += positions;
     }
 
-    uniqueRoleIds.add(rl.roles.role_id);
-    totalSlots += rl.no_of_positions;
-    divisionAgg[divName].slots += rl.no_of_positions;
+    if (status === 'Yet to Start') {
+      yetToStartSlots += positions;
+    }
 
-    if (rl.derived_status === 'Sourcing') funnelCounts.Sourcing++;
+    if (!['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(status)) {
+      openSlots += Math.max(0, positions - rl.candidates.filter(c => c.status === 'Closed').length);
+    }
 
-    for (const c of rl.candidates) {
-      if (c.status !== 'Sourcing' && funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
-      if (SECURED_STATUSES.includes(c.status)) {
+    // A manually closed requisition closes all of its positions. For
+    // candidate-driven closure, count the individual closed candidates.
+    if (status === 'Closed') {
+      closedCount += positions;
+      divisionAgg[divName].closed += positions;
+    }
+
+    if (status === 'Sourcing') funnelCounts.Sourcing++;
+
+    for (const candidate of rl.candidates) {
+      if (candidate.status !== 'Sourcing' && funnelCounts[candidate.status] !== undefined) {
+        funnelCounts[candidate.status]++;
+      }
+      if (SECURED_STATUSES.includes(candidate.status)) {
         securedCount++;
         divisionAgg[divName].secured++;
       }
-      if (c.status === 'Closed') {
+      if (candidate.status === 'Closed' && status !== 'Closed') {
         closedCount++;
         divisionAgg[divName].closed++;
       }
@@ -271,6 +291,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 
   return {
     totalSlots,
+    openSlots,
     totalRoles: uniqueRoleIds.size,
     totalRoleLocations: roleLocationsWithCandidates.filter(rl => !['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)).length,
     yetToStartSlots,
