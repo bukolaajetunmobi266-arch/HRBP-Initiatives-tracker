@@ -1,8 +1,8 @@
 export const OWNER_FUNCTIONS = {
   'Iveren Igba': ['Finance', 'Federal Business Sales', 'Executive Office - Financial Inclusion', 'Executive Office - Brand Marketing & Corporate Communication', 'Executive Office - Strategy', 'Executive Office - Digital Transformation'],
   'Busayo Onasanya': ['State Business Sales', 'Enterprise Risk Management', 'Internal Audit and Compliance'],
-  'Motolani Afolayan': ['Digital Personal Loans', 'Customer Experience & Operations', 'People Management & Admin', 'Embedded Finance'],
-  'Oladunni Cole': ['Paramilitary Business', 'Project Management', 'Product Management', 'Technology', 'Information & Infrastructure'],
+  'Motolani Afolayan': ['Digital Personal Loans', 'Customer Experience & Operations', 'People Management & Admin'],
+  'Oladunni Cole': ['Paramilitary Business', 'Project Management', 'Product Management', 'Technology', 'Information & Infrastructure', 'Embedded Finance'],
 }
 
 export const DIVISIONS = Object.values(OWNER_FUNCTIONS).flat()
