@@ -65,6 +65,9 @@ const REQUIRED_HEADERS = [
 const HEADER_ALIASES = {
   'Division / Business': 'Division',
   'No of Positions': 'No. of Positions',
+  'Business Area': 'Business',
+  'Business Name': 'Business',
+  'Business / Function': 'Business',
 };
 
 const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
@@ -80,27 +83,63 @@ function normaliseRowHeaders(row) {
   return out;
 }
 
-function normaliseDivisionName(value) {
-  const raw = String(value || '').trim();
-  const key = raw
+function normaliseKey(value) {
+  return String(value || '')
+    .trim()
     .toLowerCase()
     .replace(/&/g, ' and ')
     .replace(/[–—-]/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\\s+/g, ' ')
     .trim();
+}
 
-  const aliases = {
+function normaliseDivisionName(value, businessValue = '') {
+  const raw = String(value || '').trim();
+  const business = String(businessValue || '').trim();
+  const key = normaliseKey(raw);
+  const businessKey = normaliseKey(business);
+  const businessAliases = {
+    'financial inclusion': 'Executive Office - Financial Inclusion',
+    'brand marketing and corporate communication': 'Executive Office - Brand Marketing & Corporate Communication',
+    'brand marketing and corporate comm': 'Executive Office - Brand Marketing & Corporate Communication',
+    'strategy': 'Executive Office - Strategy',
+    'digital transformation': 'Executive Office - Digital Transformation',
+    'digital personal loans': 'Digital Personal Loans',
+    'customer experience and operations': 'Customer Experience & Operations',
+    'people management and admin': 'People Management & Admin',
+    'embedded finance': 'Embedded Finance',
+    'paramilitary and education business': 'Paramilitary Business',
+    'paramilitary business': 'Paramilitary Business',
+    'federal business sales': 'Federal Business Sales',
     'federal business': 'Federal Business Sales',
+    'state business sales': 'State Business Sales',
     'state business': 'State Business Sales',
+    'finance': 'Finance',
+    'enterprise risk management': 'Enterprise Risk Management',
+    'information and infrastructure': 'Information & Infrastructure',
+    'infrastructure and information': 'Information & Infrastructure',
+    'technology': 'Technology',
+    'project management': 'Project Management',
+    'enterprise project management': 'Project Management',
+    'product management': 'Product Management',
+    'enterprise product management': 'Product Management',
+    'internal audit and compliance': 'Internal Audit and Compliance',
+  };
+  const directAliases = {
     'bmc': 'Executive Office - Brand Marketing & Corporate Communication',
     'dt': 'Executive Office - Digital Transformation',
     'fi': 'Executive Office - Financial Inclusion',
     'financial inclusion': 'Executive Office - Financial Inclusion',
+    'paramilitary and education': 'Paramilitary Business',
+    'paramilitary and education business': 'Paramilitary Business',
     'people management and admin': 'People Management & Admin',
+    'customer experience and operations': 'Customer Experience & Operations',
+    'federal business': 'Federal Business Sales',
+    'state business': 'State Business Sales',
   };
-
-  return aliases[key] || raw;
+  if ((key === 'executive office' || key === 'sales') && businessAliases[businessKey]) return businessAliases[businessKey];
+  return directAliases[key] || raw;
 }
 
 function isBlankLike(value) {
@@ -134,7 +173,7 @@ function validateParsedRows(parsed, mode) {
   const rows = normalisedData.map((row, idx) => {
     const rowNum = idx + 2;
     const rowErrors = [];
-    const division = normaliseDivisionName(row['Division']);
+    const division = normaliseDivisionName(row['Division'], row['Business']);
     row['Division'] = division;
 
     if (!division) rowErrors.push(`Row ${rowNum}: Division is blank`);
