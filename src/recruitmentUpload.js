@@ -361,6 +361,8 @@ export async function executeCandidateUpload(parsedRows, onProgress) {
       const { error } = await supabase.from('candidates').insert({
         role_location_id: roleLocationId,
         candidate_name: r['Candidate Name'].trim(),
+        role_type: r['Role Type']?.trim() || null,
+        employment_type: r['Employment Type']?.trim() || null,
         contact_phone: r['Contact Phone']?.trim() || null,
         email: r['Email']?.trim() || null,
         source: r['Source']?.trim() || null,
