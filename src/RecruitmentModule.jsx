@@ -15,7 +15,7 @@ import {
   bulkUpdateCandidateStatus, updateCandidateStatus, updateCandidate, moveCandidate,
   createRole, createRoleLocation, updateRole, updateRoleLocation, addCandidate,
   syncStalledNotifications, markNotificationRead, checkCandidateDuplicate,
-  deleteCandidates,
+  deleteCandidates, deleteRole, deleteRoleLocation,
 } from './recruitmentActions';
 
 // ---------------------------------------------------------------
@@ -226,6 +226,7 @@ export default function RecruitmentModule({ tab, setTab }) {
               initialFilterMode={roleFilterMode}
               divisions={divisions}
               onViewCandidates={jumpToCandidatesByLocation}
+              canManageRoles={canManageDivisions}
             />
           )}
           {tab === 'candidates' && (
@@ -533,7 +534,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
     <div>
       <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
-        <KpiCard label="Open positions" value={metrics.totalSlots} />
+        <KpiCard label="Open positions" value={metrics.openSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
         <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
         <KpiCard label="Closure rate" value={`${metrics.closureRatePct}%`} role="suc" />
@@ -594,10 +595,12 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
 // Roles — structural only, no candidate list, links out to Candidates
 // =================================================================
 function locationProgress(rl) {
-  const closed = rl.candidates.filter(c => c.status === 'Closed').length;
+  const positions = Number(rl.no_of_positions || 0);
+  const candidateClosed = rl.candidates.filter(c => c.status === 'Closed').length;
+  const closed = rl.status === 'Closed' || rl.derived_status === 'Closed' ? positions : candidateClosed;
   const secured = rl.candidates.filter(c => SECURED_STATUSES.includes(c.status)).length;
-  const left = Math.max(0, Number(rl.no_of_positions || 0) - closed);
-  const pct = rl.no_of_positions ? Math.min(100, Math.round((closed / rl.no_of_positions) * 100)) : 0;
+  const left = Math.max(0, positions - closed);
+  const pct = positions ? Math.min(100, Math.round((closed / positions) * 100)) : 0;
   return { closed, secured, left, pct };
 }
 
@@ -617,7 +620,7 @@ function aggregateRoleStatus(locations) {
   return 'Open';
 }
 
-function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates }) {
+function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates, canManageRoles }) {
   const [editingRole, setEditingRole] = useState(null);
   const [editingLocation, setEditingLocation] = useState(null);
   const [addingLocationFor, setAddingLocationFor] = useState(null);
@@ -763,6 +766,13 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                           <span className="row-actions" style={{ display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.1s' }}>
                             <button onClick={() => setEditingRole({ roleId, title: role.title, roleType: role.roleType })} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
                             <button onClick={() => setAddingLocationFor(roleId)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>+ Location</button>
+                            {canManageRoles && (
+                              <button onClick={async () => {
+                                if (!window.confirm(`Delete "${role.title}" and all of its locations and candidates?`)) return;
+                                try { await deleteRole({ roleId }); onChanged(); }
+                                catch (e) { window.alert(e.message || 'Unable to delete this role.'); }
+                              }} style={dangerBtnStyle({ color: 'var(--dgr-tx)' })}>Delete</button>
+                            )}
                           </span>
                         </div>
 
@@ -824,6 +834,13 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                   <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8, opacity: 0, transition: 'opacity 0.1s' }}>
                                     <button onClick={() => onViewCandidates(rl.role_location_id)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Candidates ({rl.candidates.length})</button>
                                     <button onClick={() => setEditingLocation(rl)} style={dangerBtnStyle({ color: 'var(--acc-tx)' })}>Edit</button>
+                                    {canManageRoles && (
+                                      <button onClick={async () => {
+                                        if (!window.confirm(`Delete the ${rl.location} location entry and its candidates?`)) return;
+                                        try { await deleteRoleLocation({ roleLocationId: rl.role_location_id }); onChanged(); }
+                                        catch (e) { window.alert(e.message || 'Unable to delete this location.'); }
+                                      }} style={dangerBtnStyle({ color: 'var(--dgr-tx)' })}>Delete</button>
+                                    )}
                                   </div>
                                 </div>
                               );
