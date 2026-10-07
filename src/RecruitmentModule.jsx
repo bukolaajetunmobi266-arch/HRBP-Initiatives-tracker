@@ -541,7 +541,6 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <KpiCard label="Avg time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
         <KpiCard label="Avg time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
-         <div style={{ gridColumn: '1 / -1', fontSize: 12, color: 'var(--txm)', marginTop: -12 }}>Position breakdown: <strong style={{ color: 'var(--tx)' }}>{metrics.openSlots}</strong> open · <strong style={{ color: 'var(--tx)' }}>{metrics.closedSlots}</strong> closed · <strong style={{ color: 'var(--tx)' }}>{metrics.yetToStartSlots}</strong> yet to start · <strong style={{ color: 'var(--tx)' }}>{metrics.onHoldSlots}</strong> on hold · <strong style={{ color: 'var(--tx)' }}>{metrics.deferredSlots}</strong> deferred · <strong style={{ color: 'var(--tx)' }}>{metrics.cancelledSlots}</strong> cancelled</div>
       </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
