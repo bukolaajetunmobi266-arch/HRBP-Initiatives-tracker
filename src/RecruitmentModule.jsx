@@ -167,7 +167,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const stalled = computeStalledOnboarding(rowsWithCandidates);
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
-  const canManageDivisions = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
+  const canManageDivisions = ['admin', 'recruitment_admin', 'analyst'].includes(scope.recruitment_role);
   const canDeleteCandidates = ['admin', 'recruitment_admin'].includes(scope.recruitment_role);
 
   function jumpToCandidatesByStatus(statusFilter) {
@@ -532,7 +532,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Open positions" value={metrics.openSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
