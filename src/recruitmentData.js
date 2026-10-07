@@ -228,6 +228,9 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let securedCount = 0;
   let closedCount = 0;
   let yetToStartSlots = 0;
+  let onHoldSlots = 0;
+  let deferredSlots = 0;
+  let cancelledSlots = 0;
   const uniqueRoleIds = new Set();
   const funnelCounts = Object.fromEntries(CANDIDATE_FUNNEL_STAGES.map(s => [s, 0]));
   const divisionAgg = {}; // name -> { slots, secured, closed }
@@ -251,9 +254,16 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 
     if (status === 'Yet to Start') {
       yetToStartSlots += positions;
-    }
-
-    if (!['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(status)) {
+    } else if (status === 'On Hold') {
+      onHoldSlots += positions;
+    } else if (status === 'Deferred') {
+      deferredSlots += positions;
+    } else if (status === 'Cancelled') {
+      cancelledSlots += positions;
+    } else if (status === 'Closed') {
+      // Closed positions are handled below.
+    } else {
+      // For active recruitment, only unfilled positions remain open.
       openSlots += Math.max(0, positions - rl.candidates.filter(c => c.status === 'Closed').length);
     }
 
@@ -300,6 +310,10 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     totalRoles: uniqueRoleIds.size,
     totalRoleLocations: roleLocationsWithCandidates.filter(rl => !['Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(rl.derived_status)).length,
     yetToStartSlots,
+    onHoldSlots,
+    deferredSlots,
+    cancelledSlots,
+    closedSlots: closedCount,
     avgTimeToClose,
     avgTimeToOnboard,
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
