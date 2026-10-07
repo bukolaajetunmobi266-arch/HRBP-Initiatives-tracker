@@ -534,6 +534,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
     <div>
       <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
+        <KpiCard label="Total positions" value={metrics.totalPositions} />
         <KpiCard label="Open positions" value={metrics.openSlots} />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
         <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
