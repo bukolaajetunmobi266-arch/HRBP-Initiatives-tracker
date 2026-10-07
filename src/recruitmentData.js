@@ -232,65 +232,49 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let deferredSlots = 0;
   let cancelledSlots = 0;
   const uniqueRoleIds = new Set();
+  // Position-based recruitment funnel. Each Role + Location contributes its
+  // actual number of slots, not the number of candidate records. Closed slots
+  // are allocated first, then the most advanced active candidate stages, with
+  // any remaining unassigned slots staying in Sourcing.
   const funnelCounts = Object.fromEntries(CANDIDATE_FUNNEL_STAGES.map(s => [s, 0]));
-  const divisionAgg = {}; // name -> { slots, secured, closed }
+  const funnelStagePriority = ['Awaiting Resumption', 'Offer', 'Documentation', 'Onboarding Approval', 'Interview', 'Sourcing'];
 
   for (const rl of roleLocationsWithCandidates) {
-    const divName = rl.roles.divisions.name;
-    if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
+    const positions = Math.max(0, Number(rl.no_of_positions || 0));
+    if (!positions) continue;
 
-    const positions = Number(rl.no_of_positions || 0);
+    let remaining = positions;
     const status = rl.derived_status;
-    uniqueRoleIds.add(rl.roles.role_id);
 
-    // Total positions is the full recruitment portfolio, including cancelled positions.
-    totalPositions += positions;
-
-    // Cancelled requisitions are not part of the active/closure denominator.
-    if (status !== 'Cancelled') {
-      totalSlots += positions;
-      divisionAgg[divName].slots += positions;
+    if (status === 'Yet to Start' || status === 'On Hold' || status === 'Deferred' || status === 'Cancelled') {
+      continue;
     }
 
-    if (status === 'Yet to Start') {
-      yetToStartSlots += positions;
-    } else if (status === 'On Hold') {
-      onHoldSlots += positions;
-    } else if (status === 'Deferred') {
-      deferredSlots += positions;
-    } else if (status === 'Cancelled') {
-      cancelledSlots += positions;
-    } else if (status === 'Closed') {
-      // Closed positions are handled below.
-    } else {
-      // For active recruitment, only unfilled positions remain open.
-      openSlots += Math.max(0, positions - rl.candidates.filter(c => c.status === 'Closed').length);
-    }
-
-    // A manually closed requisition closes all of its positions. For
-    // candidate-driven closure, count the individual closed candidates.
     if (status === 'Closed') {
-      closedCount += positions;
-      divisionAgg[divName].closed += positions;
+      funnelCounts.Closed += positions;
+      continue;
     }
 
-    if (status === 'Sourcing') funnelCounts.Sourcing++;
-
-    for (const candidate of rl.candidates) {
-      if (candidate.status !== 'Sourcing' && funnelCounts[candidate.status] !== undefined) {
-        funnelCounts[candidate.status]++;
-      }
-      if (SECURED_STATUSES.includes(candidate.status)) {
-        securedCount++;
-        divisionAgg[divName].secured++;
-      }
-      if (candidate.status === 'Closed' && status !== 'Closed') {
-        closedCount++;
-        divisionAgg[divName].closed++;
-      }
+    const closedCandidates = Math.min(
+      positions,
+      rl.candidates.filter(c => c.status === 'Closed').length
+    );
+    if (closedCandidates) {
+      funnelCounts.Closed += closedCandidates;
+      remaining -= closedCandidates;
     }
+
+    for (const stage of funnelStagePriority) {
+      if (remaining <= 0) break;
+      const count = rl.candidates.filter(c => c.status === stage).length;
+      const allocated = Math.min(remaining, count);
+      funnelCounts[stage] += allocated;
+      remaining -= allocated;
+    }
+
+    // Any slots without an active candidate are still in sourcing.
+    if (remaining > 0) funnelCounts.Sourcing += remaining;
   }
-
 
   const closeTimes = roleLocationsWithCandidates
     .map(rl => computeTimeToClose(rl))
@@ -319,10 +303,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
     closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
     funnelCounts,
-    // Funnel percentages must use the funnel population as the denominator.
-    // The funnel combines sourcing requisitions with candidates in later stages,
-    // so using total position slots here made the displayed percentages stop
-    // adding up to 100%.
+    // Funnel percentages use the position-based funnel population.
     funnelTotal: Object.values(funnelCounts).reduce((sum, n) => sum + n, 0),
     funnelPct: Object.fromEntries(
       CANDIDATE_FUNNEL_STAGES.map(s => {
