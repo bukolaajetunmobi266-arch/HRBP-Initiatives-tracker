@@ -222,6 +222,7 @@ function deriveRoleLocationStatus(rl) {
 }
 
 export function computeDashboardMetrics(roleLocationsWithCandidates) {
+  let totalPositions = 0;
   let totalSlots = 0;
   let openSlots = 0;
   let securedCount = 0;
@@ -238,6 +239,9 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     const positions = Number(rl.no_of_positions || 0);
     const status = rl.derived_status;
     uniqueRoleIds.add(rl.roles.role_id);
+
+    // Total positions is the full recruitment portfolio, including cancelled positions.
+    totalPositions += positions;
 
     // Cancelled requisitions are not part of the active/closure denominator.
     if (status !== 'Cancelled') {
@@ -290,6 +294,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
   const avgTimeToOnboard = onboardTimes.length ? Math.round(onboardTimes.reduce((a, b) => a + b, 0) / onboardTimes.length) : null;
 
   return {
+    totalPositions,
     totalSlots,
     openSlots,
     totalRoles: uniqueRoleIds.size,
