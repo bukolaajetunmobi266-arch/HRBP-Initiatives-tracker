@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   getCurrentUserScope, fetchDivisions, fetchRoleLocationsWithCandidates,
-  computeDashboardMetrics, computeStalledOnboarding, computeTimeToClose, computeTimeToOnboard,
+  computeDashboardMetrics, computeStalledOnboarding, computeOverdueResumptions, computeTimeToClose, computeTimeToOnboard,
   fetchMyNotifications, fetchRecruitmentYears,
 } from './recruitmentData';
 import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUpload } from './recruitmentUpload';
@@ -94,9 +94,9 @@ export default function RecruitmentModule({ tab, setTab }) {
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('hrbp_recruitment_filters');
-      return saved ? { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '', ...JSON.parse(saved) } : { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+      return saved ? { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
     } catch {
-      return { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+      return { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
     }
   });
 
@@ -165,6 +165,7 @@ export default function RecruitmentModule({ tab, setTab }) {
 
   const metrics = computeDashboardMetrics(rowsWithCandidates);
   const stalled = computeStalledOnboarding(rowsWithCandidates);
+  const overdueResumptions = computeOverdueResumptions(rowsWithCandidates, filters.year);
   const uniqueRoles = [...new Map(rowsWithCandidates.map(rl => [rl.roles.role_id, rl.roles])).values()];
   const uniqueLocations = [...new Set(rowsWithCandidates.map(rl => rl.location))];
   const canManageDivisions = ['admin', 'recruitment_admin', 'analyst'].includes(scope.recruitment_role);
@@ -199,6 +200,7 @@ export default function RecruitmentModule({ tab, setTab }) {
         /></div>
       </div>
 
+      <RecruitmentYearSwitch year={filters.year || '2026'} onChange={year => setFilters(f => ({ ...f, year }))} />
       <TabNav tab={tab} setTab={setTab} />
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
@@ -217,11 +219,15 @@ export default function RecruitmentModule({ tab, setTab }) {
               onStalledClick={() => jumpToCandidatesByStatus('__stalled__')}
               onYetToStartClick={() => jumpToRolesFiltered('yetToStart')}
               stalledCount={stalled.length}
+              overdueCount={overdueResumptions.length}
+              showOverdue={Number(filters.year) === 2027}
+              onOverdueClick={() => jumpToCandidatesByStatus('__overdue__')}
             />
           )}
           {tab === 'roles' && (
             <RolesTab
               rowsWithCandidates={rowsWithCandidates}
+              hiringYear={filters.year}
               onChanged={reload}
               initialFilterMode={roleFilterMode}
               divisions={divisions}
@@ -235,6 +241,7 @@ export default function RecruitmentModule({ tab, setTab }) {
               initialStatusFilter={candidateStatusFilter}
               initialLocationFilter={candidateLocationFilter}
               stalled={stalled}
+              overdueResumptions={overdueResumptions}
               canDeleteCandidates={canDeleteCandidates}
               onChanged={reload}
             />
@@ -248,6 +255,10 @@ export default function RecruitmentModule({ tab, setTab }) {
 // =================================================================
 // Nav + Filters
 // =================================================================
+function RecruitmentYearSwitch({ year, onChange }) {
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10 }}><div><div style={{ fontSize: 13, fontWeight: 650, color: 'var(--tx1)' }}>Recruitment plan</div><div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Switch years to update the tracker and dashboard.</div></div><div role="group" aria-label="Recruitment year" style={{ display: 'inline-flex', padding: 3, gap: 3, background: 'var(--bg1)', borderRadius: 8, border: '1px solid var(--bds)' }}>{[['2026', '2026 Recruitment'], ['2027', '2027 Recruitment']].map(([value, label]) => <button key={value} onClick={() => onChange(value)} aria-pressed={String(year) === value} style={{ border: 'none', borderRadius: 6, padding: '8px 13px', cursor: 'pointer', fontSize: 12, fontWeight: String(year) === value ? 650 : 500, color: String(year) === value ? '#fff' : 'var(--tx2)', background: String(year) === value ? 'var(--acc-fill)' : 'transparent' }}>{label}</button>)}</div></div>;
+}
+
 function TabNav({ tab, setTab }) {
   const tabs = [['overview', 'Overview'], ['roles', 'Roles'], ['candidates', 'Candidates']];
   return (
@@ -268,7 +279,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
 
   useEffect(() => { if (open) setDraft(filters); }, [open, filters]);
 
-  const activeCount = Object.values(filters).filter(Boolean).length;
+  const activeCount = Object.entries(filters).filter(([key, value]) => key !== 'year' && Boolean(value)).length;
 
   function update(key, value) {
     setDraft(f => ({ ...f, [key]: value }));
@@ -280,7 +291,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
   }
 
   function clearAll() {
-    const empty = { divisionId: '', roleId: '', location: '', year: '', employmentType: '', stage: '' };
+    const empty = { divisionId: '', roleId: '', location: '', year: filters.year || '2026', employmentType: '', stage: '' };
     setDraft(empty);
     setFilters(empty);
     setOpen(false);
@@ -297,7 +308,6 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
     showDivisionFilter && filters.divisionId ? ['divisionId', divisionName || 'Division'] : null,
     filters.roleId ? ['roleId', roleName || 'Role'] : null,
     filters.location ? ['location', filters.location] : null,
-    filters.year ? ['year', filters.year] : null,
     filters.employmentType ? ['employmentType', filters.employmentType] : null,
     filters.stage ? ['stage', filters.stage] : null,
   ].filter(Boolean);
@@ -389,13 +399,6 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
               <select value={draft.location} onChange={e => update('location', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All locations</option>
                 {locations.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </label>
-            <label>
-              <span style={labelStyle()}>Year</span>
-              <select value={draft.year} onChange={e => update('year', e.target.value)} style={inputStyle({ width: '100%' })}>
-                <option value="">All years</option>
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </label>
             <label>
@@ -529,10 +532,10 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
   );
 }
 
-function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
+function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount, overdueCount = 0, showOverdue = false, onOverdueClick }) {
   return (
     <div>
-      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
         <KpiCard label="Total positions" value={metrics.totalPositions} />
         <KpiCard label="Open positions" value={metrics.openSlots} />
@@ -542,6 +545,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <KpiCard label="Avg time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
         <KpiCard label="Avg time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
+        {showOverdue && <div onClick={onOverdueClick} style={{ cursor: 'pointer' }}><KpiCard label="Overdue resumption" value={overdueCount} role="dgr" /></div>}
       </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
@@ -621,7 +625,7 @@ function aggregateRoleStatus(locations) {
   return 'Open';
 }
 
-function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates, canManageRoles }) {
+function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates, canManageRoles, hiringYear }) {
   const [editingRole, setEditingRole] = useState(null);
   const [editingLocation, setEditingLocation] = useState(null);
   const [addingLocationFor, setAddingLocationFor] = useState(null);
@@ -850,7 +854,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                         )}
 
                         {addingLocationFor === roleId && (
-                          <QuickAddLocationForm roleId={roleId} onDone={() => { setAddingLocationFor(null); onChanged(); }} onCancel={() => setAddingLocationFor(null)} />
+                          <QuickAddLocationForm roleId={roleId} hiringYear={hiringYear} onDone={() => { setAddingLocationFor(null); onChanged(); }} onCancel={() => setAddingLocationFor(null)} />
                         )}
                       </div>
                     );
@@ -879,12 +883,13 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
   );
 }
 
-function QuickAddLocationForm({ roleId, onDone, onCancel }) {
+function QuickAddLocationForm({ roleId, hiringYear = '2026', onDone, onCancel }) {
   const today = new Date().toISOString().slice(0, 10);
   const [location, setLocation] = useState('');
   const [noOfPositions, setNoOfPositions] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [plannedStartDate, setPlannedStartDate] = useState('');
+  const [requiredStartDate, setRequiredStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -898,6 +903,8 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
         noOfPositions: Number(noOfPositions),
         status: 'Open',
         plannedStartDate: plannedStartDate || null,
+        hiringYear: Number(hiringYear),
+        requiredStartDate: requiredStartDate || null,
         dateRequestReceived,
       });
       onDone();
@@ -914,6 +921,10 @@ function QuickAddLocationForm({ roleId, onDone, onCancel }) {
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
         Start Date
         <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: 130 })} />
+      </label>
+      <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        Required resumption
+        <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: 130 })} />
       </label>
       <label style={{ fontSize: 12, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: 4 }}>
         Requested
@@ -969,6 +980,8 @@ function EditLocationModal({ rl, onClose, onSaved }) {
   const [noOfPositions, setNoOfPositions] = useState(rl.no_of_positions);
   const [status, setStatus] = useState(rl.status || 'Open');
   const [plannedStartDate, setPlannedStartDate] = useState(rl.planned_start_date || '');
+  const [hiringYear, setHiringYear] = useState(String(rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : 2026)));
+  const [requiredStartDate, setRequiredStartDate] = useState(rl.required_start_date || '');
   const [dateRequestReceived, setDateRequestReceived] = useState(rl.date_request_received || '');
   const [dateLocationClosed, setDateLocationClosed] = useState(rl.date_location_closed || '');
   const [statusReason, setStatusReason] = useState(rl.status_reason || '');
@@ -988,6 +1001,8 @@ function EditLocationModal({ rl, onClose, onSaved }) {
         noOfPositions: Number(noOfPositions),
         status,
         plannedStartDate: plannedStartDate || null,
+        hiringYear: Number(hiringYear),
+        requiredStartDate: requiredStartDate || null,
         dateRequestReceived: dateRequestReceived || null,
         dateLocationClosed: dateLocationClosed || null,
         statusReason,
@@ -1038,6 +1053,14 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
+      <label style={labelStyle()}>Hiring year</label>
+      <select value={hiringYear} onChange={e => setHiringYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}><option value="2026">2026 Recruitment</option><option value="2027">2027 Recruitment</option></select>
+      <label style={labelStyle()}>Required start date</label>
+      <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+      <label style={labelStyle()}>Hiring year</label>
+      <select value={hiringYear} onChange={e => setHiringYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}><option value="2026">2026 Recruitment</option><option value="2027">2027 Recruitment</option></select>
+      <label style={labelStyle()}>Required start date</label>
+      <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date location closed</label>
@@ -1065,6 +1088,8 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
   const [statusReviewDate, setStatusReviewDate] = useState('');
   const [deferredToYear, setDeferredToYear] = useState('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
+  const [hiringYear, setHiringYear] = useState('2026');
+  const [requiredStartDate, setRequiredStartDate] = useState('');
   const [dateRequestReceived, setDateRequestReceived] = useState(today);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1080,7 +1105,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       const newRole = await createRole({ divisionId, roleTitle: roleTitle.trim(), roleType, suggestedGrade });
       await createRoleLocation({
         roleId: newRole.role_id, location: location.trim(), noOfPositions: Number(noOfPositions),
-        status, plannedStartDate: plannedStartDate || null, dateRequestReceived: dateRequestReceived || null,
+        status, plannedStartDate: plannedStartDate || null, hiringYear: Number(hiringYear), requiredStartDate: requiredStartDate || null, dateRequestReceived: dateRequestReceived || null,
         statusReason, statusReviewDate, deferredToYear,
       });
       onSaved();
@@ -1152,7 +1177,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
 // =================================================================
 // Candidates — the only place candidates are added, edited, or have status changed
 // =================================================================
-function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, canDeleteCandidates, onChanged }) {
+function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocationFilter, stalled, overdueResumptions = [], canDeleteCandidates, onChanged }) {
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [locationFilter, setLocationFilter] = useState(initialLocationFilter);
   const [search, setSearch] = useState('');
@@ -1168,6 +1193,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   useEffect(() => { setLocationFilter(initialLocationFilter); }, [initialLocationFilter]);
 
   const stalledIds = new Set(stalled.map(s => s.candidateId));
+  const overdueIds = new Set(overdueResumptions.map(s => s.candidateId));
 
   let flat = rowsWithCandidates.flatMap(rl =>
     rl.candidates.map(c => ({
@@ -1176,6 +1202,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   );
 
   if (statusFilter === '__stalled__') flat = flat.filter(c => stalledIds.has(c.candidate_id));
+  else if (statusFilter === '__overdue__') flat = flat.filter(c => overdueIds.has(c.candidate_id));
   else if (statusFilter === '__dropped__') flat = flat.filter(c => ['Dropped', 'Rejected'].includes(c.status));
   else if (statusFilter) flat = flat.filter(c => c.status === statusFilter);
   if (locationFilter) flat = flat.filter(c => c.rl.role_location_id === locationFilter);
