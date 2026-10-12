@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   getCurrentUserScope, fetchDivisions, fetchRoleLocationsWithCandidates,
-  computeDashboardMetrics, computeStalledOnboarding, computeOverdueResumptions, computeTimeToClose, computeTimeToOnboard,
+  computeDashboardMetrics, computeStalledOnboarding, computeOverdueResumptions, computeTimeToFill, computeTimeToClose, computeTimeToOnboard,
   fetchMyNotifications, fetchRecruitmentYears,
 } from './recruitmentData';
 import { parseUploadFile, parseXlsxUploadFile, executeUpload, executeCandidateUpload } from './recruitmentUpload';
@@ -535,21 +535,28 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount, overdueCount = 0, showOverdue = false, onOverdueClick }) {
   return (
     <div>
-      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 10, marginBottom: 24 }}>
-        <KpiCard label="Total roles" value={metrics.totalRoles} />
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10, marginBottom: 18 }}>
         <KpiCard label="Total positions" value={metrics.totalPositions} />
         <KpiCard label="Open positions" value={metrics.openSlots} />
-        <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
+        <KpiCard label="Positions secured" value={metrics.securedSlots} />
         <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
-        <KpiCard label="Closure rate" value={`${metrics.closureRatePct}%`} role="suc" />
-        <KpiCard label="Avg time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
-        <KpiCard label="Avg time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
+        <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
         <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
         {showOverdue && <div onClick={onOverdueClick} style={{ cursor: 'pointer' }}><KpiCard label="Overdue resumption" value={overdueCount} role="dgr" /></div>}
       </div>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+        <CollapsibleSection title="Recruitment timelines" defaultOpen={false}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+            <KpiCard label="Avg. time to fill" value={metrics.avgTimeToFill !== null ? `${metrics.avgTimeToFill}d` : '—'} />
+            <KpiCard label="Avg. time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
+            <KpiCard label="Avg. time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
+          </div>
+          <div style={{ color: 'var(--txm)', fontSize: 11, marginTop: 8 }}>Time to Fill: Recruitment Start → Offer Accepted. Time to Onboard: Sent for Onboarding Approval → Offer Accepted. Time to Close: Request Received → All positions filled.</div>
+        </CollapsibleSection>
+      </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
-        <CollapsibleSection title="Recruitment funnel — click any stage">
+        <CollapsibleSection title="Recruitment funnel — click any stage" defaultOpen={false}>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {FUNNEL_STAGES.map(stage => {
             const [role] = funnelStyle(stage);
@@ -568,7 +575,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
       </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
-        <CollapsibleSection title="Closure rates by division">
+        <CollapsibleSection title="Closure rates by division" defaultOpen={false}>
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
