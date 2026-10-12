@@ -477,11 +477,15 @@ function YearComparisonSection({ filters }) {
               </thead>
               <tbody>
                 {[
+                  ['Total roles', rows.thisYear.totalRoles, rows.lastYear.totalRoles],
+                  ['Total positions', rows.thisYear.totalPositions, rows.lastYear.totalPositions],
+                  ['Positions filled', rows.thisYear.positionsFilled, rows.lastYear.positionsFilled],
+                  ['Positions in progress', rows.thisYear.positionsInProgress, rows.lastYear.positionsInProgress],
+                  ['Yet to start', rows.thisYear.yetToStartSlots, rows.lastYear.yetToStartSlots],
                   ['Fill rate', `${rows.thisYear.fillRatePct}%`, `${rows.lastYear.fillRatePct}%`],
                   ['Closure rate', `${rows.thisYear.closureRatePct}%`, `${rows.lastYear.closureRatePct}%`],
                   ['Avg time to close', rows.thisYear.avgTimeToClose !== null ? `${rows.thisYear.avgTimeToClose}d` : '—', rows.lastYear.avgTimeToClose !== null ? `${rows.lastYear.avgTimeToClose}d` : '—'],
                   ['Avg time to onboard', rows.thisYear.avgTimeToOnboard !== null ? `${rows.thisYear.avgTimeToOnboard}d` : '—', rows.lastYear.avgTimeToOnboard !== null ? `${rows.lastYear.avgTimeToOnboard}d` : '—'],
-                  ['Total roles', rows.thisYear.totalRoles, rows.lastYear.totalRoles],
                 ].map(([label, a, b]) => (
                   <tr key={label} style={{ borderTop: '0.5px solid var(--bd)' }}>
                     <td style={{ padding: '8px 10px' }}>{label}</td>
@@ -514,9 +518,11 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
+      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginBottom: 24 }}>
         <KpiCard label="Total roles" value={metrics.totalRoles} />
-        <KpiCard label="Open positions" value={metrics.totalSlots} />
+        <KpiCard label="Total positions" value={metrics.totalPositions} />
+        <KpiCard label="Positions filled" value={metrics.positionsFilled} role="suc" />
+        <KpiCard label="Positions in progress" value={metrics.positionsInProgress} role="acc" />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
         <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
         <KpiCard label="Closure rate" value={`${metrics.closureRatePct}%`} role="suc" />

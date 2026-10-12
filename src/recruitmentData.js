@@ -221,42 +221,51 @@ function deriveRoleLocationStatus(rl) {
 
 export function computeDashboardMetrics(roleLocationsWithCandidates) {
   let totalSlots = 0;
-  let securedCount = 0;
-  let closedCount = 0;
+  let positionsFilled = 0;
   let yetToStartSlots = 0;
+  let activeSlots = 0;
+  let closedLocations = 0;
   const uniqueRoleIds = new Set();
   const funnelCounts = Object.fromEntries(CANDIDATE_FUNNEL_STAGES.map(s => [s, 0]));
-  const divisionAgg = {}; // name -> { slots, secured, closed }
+  const divisionAgg = {}; // name -> position and location-level metrics
 
   for (const rl of roleLocationsWithCandidates) {
     const divName = rl.roles.divisions.name;
-    if (!divisionAgg[divName]) divisionAgg[divName] = { slots: 0, secured: 0, closed: 0 };
+    if (!divisionAgg[divName]) {
+      divisionAgg[divName] = { slots: 0, filled: 0, locations: 0, closedLocations: 0 };
+    }
     uniqueRoleIds.add(rl.roles.role_id);
 
+    const positions = Math.max(0, Number(rl.no_of_positions || 0));
+    const closedCandidates = rl.candidates.filter(c => c.status === 'Closed').length;
+    const filledAtLocation = Math.min(positions, closedCandidates);
+    const isLocationClosed = positions > 0 && filledAtLocation >= positions;
+
+    totalSlots += positions;
+    positionsFilled += filledAtLocation;
+    divisionAgg[divName].slots += positions;
+    divisionAgg[divName].filled += filledAtLocation;
+    divisionAgg[divName].locations += 1;
+
+    if (isLocationClosed) {
+      closedLocations += 1;
+      divisionAgg[divName].closedLocations += 1;
+    }
+
     if (rl.derived_status === 'Yet to Start') {
-      // Not yet active — excluded from slot totals, Fill Rate, Closure Rate, and the funnel.
-      yetToStartSlots += rl.no_of_positions;
+      yetToStartSlots += positions;
       continue;
     }
 
-    totalSlots += rl.no_of_positions;
-    divisionAgg[divName].slots += rl.no_of_positions;
-
+    activeSlots += positions;
     if (rl.derived_status === 'Sourcing') funnelCounts.Sourcing++;
 
     for (const c of rl.candidates) {
       if (c.status !== 'Sourcing' && funnelCounts[c.status] !== undefined) funnelCounts[c.status]++;
-      if (SECURED_STATUSES.includes(c.status)) {
-        securedCount++;
-        divisionAgg[divName].secured++;
-      }
-      if (c.status === 'Closed') {
-        closedCount++;
-        divisionAgg[divName].closed++;
-      }
     }
   }
 
+  const positionsInProgress = Math.max(0, totalSlots - positionsFilled - yetToStartSlots);
 
   const closeTimes = roleLocationsWithCandidates
     .map(rl => computeTimeToClose(rl))
@@ -271,21 +280,24 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 
   return {
     totalSlots,
+    totalPositions: totalSlots,
     totalRoles: uniqueRoleIds.size,
     totalRoleLocations: roleLocationsWithCandidates.length,
+    positionsFilled,
+    positionsInProgress,
     yetToStartSlots,
     avgTimeToClose,
     avgTimeToOnboard,
-    fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
-    closureRatePct: totalSlots ? Math.round((closedCount / totalSlots) * 100) : 0,
+    fillRatePct: totalSlots ? Math.round((positionsFilled / totalSlots) * 100) : 0,
+    closureRatePct: roleLocationsWithCandidates.length ? Math.round((closedLocations / roleLocationsWithCandidates.length) * 100) : 0,
     funnelCounts,
     funnelPct: Object.fromEntries(
-      CANDIDATE_FUNNEL_STAGES.map(s => [s, totalSlots ? Math.round((funnelCounts[s] / totalSlots) * 100) : 0])
+      CANDIDATE_FUNNEL_STAGES.map(s => [s, activeSlots ? Math.round((funnelCounts[s] / activeSlots) * 100) : 0])
     ),
     byDivision: Object.entries(divisionAgg).map(([name, v]) => ({
       name,
-      fillRatePct: v.slots ? Math.round((v.secured / v.slots) * 100) : 0,
-      closureRatePct: v.slots ? Math.round((v.closed / v.slots) * 100) : 0,
+      fillRatePct: v.slots ? Math.round((v.filled / v.slots) * 100) : 0,
+      closureRatePct: v.locations ? Math.round((v.closedLocations / v.locations) * 100) : 0,
     })),
   };
 }
