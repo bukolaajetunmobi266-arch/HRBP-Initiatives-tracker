@@ -884,7 +884,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       {showRolesUpload === 'import' && (
         <BulkUploadModal
           title="Import recruitment data"
-          helpText="Upload the completed Recruitment Tracker Excel template to add recruitment roles, locations and candidates."
+          helpText="Upload the requisition input template to add roles and locations. Add candidates separately in the Candidates tab."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowRolesUpload(false)}
@@ -1406,7 +1406,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showCandidateUpload === 'import' && (
         <BulkUploadModal
           title="Import candidates"
-          helpText="Upload recruitment records using the same template as the Roles import. Missing roles or locations are created automatically, and candidate details including Email are added to the tracker."
+          helpText="For candidate imports, use the recruitment import sheet with requisition columns plus Candidate Name, Employment Type, Recruitment Stage, Contact Phone, Email and Source. Missing roles or locations can be created automatically."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowCandidateUpload(false)}
