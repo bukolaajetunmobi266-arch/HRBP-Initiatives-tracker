@@ -884,7 +884,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
       {showRolesUpload === 'import' && (
         <BulkUploadModal
           title="Import recruitment data"
-          helpText="Upload the requisition input template to add roles and locations. Add candidates separately in the Candidates tab."
+          helpText="Use the combined recruitment template for requisitions and candidates. Enter one row per role/location or candidate; repeat the role/location details on each candidate row. Leave Candidate Name blank when you are only adding a requisition."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowRolesUpload(false)}
@@ -1406,7 +1406,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
       {showCandidateUpload === 'import' && (
         <BulkUploadModal
           title="Import candidates"
-          helpText="For candidate imports, use the recruitment import sheet with requisition columns plus Candidate Name, Employment Type, Recruitment Stage, Contact Phone, Email and Source. Missing roles or locations can be created automatically."
+          helpText="Use the same combined recruitment template. Repeat the requisition details on each candidate row, then complete Candidate Name, Employment Type, Recruitment Stage, Contact Phone, Email and Source. Existing role/location records are reused; new ones can be created when needed."
           executor={executeUpload}
           mode="roles"
           onClose={() => setShowCandidateUpload(false)}
@@ -2154,9 +2154,8 @@ function RecruitmentNotificationBell({ notifications, myUserId, onRead }) {
 }
 
 // =================================================================
-// Bulk upload — reusable modal. Roles tab passes executeUpload (can
-// create roles/locations); Candidates tab passes executeCandidateUpload
-// (never creates structure, only matches existing roles/locations).
+// Bulk upload — one combined import workflow on both tabs. It can create or reuse
+// role/location records and add a candidate when Candidate Name is populated.
 // =================================================================
 function BulkUploadModal({ title, helpText, executor, mode, onClose, onDone }) {
   const [parsed, setParsed] = useState(null);
