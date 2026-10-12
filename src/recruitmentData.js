@@ -397,8 +397,9 @@ export function computeOverdueResumptions(roleLocationsWithCandidates, hiringYea
   for (const rl of roleLocationsWithCandidates) {
     if (Number(rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null)) !== 2027) continue;
     for (const c of rl.candidates || []) {
-      if (c.status !== 'Awaiting Resumption' || !c.expected_resumption_date || c.expected_resumption_date > todayDate || c.actual_resumption_date) continue;
-      results.push({ candidateId: c.candidate_id, candidateName: c.candidate_name, roleLocationId: rl.role_location_id, divisionId: rl.roles?.division_id, roleTitle: rl.roles?.role_title, division: rl.roles?.divisions?.name, location: rl.location, expectedResumptionDate: c.expected_resumption_date, daysOverdue: Math.max(0, Math.floor((day - new Date(c.expected_resumption_date + 'T00:00:00')) / 86400000)) });
+      const expectedDate = c.expected_resumption_date || rl.required_start_date;
+      if (c.status !== 'Awaiting Resumption' || !expectedDate || expectedDate > todayDate || c.actual_resumption_date) continue;
+      results.push({ candidateId: c.candidate_id, candidateName: c.candidate_name, roleLocationId: rl.role_location_id, divisionId: rl.roles?.division_id, roleTitle: rl.roles?.role_title, division: rl.roles?.divisions?.name, location: rl.location, expectedResumptionDate: expectedDate, daysOverdue: Math.max(0, Math.floor((day - new Date(expectedDate + 'T00:00:00')) / 86400000)) });
     }
   }
   return results;
