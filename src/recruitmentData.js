@@ -61,12 +61,12 @@ export async function fetchDivisions() {
 export async function fetchRecruitmentYears() {
   const { data, error } = await supabase
     .from('role_locations')
-    .select('date_request_received')
+    .select('hiring_year, date_request_received, planned_start_date')
     .is('deleted_at', null)
     .order('date_request_received', { ascending: false });
   if (error) throw error;
   return [...new Set((data || [])
-    .map(r => r.date_request_received ? new Date(r.date_request_received).getFullYear() : null)
+    .map(r => r.hiring_year || (r.date_request_received ? new Date(r.date_request_received).getFullYear() : null) || (r.planned_start_date ? new Date(r.planned_start_date).getFullYear() : null))
     .filter(Boolean)
   )].sort((a, b) => b - a);
 }
@@ -94,7 +94,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .from('role_locations')
     .select(`
       role_location_id, location, no_of_positions, status, planned_start_date,
-      date_request_received, date_location_closed,
+      date_request_received, date_location_closed, hiring_year, required_start_date,
       status_reason, status_review_date, deferred_to_year,
       roles!inner ( role_id, role_title, role_type, suggested_grade, division_id,
         divisions!inner ( division_id, name, hrbp_id ) )
@@ -112,7 +112,8 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.year) {
       const start = `${filters.year}-01-01`;
       const end = `${Number(filters.year) + 1}-01-01`;
-      if (!rl.date_request_received || rl.date_request_received < start || rl.date_request_received >= end) return false;
+      const hiringYear = rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null);
+      if (Number(hiringYear) !== Number(filters.year)) return false;
     }
     return true;
   });
@@ -386,6 +387,21 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
       closureRatePct: v.slots ? Math.round((v.closed / v.slots) * 100) : 0,
     })),
   };
+}
+
+export function computeOverdueResumptions(roleLocationsWithCandidates, hiringYear = 2027, today = new Date()) {
+  if (Number(hiringYear) !== 2027) return [];
+  const day = new Date(today); day.setHours(0, 0, 0, 0);
+  const todayDate = day.toISOString().slice(0, 10);
+  const results = [];
+  for (const rl of roleLocationsWithCandidates) {
+    if (Number(rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null)) !== 2027) continue;
+    for (const c of rl.candidates || []) {
+      if (c.status !== 'Awaiting Resumption' || !c.expected_resumption_date || c.expected_resumption_date > todayDate || c.actual_resumption_date) continue;
+      results.push({ candidateId: c.candidate_id, candidateName: c.candidate_name, roleLocationId: rl.role_location_id, divisionId: rl.roles?.division_id, roleTitle: rl.roles?.role_title, division: rl.roles?.divisions?.name, location: rl.location, expectedResumptionDate: c.expected_resumption_date, daysOverdue: Math.max(0, Math.floor((day - new Date(c.expected_resumption_date + 'T00:00:00')) / 86400000)) });
+    }
+  }
+  return results;
 }
 
 // ---------------------------------------------------------------
