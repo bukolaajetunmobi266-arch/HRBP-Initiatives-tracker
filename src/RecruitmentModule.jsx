@@ -1057,10 +1057,6 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <select value={hiringYear} onChange={e => setHiringYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}><option value="2026">2026 Recruitment</option><option value="2027">2027 Recruitment</option></select>
       <label style={labelStyle()}>Required start date</label>
       <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
-      <label style={labelStyle()}>Hiring year</label>
-      <select value={hiringYear} onChange={e => setHiringYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}><option value="2026">2026 Recruitment</option><option value="2027">2027 Recruitment</option></select>
-      <label style={labelStyle()}>Required start date</label>
-      <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date location closed</label>
@@ -1162,6 +1158,10 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>A future date will automatically show this recruitment as Yet to Start.</div>
+      <label style={labelStyle()}>Hiring year</label>
+      <select value={hiringYear} onChange={e => setHiringYear(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}><option value="2026">2026 Recruitment</option><option value="2027">2027 Recruitment</option></select>
+      <label style={labelStyle()}>Required start date</label>
+      <input type="date" value={requiredStartDate} onChange={e => setRequiredStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Date request received</label>
       <input type="date" value={dateRequestReceived} onChange={e => setDateRequestReceived(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
 
