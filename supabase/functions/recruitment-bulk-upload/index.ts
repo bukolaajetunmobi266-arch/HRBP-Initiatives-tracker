@@ -158,8 +158,13 @@ function validateRow(raw: any, rowNum: number) {
   }
   if (!location) throw new Error(`Row ${rowNum}: Location is blank.`);
   parseNumber(raw["No. of Positions"] || raw["No of Positions"]);
-  parseDate(raw["Date Request Received"]);
+  const requestDate = parseDate(raw["Date Request Received"]);
   parseDate(raw["Start Date"], true);
+  parseDate(raw["Required Resumption Date"], true);
+  const hiringYearRaw = clean(raw["Hiring Year"]);
+  if (hiringYearRaw && (!Number.isInteger(Number(hiringYearRaw)) || Number(hiringYearRaw) < 2000 || Number(hiringYearRaw) > 2100)) {
+    throw new Error(`Row ${rowNum}: Hiring Year must be a year between 2000 and 2100.`);
+  }
   if (!ROLE_LOCATION_STATUSES.includes(status)) {
     throw new Error(`Row ${rowNum}: Role Location Status is invalid.`);
   }
@@ -237,6 +242,9 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
   const deferredToYear = deferredToYearRaw ? Number(deferredToYearRaw) : null;
   const requestDate = parseDate(raw["Date Request Received"]);
   const startDate = parseDate(raw["Start Date"], true);
+  const hiringYearRaw = clean(raw["Hiring Year"]);
+  const hiringYear = hiringYearRaw ? Number(hiringYearRaw) : new Date(requestDate).getFullYear();
+  const requiredStartDate = parseDate(raw["Required Resumption Date"], true);
 
   const { data: divisions, error: divisionError } = await admin
     .from("divisions")
@@ -306,6 +314,8 @@ async function processRow(admin: any, profile: any, raw: any, rowNum: number, us
     status,
     planned_start_date: startDate,
     date_request_received: requestDate,
+    hiring_year: hiringYear,
+    required_start_date: requiredStartDate,
     date_location_closed: status === "Closed" ? (parseDate(raw["Date Location Closed"], true) || new Date().toISOString().slice(0, 10)) : null,
     status_reason: statusReason,
     status_review_date: reviewDate,
