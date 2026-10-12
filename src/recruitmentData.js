@@ -337,6 +337,13 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     if (remaining > 0) funnelCounts.Sourcing += remaining;
   }
 
+  const fillTimes = roleLocationsWithCandidates
+    .flatMap(rl => rl.candidates.map(candidate => computeTimeToFill(candidate, rl)))
+    .filter(d => d !== null);
+  const avgTimeToFill = fillTimes.length
+    ? Math.round(fillTimes.reduce((a, b) => a + b, 0) / fillTimes.length)
+    : null;
+
   const closeTimes = roleLocationsWithCandidates
     .map(rl => computeTimeToClose(rl))
     .filter(d => d !== null);
@@ -367,6 +374,8 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
     deferredSlots,
     cancelledSlots,
     closedSlots: closedCount,
+    securedSlots: securedCount,
+    avgTimeToFill,
     avgTimeToClose,
     avgTimeToOnboard,
     fillRatePct: totalSlots ? Math.round((securedCount / totalSlots) * 100) : 0,
@@ -444,6 +453,13 @@ export async function fetchMyNotifications() {
 // ---------------------------------------------------------------
 // Time to Close (working days), per role_location
 // ---------------------------------------------------------------
+export function computeTimeToFill(candidate, roleLocation) {
+  const startDate = roleLocation?.planned_start_date;
+  const offerAcceptedDate = candidate?.date_offer_accepted;
+  if (!startDate || !offerAcceptedDate || offerAcceptedDate < startDate) return null;
+  return workingDaysBetween(startDate, offerAcceptedDate);
+}
+
 export function computeTimeToClose(rl) {
   if (!rl.date_request_received || !rl.date_location_closed) return null;
   return workingDaysBetween(rl.date_request_received, rl.date_location_closed);
