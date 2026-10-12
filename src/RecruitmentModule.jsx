@@ -1358,8 +1358,9 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           <tbody>
             {flat.map(c => {
               const isStalled = stalledIds.has(c.candidate_id);
+              const isOverdue = overdueIds.has(c.candidate_id);
               return (
-                <tr key={c.candidate_id} style={{ borderTop: '0.5px solid var(--bd)', background: isStalled ? 'var(--dgr-bg)' : 'transparent' }}>
+                <tr key={c.candidate_id} style={{ borderTop: '0.5px solid var(--bd)', background: (isStalled || isOverdue) ? 'var(--dgr-bg)' : 'transparent' }}>
                   <td style={{ padding: '8px 10px' }}>
                     <input type="checkbox" checked={selected.has(c.candidate_id)} onChange={e => {
                       const next = new Set(selected);
@@ -1372,6 +1373,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                       {c.candidate_name}
                     </button>
                     {isStalled && <span style={{ marginLeft: 6, color: 'var(--dgr-tx)' }}>⚠</span>}
+                    {isOverdue && <span style={{ marginLeft: 6, color: 'var(--dgr-tx)', fontSize: 10, fontWeight: 650 }}>OVERDUE</span>}
                   </td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.email || '—'}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--tx2)' }}>{c.division}</td>
