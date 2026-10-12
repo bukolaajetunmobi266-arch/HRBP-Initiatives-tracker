@@ -50,7 +50,7 @@ function parseCsv(text) {
 
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const ROLE_REQUIRED_HEADERS = [
-  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions', 'Role Location Status',
+  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions',
 ];
 const CANDIDATE_REQUIRED_HEADERS = [
   'Division', 'Role Title', 'Location', 'Candidate Name', 'Employment Type',
