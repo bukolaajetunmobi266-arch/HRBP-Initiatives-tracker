@@ -110,8 +110,6 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.location && rl.location !== filters.location) return false;
     if (filters.year) {
-      const start = `${filters.year}-01-01`;
-      const end = `${Number(filters.year) + 1}-01-01`;
       const hiringYear = rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null);
       if (Number(hiringYear) !== Number(filters.year)) return false;
     }
@@ -392,7 +390,7 @@ export function computeDashboardMetrics(roleLocationsWithCandidates) {
 export function computeOverdueResumptions(roleLocationsWithCandidates, hiringYear = 2027, today = new Date()) {
   if (Number(hiringYear) !== 2027) return [];
   const day = new Date(today); day.setHours(0, 0, 0, 0);
-  const todayDate = day.toISOString().slice(0, 10);
+  const todayDate = [day.getFullYear(), String(day.getMonth() + 1).padStart(2, '0'), String(day.getDate()).padStart(2, '0')].join('-');
   const results = [];
   for (const rl of roleLocationsWithCandidates) {
     if (Number(rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null)) !== 2027) continue;
