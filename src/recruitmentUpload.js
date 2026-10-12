@@ -49,9 +49,11 @@ function parseCsv(text) {
 }
 
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
-const REQUIRED_HEADERS = [
-  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions',
-  'Role Location Status', 'Candidate Name', 'Employment Type', 'Contact Phone',
+const ROLE_REQUIRED_HEADERS = [
+  'Division', 'Role Title', 'Role Type', 'Location', 'No of Positions', 'Role Location Status',
+];
+const CANDIDATE_REQUIRED_HEADERS = [
+  'Division', 'Role Title', 'Location', 'Candidate Name', 'Employment Type',
 ];
 
 const VALID_EMPLOYMENT_TYPES = ['Full-Time', 'Contract', 'Affiliate', 'Intern'];
@@ -71,7 +73,8 @@ function parseBool(val) {
 function validateParsedRows(parsed, mode) {
   const errors = [];
   const headers = parsed.meta.fields || [];
-  const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
+  const requiredHeaders = mode === 'candidates' ? CANDIDATE_REQUIRED_HEADERS : ROLE_REQUIRED_HEADERS;
+  const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
   if (missingHeaders.length) {
     errors.push(`Missing columns: ${missingHeaders.join(', ')}. Did you edit the header row?`);
     return { rows: [], errors };
@@ -87,7 +90,7 @@ function validateParsedRows(parsed, mode) {
       rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
     }
 
-    if (row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
+    if (mode === 'roles' && row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
       rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
     }
 
@@ -333,6 +336,7 @@ export async function executeCandidateUpload(parsedRows, onProgress) {
         contact_phone: r['Contact Phone']?.trim() || null,
         source: r['Source']?.trim() || null,
         status: r['Candidate Status']?.trim() || 'Sourcing',
+        employment_type: r['Employment Type']?.trim() || null,
         medical_report_received: parseBool(r['Medical Report Received']),
         date_sourced: parseDate(r['Date Sourced']),
         date_interview: parseDate(r['Date Interview']),
