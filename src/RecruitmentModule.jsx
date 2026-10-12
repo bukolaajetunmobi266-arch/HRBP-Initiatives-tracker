@@ -792,6 +792,9 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                               const startDate = rl.planned_start_date
                                 ? new Date(rl.planned_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                                 : null;
+                              const requiredStartDate = rl.required_start_date
+                                ? new Date(rl.required_start_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : null;
                               const statusReason = rl.status_reason || null;
                               const reviewDate = rl.status_review_date
                                 ? new Date(rl.status_review_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -815,7 +818,9 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 11, color: 'var(--txm)' }}>
-                                    {startDate && <span>Start Date · {startDate}</span>}
+                                    <span>{rl.hiring_year || '2026'} Recruitment</span>
+                                    {startDate && <span>Recruitment Start · {startDate}</span>}
+                                    {requiredStartDate && <span>Required Resumption · {requiredStartDate}</span>}
                                     {ageDays !== null && ageDays >= 30 && !['Closed', 'On Hold', 'Deferred', 'Cancelled', 'Yet to Start'].includes(status) && <span>· {ageDays} days open</span>}
                                   </div>
                                   {status === 'On Hold' && (
