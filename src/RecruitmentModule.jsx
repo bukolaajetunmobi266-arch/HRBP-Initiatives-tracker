@@ -477,10 +477,14 @@ function YearComparisonSection({ filters }) {
               </thead>
               <tbody>
                 {[
-                  ['Total roles', rows.thisYear.totalRoles, rows.lastYear.totalRoles],
+                  ['Requisitions', rows.thisYear.totalRoles, rows.lastYear.totalRoles],
                   ['Total positions', rows.thisYear.totalPositions, rows.lastYear.totalPositions],
                   ['Positions filled', rows.thisYear.positionsFilled, rows.lastYear.positionsFilled],
                   ['Positions in progress', rows.thisYear.positionsInProgress, rows.lastYear.positionsInProgress],
+                  ['Filled positions', rows.thisYear.filledPositions, rows.lastYear.filledPositions],
+                  ['On hold positions', rows.thisYear.onHoldPositions, rows.lastYear.onHoldPositions],
+                  ['Deferred positions', rows.thisYear.deferredPositions, rows.lastYear.deferredPositions],
+                  ['Cancelled positions', rows.thisYear.cancelledPositions, rows.lastYear.cancelledPositions],
                   ['Yet to start', rows.thisYear.yetToStartSlots, rows.lastYear.yetToStartSlots],
                   ['Fill rate', `${rows.thisYear.fillRatePct}%`, `${rows.lastYear.fillRatePct}%`],
                   ['Closure rate', `${rows.thisYear.closureRatePct}%`, `${rows.lastYear.closureRatePct}%`],
@@ -518,21 +522,30 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
 function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToStartClick, stalledCount }) {
   return (
     <div>
-      <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginBottom: 24 }}>
-        <KpiCard label="Total roles" value={metrics.totalRoles} />
-        <KpiCard label="Total positions" value={metrics.totalPositions} />
-        <KpiCard label="Positions filled" value={metrics.positionsFilled} role="suc" />
-        <KpiCard label="Positions in progress" value={metrics.positionsInProgress} role="acc" />
-        <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
-        <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
-        <KpiCard label="Closure rate" value={`${metrics.closureRatePct}%`} role="suc" />
-        <KpiCard label="Avg time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
-        <KpiCard label="Avg time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
-        <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
-      </div>
+      <CollapsibleSection title="Recruitment Portfolio">
+        <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginBottom: 24 }}>
+          <KpiCard label="Requisitions" value={metrics.totalRoles} />
+          <KpiCard label="Total positions" value={metrics.totalPositions} />
+          <KpiCard label="Open positions" value={metrics.openPositions} role="acc" />
+          <KpiCard label="Filled positions" value={metrics.filledPositions} role="suc" />
+          <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartPositions} role="neu" /></div>
+          <KpiCard label="On hold" value={metrics.onHoldPositions} />
+          <KpiCard label="Deferred" value={metrics.deferredPositions} />
+          <KpiCard label="Cancelled" value={metrics.cancelledPositions} />
+        </div>
+      </CollapsibleSection>
+      <CollapsibleSection title="Recruitment Performance">
+        <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginBottom: 24 }}>
+          <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
+          <KpiCard label="Closure rate" value={`${metrics.closureRatePct}%`} role="suc" />
+          <KpiCard label="Avg time to close" value={metrics.avgTimeToClose !== null ? `${metrics.avgTimeToClose}d` : '—'} />
+          <KpiCard label="Avg time to onboard" value={metrics.avgTimeToOnboard !== null ? `${metrics.avgTimeToOnboard}d` : '—'} />
+          <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
+        </div>
+      </CollapsibleSection>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
-        <CollapsibleSection title="Candidate funnel — click any stage">
+        <CollapsibleSection title="Recruitment Position Funnel — click any stage">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {FUNNEL_STAGES.map(stage => {
             const [role] = funnelStyle(stage);
@@ -551,7 +564,7 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
       </div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '15px 16px', marginBottom: 16 }}>
-        <CollapsibleSection title="Closure rates by division">
+        <CollapsibleSection title="Recruitment Performance by Division">
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--wrn-fill)', marginRight: 4 }} />Fill rate</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: 'var(--suc-fill)', marginRight: 4 }} />Closure rate</span>
@@ -921,7 +934,7 @@ function EditLocationModal({ rl, onClose, onSaved }) {
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Status override</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })}>
-        <option>Open</option><option>On Hold</option><option>Cancelled</option><option>Closed</option>
+        <option>Open</option><option>On Hold</option><option>Deferred</option><option>Cancelled</option><option>Closed</option>
       </select>
       <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 10 }}>Status is normally derived from the Start Date and candidate pipeline. Use On Hold or Cancelled for manual overrides.</div>
       <label style={labelStyle()}>Start Date</label>
@@ -999,7 +1012,7 @@ function NewRoleModal({ divisions, onClose, onSaved }) {
       <input type="number" min="1" value={noOfPositions} onChange={e => setNoOfPositions(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
       <label style={labelStyle()}>Status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Cancelled</option>
+        <option>Open</option><option>Yet to Start</option><option>On Hold</option><option>Deferred</option><option>Cancelled</option>
       </select>
       <label style={labelStyle()}>Start Date</label>
       <input type="date" value={plannedStartDate} onChange={e => setPlannedStartDate(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 4 })} />
