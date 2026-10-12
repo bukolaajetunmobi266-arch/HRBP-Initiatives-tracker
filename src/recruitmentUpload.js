@@ -56,10 +56,12 @@ export function parseUploadFile(text, mode = 'roles') {
 }
 
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
-const REQUIRED_HEADERS = [
+const REQUIRED_ROLE_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Location', 'No. of Positions',
   'Role Location Status', 'Date Request Received', 'Start Date',
-  'Candidate Name', 'Employment Type', 'Recruitment Stage', 'Contact Phone',
+];
+const REQUIRED_CANDIDATE_HEADERS = [
+  ...REQUIRED_ROLE_HEADERS, 'Candidate Name', 'Employment Type', 'Recruitment Stage', 'Contact Phone',
 ];
 
 const HEADER_ALIASES = {
@@ -166,7 +168,8 @@ function validateParsedRows(parsed, mode) {
   const errors = [];
   const normalisedData = (parsed.data || []).map(normaliseRowHeaders);
   const headers = [...new Set(normalisedData.flatMap(row => Object.keys(row)))];
-  const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h));
+  const requiredHeaders = mode === 'candidates' ? REQUIRED_CANDIDATE_HEADERS : REQUIRED_ROLE_HEADERS;
+  const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
   if (missingHeaders.length) {
     errors.push(`Missing columns: ${missingHeaders.join(', ')}. Did you edit the header row?`);
     return { rows: [], errors };
@@ -213,6 +216,13 @@ function validateParsedRows(parsed, mode) {
     if (row['Start Date'] && !isBlankLike(row['Start Date'])) {
       const parsedDate = new Date(row['Start Date']);
       if (Number.isNaN(parsedDate.getTime())) rowErrors.push(`Row ${rowNum}: Invalid Start Date. Use YYYY-MM-DD or leave it blank if unknown.`);
+    }
+    if (row['Required Resumption Date'] && !isBlankLike(row['Required Resumption Date'])) {
+      const parsedDate = new Date(row['Required Resumption Date']);
+      if (Number.isNaN(parsedDate.getTime())) rowErrors.push(`Row ${rowNum}: Invalid Required Resumption Date. Use YYYY-MM-DD or leave it blank if unknown.`);
+    }
+    if (row['Hiring Year'] && !isBlankLike(row['Hiring Year']) && (!Number.isInteger(Number(row['Hiring Year'])) || Number(row['Hiring Year']) < 2000 || Number(row['Hiring Year']) > 2100)) {
+      rowErrors.push(`Row ${rowNum}: Hiring Year must be a year between 2000 and 2100.`);
     }
 
     if (row['Candidate Name']?.trim() && row['Recruitment Stage']?.trim() && !VALID_CANDIDATE_STATUSES.includes(row['Recruitment Stage'].trim())) {
