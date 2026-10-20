@@ -61,12 +61,12 @@ export async function fetchDivisions() {
 export async function fetchRecruitmentYears() {
   const { data, error } = await supabase
     .from('role_locations')
-    .select('date_request_received')
+    .select('hiring_year, date_request_received, planned_start_date')
     .is('deleted_at', null)
     .order('date_request_received', { ascending: false });
   if (error) throw error;
   return [...new Set((data || [])
-    .map(r => r.date_request_received ? new Date(r.date_request_received).getFullYear() : null)
+    .map(r => Number(r.hiring_year) || (r.date_request_received ? new Date(r.date_request_received).getFullYear() : null) || (r.planned_start_date ? new Date(r.planned_start_date).getFullYear() : null))
     .filter(Boolean)
   )].sort((a, b) => b - a);
 }
@@ -94,7 +94,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .from('role_locations')
     .select(`
       role_location_id, location, no_of_positions, status, planned_start_date,
-      date_request_received, date_location_closed,
+      date_request_received, date_location_closed, hiring_year, required_start_date,
       roles!inner ( role_id, role_title, role_type, suggested_grade, division_id,
         divisions!inner ( division_id, name, hrbp_id ) )
     `)
@@ -109,9 +109,8 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.location && rl.location !== filters.location) return false;
     if (filters.year) {
-      const start = `${filters.year}-01-01`;
-      const end = `${Number(filters.year) + 1}-01-01`;
-      if (!rl.date_request_received || rl.date_request_received < start || rl.date_request_received >= end) return false;
+      const hiringYear = Number(rl.hiring_year) || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null) || (rl.required_start_date ? new Date(rl.required_start_date).getFullYear() : null);
+      if (Number(hiringYear) !== Number(filters.year)) return false;
     }
     return true;
   });
