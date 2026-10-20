@@ -58,7 +58,7 @@ export function parseUploadFile(text, mode = 'roles') {
 // Keep the analyst-facing template intentionally small. Recruitment-stage fields are maintained in the app after upload.
 const REQUIRED_ROLE_HEADERS = [
   'Division', 'Role Title', 'Role Type', 'Location', 'No. of Positions',
-  'Role Location Status', 'Date Request Received', 'Start Date',
+  'Date Request Received', 'Start Date',
 ];
 const REQUIRED_CANDIDATE_HEADERS = [
   ...REQUIRED_ROLE_HEADERS, 'Candidate Name', 'Employment Type', 'Recruitment Stage', 'Contact Phone',
