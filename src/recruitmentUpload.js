@@ -39,7 +39,8 @@ function parseCsv(text) {
   const filtered = rows.filter(r => r.some(cell => cell.trim() !== ''));
   if (filtered.length === 0) return { data: [], meta: { fields: [] } };
 
-  const headers = filtered[0].map(h => h.trim());
+  const normalizeHeader = (h) => ({ 'No. of Positions': 'No of Positions', 'Positions': 'No of Positions', 'Start Date': 'Start Date', 'Role Location Status': 'Role Location Status', 'Hiring Year': 'Hiring Year', 'Required Resumption Date': 'Required Resumption Date', 'Date Request Received': 'Date Request Received', 'Date Location Closed': 'Date Location Closed', 'Status Reason': 'Status Reason', 'Review Date': 'Review Date', 'Deferred To Year': 'Deferred To Year' }[String(h).trim()] || String(h).trim());
+  const headers = filtered[0].map(normalizeHeader);
   const data = filtered.slice(1).map(r => {
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = (r[idx] ?? '').trim(); });
@@ -86,12 +87,12 @@ function validateParsedRows(parsed, mode) {
     if (!row['Division']?.trim()) rowErrors.push(`Row ${rowNum}: Division is blank`);
     if (!row['Role Title']?.trim()) rowErrors.push(`Row ${rowNum}: Role Title is blank`);
     if (!row['Location']?.trim()) rowErrors.push(`Row ${rowNum}: Location is blank`);
-    if (mode === 'roles' && (!row['No of Positions'] || isNaN(Number(row['No of Positions'])))) {
+    if (mode === 'roles' && (!row['No of Positions'] || !Number.isFinite(Number(row['No of Positions'])) || Number(row['No of Positions']) < 0)) {
       rowErrors.push(`Row ${rowNum}: No of Positions must be a number`);
     }
 
-    if (mode === 'roles' && row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
-      rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Cancelled, or Closed.`);
+    if (mode === 'roles' && row['Role Location Status']?.trim() && !['Open', 'Yet to Start', 'On Hold', 'Deferred', 'Cancelled', 'Closed'].includes(row['Role Location Status'].trim())) {
+      rowErrors.push(`Row ${rowNum}: Role Location Status must be Open, Yet to Start, On Hold, Deferred, Cancelled, or Closed.`);
     }
 
     // Employment Type is represented in the template and is required when a candidate is being uploaded.
@@ -151,12 +152,12 @@ export async function parseXlsxUploadFile(file, mode = 'roles') {
   const sheetName = workbook.SheetNames.find(n => n.toLowerCase() === 'data') || workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
-  const meta = { fields: data.length ? Object.keys(data[0]) : [] };
+  const meta = { fields: data.length ? Object.keys(data[0]).map(h => ({ 'No. of Positions': 'No of Positions' }[String(h).trim()] || String(h).trim())) : [] };
   // Coerce every cell to a string, same shape parseCsv produces, so
   // validateParsedRows doesn't need to know which source it came from.
   const stringified = data.map(row => {
     const out = {};
-    for (const [k, v] of Object.entries(row)) out[k] = v === null || v === undefined ? '' : String(v).trim();
+    for (const [k, v] of Object.entries(row)) out[({ 'No. of Positions': 'No of Positions' }[String(k).trim()] || String(k).trim())] = v === null || v === undefined ? '' : String(v).trim();
     return out;
   });
   return validateParsedRows({ data: stringified, meta }, mode);
@@ -226,16 +227,38 @@ export async function executeUpload(parsedRows, onProgress) {
           .is('deleted_at', null).maybeSingle();
         if (existingRL) {
           roleLocationId = existingRL.role_location_id;
+          const hiringYear = r['Hiring Year']?.trim() ? Number(r['Hiring Year'].trim()) : null;
+          const updatePayload = {
+            no_of_positions: Number(r['No of Positions']),
+            ...(r['Role Location Status']?.trim() ? { status: r['Role Location Status'].trim() } : {}),
+            ...(parseDate(r['Start Date']) ? { planned_start_date: parseDate(r['Start Date']) } : {}),
+            ...(parseDate(r['Date Request Received'] ? { date_request_received: parseDate(r['Date Request Received']) } : {}),
+            ...(parseDate(r['Required Resumption Date']) ? { required_start_date: parseDate(r['Required Resumption Date']) } : {}),
+            ...(parseDate(r['Date Location Closed']) ? { date_location_closed: parseDate(r['Date Location Closed']) } : {}),
+            ...(hiringYear ? { hiring_year: hiringYear } : {}),
+            ...(r['Status Reason']?.trim() ? { status_reason: r['Status Reason'].trim() } : {}),
+            ...(parseDate(r['Review Date']) ? { status_review_date: parseDate(r['Review Date']) } : {}),
+            ...(r['Deferred To Year']?.trim() ? { deferred_to_year: Number(r['Deferred To Year'].trim()) } : {}),
+          };
+          const { error: updateError } = await supabase.from('role_locations').update(updatePayload).eq('role_location_id', roleLocationId);
+          if (updateError) throw updateError;
         } else {
+          const hiringYear = r['Hiring Year']?.trim() ? Number(r['Hiring Year'].trim()) : null;
+          if (hiringYear !== null && (!Number.isInteger(hiringYear) || hiringYear < 2000 || hiringYear > 2100)) throw new Error('Hiring Year must be a valid four-digit year.');
           const { data: newRL, error } = await supabase
             .from('role_locations').insert({
               role_id: roleId,
               location: r['Location'].trim(),
               no_of_positions: Number(r['No of Positions']),
-              status: r['Role Location Status']?.trim() || 'Open',
-              planned_start_date: null,
-              date_request_received: new Date().toISOString().slice(0, 10),
-              date_location_closed: null,
+              status: r['Role Location Status']?.trim() || 'Yet to Start',
+              planned_start_date: parseDate(r['Start Date']),
+              date_request_received: parseDate(r['Date Request Received']) || new Date().toISOString().slice(0, 10),
+              required_start_date: parseDate(r['Required Resumption Date']),
+              date_location_closed: parseDate(r['Date Location Closed']),
+              hiring_year: hiringYear || (parseDate(r['Required Resumption Date']) ? new Date(parseDate(r['Required Resumption Date'])).getFullYear() : null) || (parseDate(r['Start Date']) ? new Date(parseDate(r['Start Date'])).getFullYear() : null),
+              status_reason: r['Status Reason']?.trim() || null,
+              status_review_date: parseDate(r['Review Date']),
+              deferred_to_year: r['Deferred To Year']?.trim() ? Number(r['Deferred To Year'].trim()) : null,
               created_by: user?.id,
             }).select('role_location_id').single();
           if (error) throw error;
