@@ -200,7 +200,7 @@ export default function RecruitmentModule({ tab, setTab }) {
         /></div>
       </div>
 
-      <RecruitmentYearSwitch year={filters.year || '2026'} onChange={year => setFilters(f => ({ ...f, year }))} />
+      
       <TabNav tab={tab} setTab={setTab} />
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
@@ -536,12 +536,10 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
   return (
     <div>
       <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10, marginBottom: 18 }}>
-        <KpiCard label="Total positions" value={metrics.totalPositions} />
-        <KpiCard label="Open positions" value={metrics.openSlots} />
-        <KpiCard label="Positions secured" value={metrics.securedSlots} />
-        <KpiCard label="Fill rate" value={`${metrics.fillRatePct}%`} role="acc" />
-        <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartSlots} role="neu" /></div>
-        <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled onboarding" value={stalledCount} role="dgr" /></div>
+        <KpiCard label="Total Positions" value={metrics.totalPositions} />
+        <KpiCard label="Closed" value={metrics.closedSlots} role="suc" />
+        <KpiCard label="In Progress" value={metrics.openSlots} role="acc" />
+        <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to Start" value={metrics.yetToStartSlots} role="neu" /></div>
         {showOverdue && <div onClick={onOverdueClick} style={{ cursor: 'pointer' }}><KpiCard label="Overdue resumption" value={overdueCount} role="dgr" /></div>}
       </div>
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
@@ -598,7 +596,6 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         </CollapsibleSection>
       </div>
 
-      <YearComparisonSection filters={filters} />
     </div>
   );
 }
