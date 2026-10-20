@@ -232,7 +232,7 @@ export async function executeUpload(parsedRows, onProgress) {
             no_of_positions: Number(r['No of Positions']),
             ...(r['Role Location Status']?.trim() ? { status: r['Role Location Status'].trim() } : {}),
             ...(parseDate(r['Start Date']) ? { planned_start_date: parseDate(r['Start Date']) } : {}),
-            ...(parseDate(r['Date Request Received'] ? { date_request_received: parseDate(r['Date Request Received']) } : {}),
+            ...(parseDate(r['Date Request Received']) ? { date_request_received: parseDate(r['Date Request Received']) } : {}),
             ...(parseDate(r['Required Resumption Date']) ? { required_start_date: parseDate(r['Required Resumption Date']) } : {}),
             ...(parseDate(r['Date Location Closed']) ? { date_location_closed: parseDate(r['Date Location Closed']) } : {}),
             ...(hiringYear ? { hiring_year: hiringYear } : {}),
