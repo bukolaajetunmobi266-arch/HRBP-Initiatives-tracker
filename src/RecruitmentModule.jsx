@@ -540,6 +540,8 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         <KpiCard label="Closed" value={metrics.closedSlots} role="suc" />
         <KpiCard label="In Progress" value={metrics.openSlots} role="acc" />
         <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to Start" value={metrics.yetToStartSlots} role="neu" /></div>
+        <KpiCard label="Fill Rate" value={`${metrics.fillRatePct}%`} role="acc" />
+        <div onClick={onStalledClick} style={{ cursor: 'pointer' }}><KpiCard label="Stalled Onboarding" value={stalledCount} role="dgr" /></div>
         {showOverdue && <div onClick={onOverdueClick} style={{ cursor: 'pointer' }}><KpiCard label="Overdue resumption" value={overdueCount} role="dgr" /></div>}
       </div>
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
