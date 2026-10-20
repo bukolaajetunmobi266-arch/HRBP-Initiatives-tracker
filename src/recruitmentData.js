@@ -61,12 +61,12 @@ export async function fetchDivisions() {
 export async function fetchRecruitmentYears() {
   const { data, error } = await supabase
     .from('role_locations')
-    .select('hiring_year, date_request_received, planned_start_date')
+    .select('hiring_year, date_request_received, planned_start_date, required_start_date')
     .is('deleted_at', null)
     .order('date_request_received', { ascending: false });
   if (error) throw error;
   return [...new Set((data || [])
-    .map(r => r.hiring_year || (r.date_request_received ? new Date(r.date_request_received).getFullYear() : null) || (r.planned_start_date ? new Date(r.planned_start_date).getFullYear() : null))
+    .map(r => Number(r.hiring_year) || (r.required_start_date ? new Date(r.required_start_date).getFullYear() : null) || (r.planned_start_date ? new Date(r.planned_start_date).getFullYear() : null) || (r.date_request_received ? new Date(r.date_request_received).getFullYear() : null))
     .filter(Boolean)
   )].sort((a, b) => b - a);
 }
@@ -110,7 +110,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.location && rl.location !== filters.location) return false;
     if (filters.year) {
-      const hiringYear = rl.hiring_year || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null);
+      const hiringYear = Number(rl.hiring_year) || (rl.required_start_date ? new Date(rl.required_start_date).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null) || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null);
       if (Number(hiringYear) !== Number(filters.year)) return false;
     }
     return true;
