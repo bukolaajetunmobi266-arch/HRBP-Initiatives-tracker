@@ -524,14 +524,10 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
     <div>
       <CollapsibleSection title="Recruitment Portfolio">
         <div data-recruitment-kpis style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10, marginBottom: 24 }}>
-          <KpiCard label="Requisitions" value={metrics.totalRoles} />
-          <KpiCard label="Total positions" value={metrics.totalPositions} />
-          <KpiCard label="Open positions" value={metrics.openPositions} role="acc" />
-          <KpiCard label="Filled positions" value={metrics.filledPositions} role="suc" />
-          <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to start" value={metrics.yetToStartPositions} role="neu" /></div>
-          <KpiCard label="On hold" value={metrics.onHoldPositions} />
-          <KpiCard label="Deferred" value={metrics.deferredPositions} />
-          <KpiCard label="Cancelled" value={metrics.cancelledPositions} />
+          <KpiCard label="Total Positions" value={metrics.totalPositions} />
+          <KpiCard label="Closed" value={metrics.filledPositions} role="suc" />
+          <KpiCard label="In Progress" value={metrics.openPositions} role="acc" />
+          <div onClick={onYetToStartClick} style={{ cursor: 'pointer' }}><KpiCard label="Yet to Start" value={metrics.yetToStartPositions} role="neu" /></div>
         </div>
       </CollapsibleSection>
       <CollapsibleSection title="Recruitment Performance">
@@ -587,7 +583,6 @@ function OverviewTab({ metrics, filters, onFunnelClick, onStalledClick, onYetToS
         </CollapsibleSection>
       </div>
 
-      <YearComparisonSection filters={filters} />
     </div>
   );
 }
