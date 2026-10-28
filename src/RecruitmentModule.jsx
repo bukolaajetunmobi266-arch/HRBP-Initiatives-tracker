@@ -1945,6 +1945,21 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClo
     actual_resumption_date: candidate.actual_resumption_date || '',
     date_closed: candidate.date_closed || '',
     status_reason: candidate.status_reason || '',
+    checkin_1_status: candidate.checkin_1_status || 'Not Due',
+    checkin_1_date: candidate.checkin_1_date || '',
+    checkin_1_feedback: candidate.checkin_1_feedback || '',
+    checkin_1_challenges: candidate.checkin_1_challenges || '',
+    checkin_1_experience: candidate.checkin_1_experience || '',
+    checkin_2_status: candidate.checkin_2_status || 'Not Due',
+    checkin_2_date: candidate.checkin_2_date || '',
+    checkin_2_feedback: candidate.checkin_2_feedback || '',
+    checkin_2_challenges: candidate.checkin_2_challenges || '',
+    checkin_2_experience: candidate.checkin_2_experience || '',
+    checkin_3_status: candidate.checkin_3_status || 'Not Due',
+    checkin_3_date: candidate.checkin_3_date || '',
+    checkin_3_feedback: candidate.checkin_3_feedback || '',
+    checkin_3_challenges: candidate.checkin_3_challenges || '',
+    checkin_3_experience: candidate.checkin_3_experience || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -2083,6 +2098,33 @@ function CandidateProfilePanel({ candidate, currentRl, allRows, canDelete, onClo
           <input type="date" value={form[field]} onChange={e => set(field, e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
         </div>
       ))}
+
+      <div style={{ borderTop: '1px solid var(--bd)', marginTop: 8, paddingTop: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 650, marginBottom: 4 }}>New-hire monthly check-ins</div>
+        <div style={{ fontSize: 11, color: 'var(--txm)', marginBottom: 12 }}>Check-ins are scheduled from the actual resumption date. Only candidates with an actual resumption date enter the new-hire tracking process.</div>
+        {[1, 2, 3].map(month => {
+          const prefix = `checkin_${month}`;
+          const due = form.actual_resumption_date ? (() => { const d = new Date(`${form.actual_resumption_date}T12:00:00`); d.setMonth(d.getMonth() + month); return d.toISOString().slice(0, 10); })() : '';
+          return <div key={month} style={{ border: '1px solid var(--bd)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 650 }}>{month}-Month Check-in</div>
+              <span style={{ fontSize: 11, color: 'var(--tx2)' }}>Due: {due || 'Set actual resumption date'}</span>
+            </div>
+            <label style={labelStyle()}>Status</label>
+            <select value={form[`${prefix}_status`]} onChange={e => set(`${prefix}_status`, e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
+              {['Not Due', 'Due', 'Completed', 'Overdue'].map(status => <option key={status}>{status}</option>)}
+            </select>
+            <label style={labelStyle()}>Check-in date</label>
+            <input type="date" value={form[`${prefix}_date`]} onChange={e => set(`${prefix}_date`, e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })} />
+            <label style={labelStyle()}>Feedback</label>
+            <textarea value={form[`${prefix}_feedback`]} onChange={e => set(`${prefix}_feedback`, e.target.value)} rows={2} style={inputStyle({ width: '100%', marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' })} />
+            <label style={labelStyle()}>Onboarding challenges</label>
+            <textarea value={form[`${prefix}_challenges`]} onChange={e => set(`${prefix}_challenges`, e.target.value)} rows={2} style={inputStyle({ width: '100%', marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' })} />
+            <label style={labelStyle()}>Employee experience</label>
+            <textarea value={form[`${prefix}_experience`]} onChange={e => set(`${prefix}_experience`, e.target.value)} rows={2} style={inputStyle({ width: '100%', marginBottom: 2, resize: 'vertical', boxSizing: 'border-box' })} />
+          </div>;
+        })}
+      </div>
 
       {error && <div style={{ color: 'var(--dgr-tx)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
 
