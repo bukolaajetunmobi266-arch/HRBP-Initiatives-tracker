@@ -1201,6 +1201,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [locationFilter, setLocationFilter] = useState(initialLocationFilter);
   const [search, setSearch] = useState('');
+  const [resumptionMonth, setResumptionMonth] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState('');
   const [error, setError] = useState('');
@@ -1226,6 +1227,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
   else if (statusFilter === '__dropped__') flat = flat.filter(c => ['Dropped', 'Rejected'].includes(c.status));
   else if (statusFilter) flat = flat.filter(c => c.status === statusFilter);
   if (locationFilter) flat = flat.filter(c => c.rl.role_location_id === locationFilter);
+  if (resumptionMonth) flat = flat.filter(c => c.actual_resumption_date?.slice(0, 7) === resumptionMonth);
   if (search.trim()) flat = flat.filter(c => c.candidate_name?.toLowerCase().includes(search.toLowerCase()));
 
   function exportCandidates() {
@@ -1304,6 +1306,8 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input placeholder="Search candidate name…" value={search} onChange={e => setSearch(e.target.value)} style={inputStyle({ flex: 1, minWidth: 160 })} />
+        <input type="month" aria-label="Filter by actual resumption month" title="Filter by actual resumption month" value={resumptionMonth} onChange={e => setResumptionMonth(e.target.value)} style={inputStyle({ width: 165 })} />
+        {resumptionMonth && <button onClick={() => setResumptionMonth('')} style={btnStyle()}>Clear month ×</button>}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowCandidateUpload(v => !v)}
@@ -1368,6 +1372,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Location</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Employment Type</th>
               <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--tx2)' }}>New-hire check-ins</th>
             </tr>
           </thead>
           <tbody>
@@ -1399,6 +1404,9 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
                     <select value={c.status} onChange={e => quickChangeStatus(c.candidate_id, e.target.value, c.rl, c.status)} style={inputStyle({ padding: '3px 6px', fontSize: 12 })}>
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+                  </td>
+                  <td style={{ padding: '8px 10px', color: 'var(--tx2)', whiteSpace: 'nowrap' }}>
+                    {c.actual_resumption_date ? [1, 2, 3].map(n => c[`checkin_${n}_status`] === 'Completed' ? '✓' : c[`checkin_${n}_status`] === 'Overdue' ? '!' : '○').join(' ') : 'Not resumed'}
                   </td>
                 </tr>
               );
