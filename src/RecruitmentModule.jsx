@@ -202,6 +202,15 @@ export default function RecruitmentModule({ tab, setTab }) {
 
       
       <TabNav tab={tab} setTab={setTab} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 10 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--tx1)' }}>Recruitment plan</div>
+          <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>Switch between recruitment years.</div>
+        </div>
+        <div role="group" aria-label="Recruitment year" style={{ display: 'inline-flex', padding: 3, gap: 3, background: 'var(--bg1)', borderRadius: 8, border: '1px solid var(--bds)' }}>
+          {['2026', '2027'].map(value => <button key={value} onClick={() => setFilters(current => ({ ...current, year: value }))} aria-pressed={String(filters.year) === value} style={{ border: 'none', borderRadius: 6, padding: '8px 13px', cursor: 'pointer', fontSize: 12, fontWeight: String(filters.year) === value ? 650 : 500, color: String(filters.year) === value ? '#fff' : 'var(--tx2)', background: String(filters.year) === value ? 'var(--acc-fill)' : 'transparent' }}>{value} Recruitment</button>)}
+        </div>
+      </div>
       <FilterBar
         divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
         filters={filters} setFilters={setFilters}
