@@ -97,7 +97,7 @@ function InlineDeliverableField({ value, onSave, placeholder = '—', multiline 
 }
 
 export default function DeliverablesWorkspace({
-  items, isAdmin, collapsed, setCollapsed, selected, setSelected, ownerName, profiles,
+  items, isAdmin, ownerFilterActive = false, collapsed, setCollapsed, selected, setSelected, ownerName, profiles,
   strategyNodes, onCreateNode, onRenameNode, onDuplicateKeyResult, onDuplicateDeliverable,
   onMoveKeyResult, onMoveDeliverable, onOpen, onQuickAdd, onQuickStatus, onDelete, onBulkStatus, onBulkDelete,
   onExport, onImport, onGeneratePpt, onInlineUpdate, userId,
@@ -116,6 +116,11 @@ export default function DeliverablesWorkspace({
   const corporations = useMemo(() => strategyNodes.filter((n) => n.node_type === 'corporate'), [strategyNodes])
   const pmsFor = (id) => strategyNodes.filter((n) => n.node_type === 'pm' && n.parent_id === id)
   const krsFor = (id) => strategyNodes.filter((n) => n.node_type === 'key_result' && n.parent_id === id)
+  // When an HRBP filter is active, only retain hierarchy branches that contain
+  // at least one deliverable assigned to that HRBP. With no owner filter, keep
+  // empty Key Results visible so admins can continue adding deliverables.
+  const visiblePmsFor = (id) => pmsFor(id).filter((pm) => !ownerFilterActive || krsFor(pm.id).some((kr) => itemsFor(kr.id).length > 0))
+  const visibleKrsFor = (id) => krsFor(id).filter((kr) => !ownerFilterActive || itemsFor(kr.id).length > 0)
   const itemsFor = (id) => [...items.filter((d) => d.key_result_id === id)].sort((a, b) => {
     const ad = a.due_date || '9999-12-31'
     const bd = b.due_date || '9999-12-31'
@@ -281,7 +286,7 @@ export default function DeliverablesWorkspace({
         </div>
       )}
 
-      {corporations.map((co, ci) => {
+      {corporations.filter((co) => !ownerFilterActive || visiblePmsFor(co.id).length > 0).map((co, ci) => {
         const coKey = 'co::' + co.id
         const coCollapsed = collapsed[coKey]
         return (
@@ -291,7 +296,7 @@ export default function DeliverablesWorkspace({
               <div style={{ flex:1, minWidth:0, fontSize:14, fontWeight:650 }}>
                 <InlineName node={co} prefix="Corporate Objective · " editing={editingNode === co.id} onStart={setEditingNode} onSave={(v) => rename(co,v)} onCancel={() => setEditingNode(null)} />
               </div>
-              <div className="dw-context">{pmsFor(co.id).length} PM objective{pmsFor(co.id).length === 1 ? '' : 's'}</div>
+              <div className="dw-context">{visiblePmsFor(co.id).length} PM objective{visiblePmsFor(co.id).length === 1 ? '' : 's'}</div>
               <ActionMenu open={menu === co.id} onToggle={() => setMenu(menu === co.id ? null : co.id)}>
                 <button style={menuItem} onClick={() => beginNode('pm', co.id)}>+ PM Objective</button>
                 {isAdmin && <button style={menuItem} onClick={() => { setEditingNode(co.id); setMenu(null) }}>Rename</button>}
@@ -300,7 +305,7 @@ export default function DeliverablesWorkspace({
 
             {!coCollapsed && (
               <>
-                {pmsFor(co.id).map((pm) => {
+                {visiblePmsFor(co.id).map((pm) => {
                   const pmKey = 'pm::' + pm.id
                   const pmCollapsed = collapsed[pmKey]
                   return (
@@ -316,7 +321,7 @@ export default function DeliverablesWorkspace({
                         <div style={{ flex:1, minWidth:0, fontSize:13, color:'var(--tx2)' }}>
                           <InlineName node={pm} prefix="PM Objective · " editing={editingNode === pm.id} onStart={setEditingNode} onSave={(v) => rename(pm,v)} onCancel={() => setEditingNode(null)} />
                         </div>
-                        <div className="dw-context">{krsFor(pm.id).length} Key Result{krsFor(pm.id).length === 1 ? '' : 's'}</div>
+                        <div className="dw-context">{visibleKrsFor(pm.id).length} Key Result{visibleKrsFor(pm.id).length === 1 ? '' : 's'}</div>
                         <ActionMenu open={menu === pm.id} onToggle={() => setMenu(menu === pm.id ? null : pm.id)}>
                           <button style={menuItem} onClick={() => beginNode('key_result', pm.id)}>+ Key Result</button>
                           {isAdmin && <button style={menuItem} onClick={() => { setEditingNode(pm.id); setMenu(null) }}>Rename</button>}
@@ -325,7 +330,7 @@ export default function DeliverablesWorkspace({
 
                       {!pmCollapsed && (
                         <>
-                          {krsFor(pm.id).map((kr) => {
+                          {visibleKrsFor(pm.id).map((kr) => {
                             const krKey = 'kr::' + kr.id
                             const krCollapsed = collapsed[krKey]
                             const krItems = itemsFor(kr.id)

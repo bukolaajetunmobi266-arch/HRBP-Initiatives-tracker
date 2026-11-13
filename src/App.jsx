@@ -559,7 +559,7 @@ function Dashboard({ session, theme, setTheme }) {
         )}
 
         {view === 'board' && (
-          <BoardView items={getFiltered()} isAdmin={isAdmin} onOpen={(id) => setEditing({ id })} onStatus={changeStatus} onDelete={(id) => setConfirmDelete(id)} onAdd={() => setEditing({ id: null })} ownerName={ownerName} />
+          <BoardView items={getFiltered()} isAdmin={isAdmin} ownerFilterActive={filters.owner !== 'all'} onOpen={(id) => setEditing({ id })} onStatus={changeStatus} onDelete={(id) => setConfirmDelete(id)} onAdd={() => setEditing({ id: null })} ownerName={ownerName} />
         )}
 
         {view === 'deliverables' && (
