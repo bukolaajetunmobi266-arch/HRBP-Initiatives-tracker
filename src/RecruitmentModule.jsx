@@ -849,12 +849,17 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                               const groupKey = roleId + ':' + group.key;
                               return (
                                 <div key={group.key} style={{ border: '1px solid var(--bd)', borderRadius: 9, overflow: 'hidden' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', background: 'var(--bg2)', textAlign: 'left', flexWrap: 'wrap' }}>
+                                  <button
+                                    onClick={() => setExpandedResumptionGroups(current => ({ ...current, [groupKey]: !current[groupKey] }))}
+                                    aria-expanded={!!expandedResumptionGroups[groupKey]}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', background: 'var(--bg2)', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap' }}
+                                  >
+                                    <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{expandedResumptionGroups[groupKey] ? '▾' : '▸'}</span>
                                     <span style={{ fontSize: 12, fontWeight: 650, color: 'var(--acc-tx)', flex: 1 }}>{group.label}</span>
                                     <span style={{ fontSize: 11, color: 'var(--txm)' }}>{group.locations.length} location{group.locations.length !== 1 ? 's' : ''} · {groupPositions} slots</span>
                                     <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{groupClosed} closed · {Math.max(0, groupPositions - groupClosed)} to be filled</span>
-                                  </div>
-                                  {true && (
+                                  </button>
+                                  {expandedResumptionGroups[groupKey] && (
                                   <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {group.locations.map(rl => {
                               const { closed, left } = locationProgress(rl);
