@@ -1656,7 +1656,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       </select>
       <label style={labelStyle()}>Starting status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        {STATUS_OPTIONS.slice(0, 7).map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
+        {STATUS_OPTIONS.slice(0, 8).map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
       </select>
       {duplicateWarning && (
         <div style={{ background: 'var(--wrn-bg)', color: 'var(--wrn-tx)', borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 13 }}>
