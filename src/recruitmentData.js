@@ -95,6 +95,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
     .select(`
       role_location_id, location, no_of_positions, status, planned_start_date,
       date_request_received, date_location_closed, hiring_year, required_start_date,
+      required_start_month, recruitment_timeline, team_lead,
       status_reason, status_review_date, deferred_to_year,
       roles!inner ( role_id, role_title, role_type, suggested_grade, division_id,
         divisions!inner ( division_id, name, hrbp_id ) )
