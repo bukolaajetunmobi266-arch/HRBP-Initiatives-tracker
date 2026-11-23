@@ -58,6 +58,16 @@ export async function fetchDivisions() {
   return data;
 }
 
+export async function fetchHRBPs() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .not('id', 'is', null)
+    .order('full_name');
+  if (error) throw error;
+  return (data || []).filter(person => person.full_name);
+}
+
 export async function fetchRecruitmentYears() {
   const { data, error } = await supabase
     .from('role_locations')
@@ -83,7 +93,7 @@ export async function fetchRolesByDivision(divisionId) {
 // Fetch roles + role_locations + candidate counts, with optional filters
 // ---------------------------------------------------------------
 export async function fetchRoleLocationsWithCandidates(filters = {}) {
-  // filters: { divisionId, roleId, location, year, employmentType, stage }
+  // filters: { divisionId, hrbpId, roleId, location, year, employmentType, stage }
   // Division/Role/Location are applied client-side below, not as server
   // query filters — filtering through a nested embedded resource
   // (roles.division_id) proved unreliable, and divisionId in particular
@@ -108,6 +118,7 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
 
   const roleLocations = allRoleLocations.filter(rl => {
     if (filters.divisionId && rl.roles.division_id !== filters.divisionId) return false;
+    if (filters.hrbpId && rl.roles.divisions?.hrbp_id !== filters.hrbpId) return false;
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
     if (filters.roleCategory) {
       const title = String(rl.roles.role_title || '').trim().toLowerCase();
