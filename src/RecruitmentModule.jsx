@@ -651,6 +651,34 @@ function aggregateRoleStatus(locations) {
   return 'Open';
 }
 
+function requiredResumptionGroup(rl) {
+  if (rl.required_start_date) {
+    const date = new Date(rl.required_start_date + 'T00:00:00');
+    return { key: rl.required_start_date, label: date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), sort: rl.required_start_date };
+  }
+  if (rl.required_start_month) {
+    const match = String(rl.required_start_month).match(/^([A-Za-z]{3})-(\\d{4})$/);
+    if (match) {
+      const monthIndex = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(match[1]);
+      if (monthIndex >= 0) {
+        const year = Number(match[2]);
+        // Use the first working day; Jan 2027 starts on Monday 4 January
+        // because 1 January is a public holiday and 2–3 January are weekend days.
+        let day = 1;
+        const date = new Date(year, monthIndex, day);
+        while (date.getDay() === 0 || date.getDay() === 6 || (year === 2027 && monthIndex === 0 && day <= 3)) {
+          day++;
+          date.setDate(day);
+        }
+        const iso = [year, String(monthIndex + 1).padStart(2, '0'), String(day).padStart(2, '0')].join('-');
+        return { key: iso, label: date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), sort: iso };
+      }
+    }
+    return { key: 'month:' + rl.required_start_month, label: rl.required_start_month, sort: '9999-' + rl.required_start_month };
+  }
+  return { key: 'unspecified', label: 'Resumption Date Not Specified', sort: '9999-99-99' };
+}
+
 function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions, onViewCandidates, canManageRoles, hiringYear }) {
   const [editingRole, setEditingRole] = useState(null);
   const [editingLocation, setEditingLocation] = useState(null);
@@ -808,8 +836,25 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                         </div>
 
                         {roleIsExpanded && (
-                          <div className="role-locations" style={{ marginTop: 10, marginLeft: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {role.locations.map(rl => {
+                          <div className="role-locations" style={{ marginTop: 10, marginLeft: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {Object.values(role.locations.reduce((groups, rl) => {
+                              const group = requiredResumptionGroup(rl);
+                              if (!groups[group.key]) groups[group.key] = { ...group, locations: [] };
+                              groups[group.key].locations.push(rl);
+                              return groups;
+                            }, {})).sort((a, b) => a.sort.localeCompare(b.sort)).map(group => {
+                              const groupPositions = group.locations.reduce((sum, rl) => sum + Number(rl.no_of_positions || 0), 0);
+                              const groupClosed = group.locations.reduce((sum, rl) => sum + locationProgress(rl).closed, 0);
+                              const groupKey = roleId + ':' + group.key;
+                              return (
+                                <div key={group.key} style={{ border: '1px solid var(--bd)', borderRadius: 9, overflow: 'hidden' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', background: 'var(--bg2)', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 12, fontWeight: 650, color: 'var(--acc-tx)', flex: 1 }}>{group.label}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--txm)' }}>{group.locations.length} location{group.locations.length !== 1 ? 's' : ''} · {groupPositions} slots</span>
+                                    <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{groupClosed} closed · {Math.max(0, groupPositions - groupClosed)} to be filled</span>
+                                  </div>
+                                  <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {group.locations.map(rl => {
                               const { closed, left } = locationProgress(rl);
                               const status = left === 0 ? 'Closed' : rl.derived_status;
                               const ageDays = rl.date_request_received
@@ -877,6 +922,10 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                         catch (e) { window.alert(e.message || 'Unable to delete this location.'); }
                                       }} style={dangerBtnStyle({ color: 'var(--dgr-tx)' })}>Delete</button>
                                     )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                                   </div>
                                 </div>
                               );
