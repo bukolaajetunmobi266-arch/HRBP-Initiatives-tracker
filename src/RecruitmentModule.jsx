@@ -96,7 +96,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('hrbp_recruitment_filters');
-      return saved ? { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
+      return saved ? { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '' };
     } catch {
       return { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
     }
@@ -302,7 +302,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
   }
 
   function clearAll() {
-    const empty = { divisionId: '', roleId: '', location: '', year: filters.year || '2026', employmentType: '', stage: '' };
+    const empty = { divisionId: '', roleId: '', location: '', roleCategory: '', year: filters.year || '2026', employmentType: '', stage: '' };
     setDraft(empty);
     setFilters(empty);
     setOpen(false);
@@ -319,6 +319,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
     showDivisionFilter && filters.divisionId ? ['divisionId', divisionName || 'Division'] : null,
     filters.roleId ? ['roleId', roleName || 'Role'] : null,
     filters.location ? ['location', filters.location] : null,
+    filters.roleCategory ? ['roleCategory', `${filters.roleCategory} roles`] : null,
     filters.employmentType ? ['employmentType', filters.employmentType] : null,
     filters.stage ? ['stage', filters.stage] : null,
   ].filter(Boolean);
@@ -403,6 +404,14 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
               <select value={draft.roleId} onChange={e => update('roleId', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All roles</option>
                 {roles.map(r => <option key={r.role_id} value={r.role_id}>{r.role_title}</option>)}
+              </select>
+            </label>
+            <label>
+              <span style={labelStyle()}>Role Category</span>
+              <select value={draft.roleCategory || ''} onChange={e => update('roleCategory', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All role categories</option>
+                <option value="Sales">Sales</option>
+                <option value="Support">Support</option>
               </select>
             </label>
             <label>

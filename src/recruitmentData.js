@@ -109,6 +109,13 @@ export async function fetchRoleLocationsWithCandidates(filters = {}) {
   const roleLocations = allRoleLocations.filter(rl => {
     if (filters.divisionId && rl.roles.division_id !== filters.divisionId) return false;
     if (filters.roleId && rl.roles.role_id !== filters.roleId) return false;
+    if (filters.roleCategory) {
+      const title = String(rl.roles.role_title || '').trim().toLowerCase();
+      const category = /team lead/.test(title) ? 'Support'
+        : /sales associate|relationship officer|relationship manager/.test(title) ? 'Sales'
+        : 'Support';
+      if (category !== filters.roleCategory) return false;
+    }
     if (filters.location && rl.location !== filters.location) return false;
     if (filters.year) {
       const hiringYear = Number(rl.hiring_year) || (rl.required_start_date ? new Date(rl.required_start_date).getFullYear() : null) || (rl.planned_start_date ? new Date(rl.planned_start_date).getFullYear() : null) || (rl.date_request_received ? new Date(rl.date_request_received).getFullYear() : null);
