@@ -838,8 +838,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                     <span>{rl.hiring_year || '2026'} Recruitment</span>
                                     {startDate && <span>Recruitment Start · {startDate}</span>}
                                     {requiredStartDate && <span>Required Resumption · {requiredStartDate}</span>}
-                                    {rl.required_start_month && <span style={{ color: 'var(--acc-tx)', fontWeight: 600 }}>Required Resumption · {rl.required_start_month}</span>}
-                                    {rl.recruitment_timeline && <span>Recruitment Timeline · {rl.recruitment_timeline}</span>}
+                                    {(requiredStartDate || rl.required_start_month) && <span style={{ color: 'var(--acc-tx)', fontWeight: 600 }}>Required Resumption · {requiredStartDate || (rl.required_start_month === 'Jan-2027' ? '4 Jan 2027' : rl.required_start_month === 'Jun-2027' ? '1 Jun 2027' : rl.required_start_month)}</span>}
                                     {ageDays !== null && ageDays >= 30 && !['Closed', 'On Hold', 'Deferred', 'Cancelled', 'Yet to Start'].includes(status) && <span>· {ageDays} days open</span>}
                                   </div>
                                   {status === 'On Hold' && (
