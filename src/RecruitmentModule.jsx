@@ -96,7 +96,7 @@ export default function RecruitmentModule({ tab, setTab }) {
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('hrbp_recruitment_filters');
-      return saved ? { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
+      return saved ? { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '' };
     } catch {
       return { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
     }
