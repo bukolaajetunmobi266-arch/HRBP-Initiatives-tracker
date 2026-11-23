@@ -854,7 +854,14 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                         {roleIsExpanded && (
                           <div className="role-locations" style={{ marginTop: 10, marginLeft: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {Object.values(role.locations.reduce((groups, rl) => {
-                              const group = requiredResumptionGroup(rl);
+                              // Financial Inclusion's 2027 Relationship Officer pipeline is
+                              // easier to review by location than by required resumption timeline.
+                              const groupByLocation = String(hiringYear) === '2027'
+                                && divName === 'Executive Office - Financial Inclusion'
+                                && role.title === 'Relationship Officer';
+                              const group = groupByLocation
+                                ? { key: 'location:' + String(rl.location || '').trim().toLowerCase(), label: rl.location, sort: String(rl.location || '').toLowerCase() }
+                                : requiredResumptionGroup(rl);
                               if (!groups[group.key]) groups[group.key] = { ...group, locations: [] };
                               groups[group.key].locations.push(rl);
                               return groups;
