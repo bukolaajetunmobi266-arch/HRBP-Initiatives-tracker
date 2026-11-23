@@ -27,12 +27,14 @@ function primaryBtnStyle(extra = {}) { return { fontSize: 13, background: 'var(-
 function dangerBtnStyle(extra = {}) { return { fontSize: 12, background: 'none', border: 'none', color: 'var(--dgr-tx)', cursor: 'pointer', ...extra }; }
 function labelStyle() { return { fontSize: 12, color: 'var(--tx2)', display: 'block', marginBottom: 4 }; }
 
+function displayStatus(status) { return status === 'Documentation' ? 'Documentation / Medicals' : status; }
+
 function Badge({ status }) {
   const role = status === 'Closed' ? 'suc'
     : status === 'Offer' ? 'wrn'
     : ['Dropped', 'Rejected'].includes(status) ? 'dgr'
     : 'acc';
-  return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{status}</span>;
+  return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: `var(--${role}-bg)`, color: `var(--${role}-tx)`, whiteSpace: 'nowrap' }}>{displayStatus(status)}</span>;
 }
 
 const STATUS_OPTIONS = ['Sourcing', 'Screening', 'Interview', 'Assessment', 'Onboarding Approval', 'Documentation', 'Offer', 'Awaiting Resumption', 'Closed', 'Dropped', 'Rejected'];
@@ -421,7 +423,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
               <span style={labelStyle()}>Recruitment Stage / Status</span>
               <select value={draft.stage} onChange={e => update('stage', e.target.value)} style={inputStyle({ width: '100%' })}>
                 <option value="">All stages</option>
-                {FILTER_STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+                {FILTER_STATUS_OPTIONS.map(stage => <option key={stage} value={stage}>{displayStatus(stage)}</option>)}
               </select>
             </label>
           </div>
@@ -1335,7 +1337,7 @@ function CandidatesTab({ rowsWithCandidates, initialStatusFilter, initialLocatio
           <span style={{ fontSize: 13, color: 'var(--acc-tx)' }}>{selected.size} selected</span>
           <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} style={inputStyle({ width: 'auto' })}>
             <option value="">Move to…</option>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
           </select>
           <button onClick={applyBulk} style={primaryBtnStyle()}>Apply</button>
           {canDeleteCandidates && (
@@ -1588,7 +1590,7 @@ function AddCandidateModal({ rowsWithCandidates, presetRoleLocationId, onClose, 
       </select>
       <label style={labelStyle()}>Starting status</label>
       <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle({ width: '100%', marginBottom: 10 })}>
-        {STATUS_OPTIONS.slice(0, 7).map(s => <option key={s} value={s}>{s}</option>)}
+        {STATUS_OPTIONS.slice(0, 7).map(s => <option key={s} value={s}>{displayStatus(s)}</option>)}
       </select>
       {duplicateWarning && (
         <div style={{ background: 'var(--wrn-bg)', color: 'var(--wrn-tx)', borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 13 }}>
