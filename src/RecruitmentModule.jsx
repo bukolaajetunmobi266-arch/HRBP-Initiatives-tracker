@@ -651,6 +651,10 @@ function aggregateRoleStatus(locations) {
   return 'Open';
 }
 
+function uniqueLocationCount(locations) {
+  return new Set(locations.map(rl => String(rl.location || '').trim().toLowerCase()).filter(Boolean)).size;
+}
+
 function requiredResumptionGroup(rl) {
   if (rl.required_start_date) {
     const date = new Date(rl.required_start_date + 'T00:00:00');
@@ -811,7 +815,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                           </button>
                           <div style={{ flex: 1, minWidth: 180 }}>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{role.title}</div>
-                            <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{role.locations.length} location{role.locations.length !== 1 ? 's' : ''} · {totalPositions} slots</div>
+                            <div style={{ fontSize: 11, color: 'var(--txm)', marginTop: 2 }}>{uniqueLocationCount(role.locations)} location{uniqueLocationCount(role.locations) !== 1 ? 's' : ''} · {totalPositions} slots</div>
                           </div>
                           <span style={{ fontSize: 11, color: 'var(--tx2)', whiteSpace: 'nowrap' }}>{totalClosed} closed · {totalRemaining} to be filled</span>
                           <span style={{
@@ -856,7 +860,7 @@ function RolesTab({ rowsWithCandidates, onChanged, initialFilterMode, divisions,
                                   >
                                     <span style={{ fontSize: 12, color: 'var(--tx2)' }}>{expandedResumptionGroups[groupKey] ? '▾' : '▸'}</span>
                                     <span style={{ fontSize: 12, fontWeight: 650, color: 'var(--acc-tx)', flex: 1 }}>{group.label}</span>
-                                    <span style={{ fontSize: 11, color: 'var(--txm)' }}>{group.locations.length} location{group.locations.length !== 1 ? 's' : ''} · {groupPositions} slots</span>
+                                    <span style={{ fontSize: 11, color: 'var(--txm)' }}>{uniqueLocationCount(group.locations)} location{uniqueLocationCount(group.locations) !== 1 ? 's' : ''} · {groupPositions} slots</span>
                                     <span style={{ fontSize: 11, color: 'var(--tx2)' }}>{groupClosed} closed · {Math.max(0, groupPositions - groupClosed)} to be filled</span>
                                   </button>
                                   {expandedResumptionGroups[groupKey] && (
