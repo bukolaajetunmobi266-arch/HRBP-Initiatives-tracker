@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  getCurrentUserScope, fetchDivisions, fetchRoleLocationsWithCandidates,
+  getCurrentUserScope, fetchDivisions, fetchHRBPs, fetchRoleLocationsWithCandidates,
   computeDashboardMetrics, computeStalledOnboarding, computeOverdueResumptions, computeTimeToFill, computeTimeToClose, computeTimeToOnboard,
   fetchMyNotifications, fetchRecruitmentYears,
 } from './recruitmentData';
@@ -92,11 +92,12 @@ function Modal({ children, onClose, maxWidth = 380 }) {
 export default function RecruitmentModule({ tab, setTab }) {
   const [scope, setScope] = useState(null);
   const [divisions, setDivisions] = useState([]);
+  const [hrbps, setHrbps] = useState([]);
   const [requestYears, setRequestYears] = useState([]);
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('hrbp_recruitment_filters');
-      return saved ? { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '' };
+      return saved ? { divisionId: '', hrbpId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '', ...JSON.parse(saved), year: JSON.parse(saved).year || '2026' } : { divisionId: '', roleId: '', location: '', roleCategory: '', year: '2026', employmentType: '', stage: '' };
     } catch {
       return { divisionId: '', roleId: '', location: '', year: '2026', employmentType: '', stage: '' };
     }
@@ -120,8 +121,9 @@ export default function RecruitmentModule({ tab, setTab }) {
       try {
         const s = await getCurrentUserScope();
         setScope(s);
-        const [divs, years] = await Promise.all([fetchDivisions(), fetchRecruitmentYears()]);
+        const [divs, people, years] = await Promise.all([fetchDivisions(), fetchHRBPs(), fetchRecruitmentYears()]);
         setDivisions(divs);
+        setHrbps(people);
         setRequestYears(years);
       } catch (err) {
         console.error('Recruitment module failed to load:', err);
@@ -214,7 +216,7 @@ export default function RecruitmentModule({ tab, setTab }) {
         </div>
       </div>
       <FilterBar
-        divisions={divisions} roles={uniqueRoles} locations={uniqueLocations}
+        divisions={divisions} hrbps={hrbps} roles={uniqueRoles} locations={uniqueLocations}
         filters={filters} setFilters={setFilters}
         years={requestYears}
         showDivisionFilter={canManageDivisions || ['hrbp', 'analyst'].includes(scope.recruitment_role)}
@@ -284,7 +286,7 @@ function TabNav({ tab, setTab }) {
   );
 }
 
-function FilterBar({ divisions, roles, locations, years, filters, setFilters, showDivisionFilter }) {
+function FilterBar({ divisions, hrbps, roles, locations, years, filters, setFilters, showDivisionFilter }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(filters);
 
@@ -302,7 +304,7 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
   }
 
   function clearAll() {
-    const empty = { divisionId: '', roleId: '', location: '', roleCategory: '', year: filters.year || '2026', employmentType: '', stage: '' };
+    const empty = { divisionId: '', hrbpId: '', roleId: '', location: '', roleCategory: '', year: filters.year || '2026', employmentType: '', stage: '' };
     setDraft(empty);
     setFilters(empty);
     setOpen(false);
@@ -313,10 +315,12 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
   }
 
   const divisionName = divisions.find(d => d.division_id === filters.divisionId)?.name;
+  const hrbpName = hrbps.find(h => h.id === filters.hrbpId)?.full_name;
   const roleName = roles.find(r => r.role_id === filters.roleId)?.role_title;
 
   const chips = [
     showDivisionFilter && filters.divisionId ? ['divisionId', divisionName || 'Division'] : null,
+    filters.hrbpId ? ['hrbpId', hrbpName || 'HR Business Partner'] : null,
     filters.roleId ? ['roleId', roleName || 'Role'] : null,
     filters.location ? ['location', filters.location] : null,
     filters.roleCategory ? ['roleCategory', `${filters.roleCategory} roles`] : null,
@@ -390,6 +394,13 @@ function FilterBar({ divisions, roles, locations, years, filters, setFilters, sh
           </div>
 
           <div data-recruitment-filter-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            <label>
+              <span style={labelStyle()}>HR Business Partner</span>
+              <select value={draft.hrbpId || ''} onChange={e => update('hrbpId', e.target.value)} style={inputStyle({ width: '100%' })}>
+                <option value="">All HR business partners</option>
+                {hrbps.map(person => <option key={person.id} value={person.id}>{person.full_name}</option>)}
+              </select>
+            </label>
             {showDivisionFilter && (
               <label>
                 <span style={labelStyle()}>Division</span>
