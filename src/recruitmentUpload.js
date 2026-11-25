@@ -133,6 +133,9 @@ function normaliseDivisionName(value, businessValue = '') {
   const directAliases = {
     'bmc': 'Executive Office - Brand Marketing & Corporate Communication',
     'dt': 'Executive Office - Digital Transformation',
+    'did': 'Data Intelligence and Decisioning (DID)',
+    'data intelligence and decisioning': 'Data Intelligence and Decisioning (DID)',
+    'data intelligience and decisioning': 'Data Intelligence and Decisioning (DID)',
     'fi': 'Executive Office - Financial Inclusion',
     'financial inclusion': 'Executive Office - Financial Inclusion',
     'paramilitary and education': 'Paramilitary Business',
